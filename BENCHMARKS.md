@@ -91,8 +91,9 @@ POOLED, question + evidence
 Spider 1.0 databases have a median of three tables, which is why the pooled
 setting had to be invented to say anything at all. Spider 2.0 needs no such
 invention: 162 databases and 7,892 tables taken from real BigQuery and
-Snowflake warehouses, a median of 15 tables per database and a maximum of
-785. Retrieval is the acknowledged bottleneck there rather than a formality.
+Snowflake warehouses, a median of 14 tables per database and a maximum of
+785. (The 103 databases the usable questions actually touch run slightly
+larger, median 15 -- which is where the other figure in this file came from.) Retrieval is the acknowledged bottleneck there rather than a formality.
 
 Only the questions whose gold SQL is public are usable -- the rest is held
 out -- which leaves 158 across 103 databases.
@@ -135,18 +136,71 @@ something different:
 Nothing, and fractionally worse at the wider cuts. So "install the extra and
 retrieval improves" is not a claim this evidence supports.
 
-The difference between the two is that Spider 2.0 tables carry real
-descriptions from the warehouse's own data dictionary and Spider 1.0 tables
-carry none. When there is prose to score, BM25 over that prose already does
-the work the sentence vectors were compensating for; when an object is a bare
-name and a column list, the vectors are the only thing that can bridge
-"revenue" to `ga_sessions`. That is a hypothesis fitted to two data points,
-not a finding -- but it matches where the gain shows up and where it does not.
+I guessed at why: Spider 2.0 tables carry descriptions from the warehouse's
+own data dictionary and Spider 1.0 tables carry none, so where there is prose,
+BM25 over it already does what the sentence vectors were compensating for.
+That was a hypothesis fitted to two benchmarks that differ in everything, so
+here it is tested inside one of them -- same questions, same databases, same
+columns and types, with only the `description` field suppressed.
 
-What it means in practice: the sentence model helps most on an uncatalogued
-schema of bare names, which is the worst case and the common one. On a schema
-that already has comments, expect it to cost indexing time and change little.
-`SCHEMAGATE_AUTO_EMBEDDER=0` turns it off.
+```
+Spider 2.0-lite, n=158 in every cell, all gold tables present
+
+  k    embedder      with prose        prose removed        delta
+  5    hashed       112/158  70.9%     116/158  73.4%        +4 q
+  5    MiniLM       113/158  71.5%     118/158  74.7%        +5 q
+  10   hashed       131/158  82.9%     135/158  85.4%        +4 q
+  10   MiniLM       130/158  82.3%     137/158  86.7%        +7 q
+  20   hashed       136/158  86.1%     143/158  90.5%        +7 q
+  20   MiniLM       135/158  85.4%     142/158  89.9%        +7 q
+```
+
+**The hypothesis is wrong.** MiniLM's advantage over the hashed embedder,
+counted in questions, goes from +1/-1/-1 with prose to +2/+2/-1 without it.
+The largest shift is three questions, and at one cut it is zero. Spider 1.0's
+gap was about nine questions. Removing prose does not bring it back, so prose
+is not what separates the two benchmarks. What does, I do not know: it could
+be the dialect, the phrasing of the questions, the size of the tables, or
+pooled-versus-per-database. I am not going to guess a second time.
+
+**And the column does not hold up either.** Deleting every description looked
+like it made retrieval better -- four to seven more questions answered, for
+both embedders, at every cut. That is a net margin on a paired design, and a
+net margin cannot tell you whether seven questions flipped one way or
+twenty-one flipped both. McNemar's exact test on the discordant pairs, hashed
+embedder:
+
+```
+  cap=0      k=5    b=8 c=4   net=+4   discordant=12   p=0.388
+  cap=0      k=10   b=7 c=3   net=+4   discordant=10   p=0.344
+  cap=0      k=20   b=9 c=2   net=+7   discordant=11   p=0.065
+  cap=40     k=5/10/20                 p=0.688 / 1.000 / 1.000
+  cap=200    k=5/10/20                 all p=1.000  (1-4 discordant)
+  cap=1000   k=5/10/20                 all p=1.000
+```
+
+Nothing clears significance, and that is before correcting for twelve
+comparisons. The direction is consistent -- more questions are fixed by
+dropping prose than are broken by it, in seven cells of twelve, never strongly
+reversed -- but n=158 cannot carry the claim. **So "long descriptions hurt
+retrieval" is a signal worth chasing, not a result.** It is recorded here
+because the earlier draft of this file asserted it, and a claim withdrawn
+should be visible rather than deleted.
+
+The sweep also removes the obvious fix. Truncating descriptions at 200 or
+1,000 words is indistinguishable from leaving them alone -- one to four
+discordant pairs, p=1.000. Only deleting them entirely moves anything, and
+that is the cell at p=0.065. There is no cap worth setting, so none is set.
+
+For comparison, prose in the other two benchmarks:
+
+```
+Spider 1.0      0 of 876 tables have a description
+BIRD            0 of  75
+```
+
+Both are bare names and columns, which is why the ablation could only be run
+on Spider 2.0.
 
 Indexing 876 tables takes 0.8s hashed and 9.3s with the sentence model.
 
@@ -177,6 +231,8 @@ python benchmarks/spider2.py
 
 `SCHEMAGATE_AUTO_EMBEDDER=0` forces the hashed embedder if you have the
 sentence model installed and want the base-install numbers.
+`SPIDER2_NO_DESC=1` reruns the Spider 2.0 script with descriptions
+suppressed, which is the ablation above.
 
 ## What these numbers are not
 

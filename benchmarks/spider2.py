@@ -16,6 +16,7 @@ a wildcard suffix (`ga_sessions_*`). Both are reduced to the bare table name,
 which is what the catalog holds.
 """
 import json
+import os
 import pathlib
 import re
 import statistics
@@ -30,6 +31,12 @@ ROOT = HERE / "Spider2" / "spider2-lite"
 DBS = ROOT / "resource" / "databases"
 GOLD = ROOT / "evaluation_suite" / "gold" / "sql"
 QUESTIONS = HERE / "spider2_lite.jsonl"
+
+#: Ablation switch. Suppresses only the table description -- names, columns and
+#: types are untouched -- to test inside one benchmark whether prose is what
+#: separates the two embedders, rather than inferring it from two benchmarks
+#: that differ in everything.
+NO_DESC = os.environ.get("SPIDER2_NO_DESC") == "1"
 
 #: `proj.dataset.table`, "dataset"."table", bare table -- after FROM or JOIN.
 _REF = re.compile(r"\b(?:from|join)\s+([`\"\w.\-*$]+)", re.I)
@@ -75,7 +82,7 @@ def load_db(path: pathlib.Path):
         if isinstance(desc, (list, tuple)):
             desc = " ".join(str(x) for x in desc)
         docs.append(ObjectDoc(name=str(name), schema=path.name, kind="TABLE",
-                              description=(str(desc) if desc else None),
+                              description=(None if NO_DESC else (str(desc) if desc else None)),
                               columns=cols))
     return docs
 
