@@ -577,8 +577,29 @@ class StudioState:
                              _label_url(spec), spec, _label_dialect(spec)),
                          "current": bool(self.last_connect)
                                     and _same_target(spec, self.last_connect)})
-        return {"connections": rows,
-                "current": self.connection_label if self.connected else ""}
+        # The CLI tab reproduces *this* connection as a command. It was
+        # filled in from the reply to a connect made in the page, so a Studio
+        # started with --url -- or one that reconnected a remembered
+        # connection at boot -- showed two empty boxes and a Copy button.
+        # The connection is known either way; the recipe is derivable from it.
+        out: Dict[str, Any] = {
+            "connections": rows,
+            "current": self.connection_label if self.connected else ""}
+        if self.last_connect:
+            try:
+                from .connect import recipe, resolve
+                spec = dict(self.last_connect)
+                url, connect_args = resolve(spec if not spec.get("url")
+                                            else spec["url"])
+                out["recipe"] = recipe(url, connect_args,
+                                       spec.get("schemas"),
+                                       bool(self.restrict_from_grants),
+                                       bool(self.sample_values))
+            except Exception:                                # noqa: BLE001
+                # A recipe is a convenience. Failing to build one must not
+                # take the connection list down with it.
+                pass
+        return out
 
     def models(self, body: Dict[str, Any]) -> Dict[str, Any]:
         """Saved models: list, use one by name, save the current one, forget one."""

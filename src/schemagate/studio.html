@@ -227,6 +227,38 @@ pre.ddl,#answerRows{scrollbar-width:thin}
    shorter than its siblings, which reads as a border bug rather than a
    design. Same box as the others. */
 .stat.saved{align-self:stretch;height:auto}
+/* The answer, first and largest. Everything below it is the working: which
+   tables were chosen, what the model was sent, what that cost. */
+.answer-first{margin:0 0 4px;padding:14px 16px;gap:10px;
+  border:1px solid var(--line-2);box-shadow:0 1px 2px rgba(16,22,34,.06)}
+.answer-first > header{padding:0 0 2px;border:0}
+.answer-first > header h3{margin:0;font-size:13px;font-weight:600;
+  letter-spacing:.02em;text-transform:uppercase;color:var(--muted)}
+.answer-first #answerRows{overflow:auto;max-height:min(46vh,460px)}
+/* The query is evidence, not the answer. Available, folded. */
+.answer-first details{border-top:1px solid var(--line);padding-top:8px}
+.answer-first summary{cursor:pointer;font-size:12px;color:var(--muted);
+  list-style:none;user-select:none}
+.answer-first summary::-webkit-details-marker{display:none}
+.answer-first summary::before{content:"\25B8  ";font-size:10px}
+.answer-first details[open] summary::before{content:"\25BE  "}
+.answer-first #answerSql{max-height:220px;white-space:pre-wrap;
+  overflow-wrap:anywhere;margin-top:8px;border:1px solid var(--line);
+  border-radius:var(--r);background:var(--panel-2)}
+/* An empty card that explains a thing and then says the thing is absent is
+   worse than no card. Collapse the ones with nothing to report. */
+.pane.is-empty{display:none}
+/* A selected object, in the browser that is otherwise just an index. */
+.obj.chosen{background:var(--accent-soft);
+  box-shadow:inset 3px 0 0 var(--accent)}
+.obj.chosen code{color:var(--accent-ink);font-weight:600}
+#objOnly{font-size:12px;padding:4px 10px;border-radius:999px;
+  border:1px solid var(--line-2);background:var(--panel);cursor:pointer}
+/* The DDL pane clipped 39% of every line with no visible scrollbar, and what
+   it clipped was the trailing `-- one sentence about this table` comment --
+   precisely the thing the catalog exists to add. Wrap instead of hiding. */
+#ddl{white-space:pre-wrap;overflow-wrap:anywhere}
+
 /* White on the dark theme's lighter accent is 2.27:1. The accent is the
    fill, so the ink has to come from the ground. */
 :root[data-theme="dark"] #go{color:#08110F}
@@ -420,12 +452,23 @@ table.shadows td.arrow{color:var(--muted);width:30px;text-align:center;font-fami
       <p class="blurb" style="margin:0 0 6px">The same connection, outside this page.
       Your password is a placeholder — set it in the environment rather than typing it
       into a command.</p>
-      <textarea id="recipeCli" class="mono" rows="4" readonly aria-label="command line"
-                style="width:100%;font-size:11px"></textarea>
-      <button id="recipeCopy" style="margin-top:6px;width:100%">Copy command</button>
-      <textarea id="recipePy" class="mono" rows="5" readonly aria-label="python"
-                style="margin-top:6px;width:100%;font-size:11px"></textarea>
-      <button id="recipeCopyPy" style="margin-top:6px;width:100%">Copy Python</button>
+      <!-- Nothing here is typed into. They are read-only textareas because
+           that makes them selectable and copyable, but empty bordered boxes
+           read as a form waiting for input -- which is what they looked like
+           before a connection existed to describe. Hidden until there is
+           something to show, with a line saying why. -->
+      <p class="blurb" id="recipeNone" style="margin:0">Connect a database and
+      the command that reproduces it appears here.</p>
+      <div id="recipeBody" hidden>
+        <label class="label" for="recipeCli">command line</label>
+        <textarea id="recipeCli" class="mono" rows="4" readonly aria-label="command line"
+                  style="width:100%;font-size:11px"></textarea>
+        <button id="recipeCopy" style="margin-top:6px;width:100%">Copy command</button>
+        <label class="label" for="recipePy" style="display:block;margin-top:10px">python</label>
+        <textarea id="recipePy" class="mono" rows="5" readonly aria-label="python"
+                  style="width:100%;font-size:11px"></textarea>
+        <button id="recipeCopyPy" style="margin-top:6px;width:100%">Copy Python</button>
+      </div>
     </section>
     <section id="modelPanel" hidden>
       <h2>Models <span class="label" id="modelState">off</span></h2>
@@ -549,6 +592,16 @@ table.shadows td.arrow{color:var(--muted);width:30px;text-align:center;font-fami
     <div class="examples" id="examples"></div>
     <div id="error" class="err" hidden></div>
 
+    <div class="pane answer-first" id="answerPane" hidden>
+      <header><h3>Answer</h3><span class="meta" id="answerMeta"></span></header>
+      <div id="answerRows"></div>
+      <details id="answerSqlWrap" hidden>
+        <summary>the SQL it wrote</summary>
+        <pre class="ddl" id="answerSql"></pre>
+      </details>
+      <textarea id="answerPaste" hidden class="mono" rows="6" readonly
+                style="width:100%;font-size:11px"></textarea>
+    </div>
     <div class="stats">
       <div class="stat"><span class="label">Selected</span><span class="v" id="sSel">–</span></div>
       <div class="stat"><span class="label">Prompt tokens</span><span class="v" id="sTok">–</span></div>
@@ -572,20 +625,13 @@ table.shadows td.arrow{color:var(--muted);width:30px;text-align:center;font-fami
     <div class="pane" id="browser" hidden>
       <header><h3>Schema <span class="meta" id="objCount"></span></h3>
         <div class="tools">
+          <button id="objOnly" hidden type="button"></button>
           <span class="chip on" data-kind="">all</span>
           <span class="chip" data-kind="table">tables</span>
           <span class="chip" data-kind="view">views</span>
           <input id="objFilter" placeholder="filter objects&hellip;" aria-label="filter objects" autocomplete="off">
         </div></header>
       <div id="objList"></div>
-    </div>
-    <div class="pane" id="answerPane" hidden style="padding:12px 14px;gap:8px">
-      <header style="padding:0"><h3 style="margin:0;font-size:13px;font-weight:600">Answer</h3>
-        <span class="meta" id="answerMeta"></span></header>
-      <pre class="ddl" id="answerSql" hidden style="max-height:160px;white-space:pre-wrap;overflow-wrap:anywhere"></pre>
-      <div id="answerRows" style="overflow:auto"></div>
-      <textarea id="answerPaste" hidden class="mono" rows="6" readonly
-                style="width:100%;font-size:11px"></textarea>
     </div>
     <div class="results">
       <div class="pane">
@@ -1570,6 +1616,19 @@ if (typeof module === "object" && module.exports) module.exports = blakejs;
     }
   }
 
+  // Called with whatever the last question selected, so the browser can
+  // mark those rows and offer to show only them.
+  window.__markSelected = (names) => {
+    objState.picked = new Set((names || []).map(objKey));
+    const b = document.getElementById("objOnly");
+    if (b) {
+      b.hidden = !objState.picked.size;
+      b.textContent = objState.only
+        ? "show all" : "only the " + objState.picked.size + " selected";
+    }
+    if (typeof paintObjects === "function") paintObjects();
+  };
+
   function highlight(ddl){
     return esc(ddl).replace(/^(--.*)$/gm,'<span class="c">$1</span>')
       .replace(/^(TABLE|VIEW|ENDPOINT) ([^\s(]+)/gm,'<span class="k">$1</span> <span class="n">$2</span>');
@@ -1624,6 +1683,10 @@ if (typeof module === "object" && module.exports) module.exports = blakejs;
 
   function render(out, q, principal){
     paintCode(q, principal);
+    // Mark the chosen objects in the schema browser below, so the biggest
+    // panel on the page agrees with the answer above it.
+    if (window.__markSelected)
+      window.__markSelected((out.objects || []).map(o => o.name));
     $("sSel").innerHTML=`${out.objects.length}<small> / ${out.total}</small>`;
     $("sTok").innerHTML=`${out.tokens.toLocaleString()}<small> vs ${out.full_tokens.toLocaleString()}</small>`;
     const saved = out.full_tokens? 1-out.tokens/out.full_tokens : 0;
@@ -2191,8 +2254,10 @@ if (typeof module === "object" && module.exports) module.exports = blakejs;
         try { pane.scrollIntoView({behavior: "smooth", block: "nearest"}); }
         catch (e) { pane.scrollIntoView(); }   // older browsers: no options arg
       };
-      $("answerMeta").textContent = "working...";
-      $("answerSql").hidden = true; $("answerPaste").hidden = true;
+      $("answerMeta").textContent = "working\u2026";
+      const t0 = performance.now();
+      $("answerSqlWrap").hidden = true; $("answerPaste").hidden = true;
+      $("answerSqlWrap").open = false;
       $("answerRows").innerHTML = "";
       let out;
       try { out = await post("/answer", {question, principal, roles:[...roles], top_k:6}); }
@@ -2204,9 +2269,27 @@ if (typeof module === "object" && module.exports) module.exports = blakejs;
         reveal(); return;
       }
       if (out.answer_error) { $("answerMeta").textContent = out.answer_error; reveal(); return; }
-      $("answerSql").textContent = out.sql || ""; $("answerSql").hidden = !out.sql;
+      $("answerSql").textContent = out.sql || "";
+      $("answerSqlWrap").hidden = !out.sql;
       const cols = out.columns || [], rows = out.rows || [];
-      $("answerMeta").textContent = rows.length + " row" + (rows.length===1?"":"s");
+      // Rows, how long it took, and how many tables the query touched --
+      // "50 rows" alone says nothing about whether the query was any good.
+      // The join count is the cheap proxy: a question that needed four
+      // tables and got a one-table answer is wrong in a way the row count
+      // will not show.
+      const secs = (performance.now() - t0) / 1000;
+      const joined = new Set(
+        [...String(out.sql || "").matchAll(/\b(?:from|join)\s+([A-Za-z_][\w.$"]*)/gi)]
+          .map(m => m[1].replace(/"/g, "").split(".").pop().toLowerCase())
+      ).size;
+      const bits = [rows.length + " row" + (rows.length === 1 ? "" : "s")];
+      if (joined) bits.push(joined + (joined === 1 ? " table" : " tables"));
+      bits.push(secs < 1 ? Math.round(secs * 1000) + " ms"
+                         : secs.toFixed(1) + " s");
+      if (out.truncated) bits.push("more rows not shown");
+      if (out.caveat) bits.push("\u26a0 widened");
+      $("answerMeta").textContent = bits.join("  \u00b7  ");
+      if (out.caveat) $("answerMeta").title = out.caveat;
       if (!cols.length) { reveal(); return; }
       const t = document.createElement("table");
       t.style.cssText = "border-collapse:collapse;font-size:12.5px;width:100%";
@@ -2252,6 +2335,16 @@ if (typeof module === "object" && module.exports) module.exports = blakejs;
         });
         list.appendChild(d);
       }
+    }
+    // Fill the CLI tab from whatever connection is live, however it was made.
+    if (out.recipe) {
+      const cli = $("recipeCli"), py = $("recipePy");
+      if (cli && !cli.value) cli.value = out.recipe.cli || "";
+      if (py && !py.value) py.value = out.recipe.python || "";
+      const body = $("recipeBody"), none = $("recipeNone");
+      const have = !!(cli && cli.value);
+      if (body) body.hidden = !have;
+      if (none) none.hidden = have;
     }
     const sw = $("connSwitch"), box = $("connsw");
     if (sw && box) {
@@ -2306,11 +2399,20 @@ if (typeof module === "object" && module.exports) module.exports = blakejs;
     }
   }
   // ---- schema browser -----------------------------------------------------
-  const objState = {rows: [], kind: "", q: ""};
+  // `picked` is the set the last question selected. Without it the
+  // browser was the largest, densest panel on the page and it went on
+  // showing an alphabetical list that contained none of the tables the
+  // answer used -- contradicting the result it sat next to.
+  const objState = {rows: [], kind: "", q: "", picked: new Set(), only: false};
+  // Both sides of the `picked` lookup must agree on the shape of a name.
+  // `o.name` is qualified ("main.orders"); a selection may arrive either
+  // way, so everything is reduced to the bare table name.
+  const objKey = (n) => String(n == null ? "" : n).split(".").pop().toLowerCase();
   function paintObjects(){
     const list = $("objList"); if (!list) return;
     const q = objState.q.toLowerCase();
     const rows = objState.rows.filter(o =>
+      (!objState.only || objState.picked.has(objKey(o.name))) &&
       (!objState.kind || o.kind.includes(objState.kind)) &&
       (!q || o.name.toLowerCase().includes(q) || (o.description||"").toLowerCase().includes(q)));
     $("objCount").textContent = rows.length === objState.rows.length
@@ -2319,7 +2421,10 @@ if (typeof module === "object" && module.exports) module.exports = blakejs;
     list.innerHTML = "";
     const frag = document.createDocumentFragment();
     for (const o of rows.slice(0, 400)) {
-      const d = document.createElement("div"); d.className = "obj"; d.title = "show " + o.name;
+      const chosen = objState.picked.has(objKey(o.name));
+      const d = document.createElement("div");
+      d.className = "obj" + (chosen ? " chosen" : "");
+      d.title = chosen ? o.name + " -- selected for this question" : "show " + o.name;
       d.innerHTML = `<span class="k">${esc2(o.kind)}</span><code>${esc2(o.name)}</code>` +
         `<span class="n">${o.columns} col${o.columns===1?"":"s"}</span><span class="d">${esc2(o.description)}</span>`;
       d.onclick = () => { $("q").value = o.name; run(); };
@@ -2337,6 +2442,12 @@ if (typeof module === "object" && module.exports) module.exports = blakejs;
     paintObjects();
   }
   $("objFilter")?.addEventListener("input", e => { objState.q = e.target.value.trim(); paintObjects(); });
+  $("objOnly")?.addEventListener("click", () => {
+    objState.only = !objState.only;
+    if (window.__markSelected)
+      window.__markSelected([...objState.picked]);
+    paintObjects();
+  });
   for (const c of document.querySelectorAll("#browser .chip")) c.onclick = () => {
     for (const x of document.querySelectorAll("#browser .chip")) x.classList.toggle("on", x === c);
     objState.kind = c.dataset.kind; paintObjects();
