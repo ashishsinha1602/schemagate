@@ -189,7 +189,7 @@ pip install 'schemagate[huggingface]'
 one extra that is heavy: about 2 GB of wheels plus a 3.1 GB model download the
 first time you use it. It is deliberately kept out of `schemagate[all]`.
 [docs/local-models.md](docs/local-models.md) has the whole story — the
-downloads, the 91-second model load, what it is good at and where it is worse
+downloads, the load you wait through once, what it is good at and where it is worse
 than a hosted model.
 
 ## Quick start
@@ -486,7 +486,7 @@ Writing one sentence per table is a small enough job that a 1.5B model does it
 acceptably. Writing multi-table SQL is not, and the Studio uses the same
 provider for both — so if you have a key, catalogue locally but answer with
 the key. Read [docs/local-models.md](docs/local-models.md) before you turn it
-on: it covers the two downloads, the 91-second load, the ~6 GB of RAM, the
+on: it covers the two downloads, the load you wait through once, the ~3 GB of RAM, the
 caching that makes the second run free, and why a weak model's bad description
 can no longer bury the object it describes.
 

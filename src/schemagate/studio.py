@@ -253,7 +253,7 @@ class StudioState:
         # a reason, so the page can say "loading" instead of "not configured".
         if getattr(self, "_provider_loading", False) and not _warming:
             self.provider_error = (
-                "the local model is still loading -- about 90 seconds the "
+                "the local model is still loading -- 15 to 40 seconds the "
                 "first time, then it stays loaded. Ask again in a moment.")
             return None
         try:
@@ -278,8 +278,8 @@ class StudioState:
                 # A model server already running on this machine. Same privacy
                 # as the in-process option -- nothing leaves the box -- without
                 # putting three gigabytes of weights inside the web server,
-                # which costs 90 seconds of load and ~6 GB held for the life
-                # of the process. Ollama speaks the OpenAI API, and so does
+                # which costs a load you wait through and ~3 GB held for the
+                # life of the process. Ollama speaks the OpenAI API, so does
                 # LM Studio and vLLM, so this is one provider for all of them.
                 base = os.environ.get("SCHEMAGATE_LOCAL_BASE_URL",
                                       "http://localhost:11434/v1")
