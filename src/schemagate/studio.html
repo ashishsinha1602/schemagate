@@ -1,13 +1,19 @@
 <title>schemagate studio</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%227%22%20fill%3D%22%230F7B6C%22%2F%3E%3Cg%20stroke%3D%22%23fff%22%20stroke-width%3D%222.6%22%20stroke-linecap%3D%22round%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M5%209h7M5%2016h7M5%2023h7%22%2F%3E%3Cpath%20d%3D%22M16%205.5v21%22%2F%3E%3Cpath%20d%3D%22M20%2016h7%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<!-- No webfont. The footer promises nothing leaves your machine, and
+     two requests to fonts.googleapis.com on every load made that false.
+     The stack below falls back to system-ui, which every target OS has. -->
+
 <style>
 /* `hidden` loses to any element with an explicit display, and .pane and
    section both set one -- so a panel marked hidden stayed on screen. This is
    the rule that makes the attribute mean what it says. */
 [hidden]{display:none!important}
 :root{
+  /* Without this the browser paints native <select> and checkbox
+     controls in their light variants whatever the page does -- a white
+     slab in the middle of a finished dark theme. */
+  color-scheme: light dark;
   --ground:#F5F7FA; --panel:#FFFFFF; --panel-2:#EEF1F6; --ink:#161A22; --muted:#5E6779; --line:#DCE1E9; --line-2:#C9D0DB;
   --accent:#0F7B6C; --accent-ink:#0B5C51; --accent-soft:#E3F3EF;
   --restrict:#B4322A; --restrict-soft:#FBEAE8;
@@ -217,6 +223,16 @@ pre.ddl,#answerRows{scrollbar-width:thin}
 .stat .v{font-family:var(--mono);font-size:22px;font-variant-numeric:tabular-nums;line-height:1.2}
 .stat .v small{font-size:13px;color:var(--muted)}
 .stat.saved .v{color:var(--accent-ink)}
+/* The four stat cards are one instrument panel; .saved rendered 12px
+   shorter than its siblings, which reads as a border bug rather than a
+   design. Same box as the others. */
+.stat.saved{align-self:stretch;height:auto}
+/* White on the dark theme's lighter accent is 2.27:1. The accent is the
+   fill, so the ink has to come from the ground. */
+:root[data-theme="dark"] #go{color:#08110F}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) #go{color:#08110F}
+}
 .stat.hidden .v{color:var(--restrict)}
 
 /* Cap how tall the two result panes get. They size to their content, and the
@@ -433,7 +449,7 @@ table.shadows td.arrow{color:var(--muted);width:30px;text-align:center;font-fami
              style="margin-top:6px;width:100%">
       <label style="margin-top:6px;display:block"><input type="checkbox" id="mRerank">
         Let the model rank the shortlist</label>
-      <label style="display:block"><input type="checkbox" id="mAnswer">
+      <label style="display:block"><input type="checkbox" id="mAnswer" checked>
         Write the SQL and run it</label>
       <input id="mName" placeholder="name it, e.g. sonnet" aria-label="model name"
              style="margin-top:6px">
@@ -1539,6 +1555,19 @@ if (typeof module === "object" && module.exports) module.exports = blakejs;
     catch(e){ $("error").textContent=e.message; $("error").hidden=false; return; }
     render(out, q, principal);
     if (window.__answer) window.__answer(q, principal, state.roles);
+    // Bring the result to the user. The ask box sits at y=107 and the results
+    // pane at y=611, so on a 900px window pressing Enter changed four digits
+    // in a stat row and left everything else where it was -- which reads as
+    // nothing happened. Scroll the answer into view if it is below the fold.
+    const dest = document.getElementById("answerPane")?.hidden === false
+               ? document.getElementById("answerPane")
+               : document.querySelector(".results");
+    if (dest) {
+      const top = dest.getBoundingClientRect().top;
+      if (top > window.innerHeight * 0.6 || top < 0) {
+        dest.scrollIntoView({behavior: "smooth", block: "start"});
+      }
+    }
   }
 
   function highlight(ddl){

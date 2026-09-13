@@ -204,6 +204,40 @@ on Spider 2.0.
 
 Indexing 876 tables takes 0.8s hashed and 9.3s with the sentence model.
 
+## End to end: execution accuracy on BIRD
+
+Everything above scores retrieval -- did the right tables get selected. This
+scores what the benchmark scores: run the SQL, run BIRD's reference SQL,
+compare the rows. That is execution accuracy, the number published systems
+report, and it is the only figure here directly comparable to work outside
+this project.
+
+The pipeline is the shipped one. `select()` picks the tables, `generate_sql()`
+writes the query against only those tables, `run_sql()` executes it. The model
+never sees a table selection did not return.
+
+```
+BIRD dev, n=150 (seeded, stratified by database), claude-opus-5, top_k=10
+
+  SQL written               146/150   97.3%
+  executed without error    146/150   97.3%
+  EXECUTION ACCURACY        102/150   68.0%
+```
+
+Rows are compared as sets, which is how BIRD's own evaluator scores them:
+order is not graded.
+
+Three things this is not. It is **not a leaderboard placing** -- that needs the
+held-out test set and a formal submission, and nothing here has been submitted.
+It is a **sample, not the full 1,534**, because every question is a
+frontier-model call; the sample is seeded, so it is the same 150 every run, and
+the per-database counts are proportional. And BIRD's own `evidence` string is
+passed through with the question, which is what the benchmark intends and what
+published systems do, but it is a hint a real user would have to write.
+
+Run it yourself with `python benchmarks/bird_e2e.py`; `BIRD_SAMPLE=1534` does
+the lot.
+
 ## Reproducing this
 
 ```bash
