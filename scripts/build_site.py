@@ -5,9 +5,18 @@
 Pages:
   /                      the Studio, with real <head> metadata (title, description,
                          Open Graph, Twitter card, canonical, JSON-LD)
+  /install/              pip, Docker and the OCI stack, with the version read
+                         out of pyproject.toml so it cannot go stale
+  /benchmarks/           BENCHMARKS.md rendered as a page
+  /local-models/         docs/local-models.md rendered as a page
   /vanna-alternative/    docs/migrating-from-vanna.md rendered as a page
   /cost/                 the token-cost table and a small calculator
   /robots.txt, /sitemap.xml, /llms.txt, /social-preview.png
+
+The three rendered pages read the repository's own markdown instead of
+restating it. A number that lives in two places is a number that will
+eventually disagree with itself, and the Spider 2.0 figure here was published
+wrong twice before it was published right.
 
 Nothing here is a tracker, a font CDN or a third-party script.
 """
@@ -43,9 +52,38 @@ input{font:inherit;padding:4px 8px;width:7em;border:1px solid var(--line);border
 .muted{color:var(--muted)}
 """
 
-NAV = ('<nav><a href="/schemagate/">Demo</a><a href="/schemagate/cost/">Cost</a>'
+NAV = ('<nav><a href="/schemagate/">Demo</a><a href="/schemagate/install/">Install</a>'
+       '<a href="/schemagate/benchmarks/">Benchmarks</a>'
+       '<a href="/schemagate/local-models/">Local models</a>'
+       '<a href="/schemagate/cost/">Cost</a>'
        '<a href="/schemagate/vanna-alternative/">Coming from Vanna</a>'
        f'<a href="{REPO}">GitHub</a><a href="https://pypi.org/project/schemagate/">PyPI</a></nav>')
+
+
+def version() -> str:
+    """Read it from pyproject rather than writing it down twice."""
+    m = re.search(r'^version = "([^"]+)"',
+                  (ROOT / "pyproject.toml").read_text("utf-8"), re.M)
+    return m.group(1)
+
+
+def render(md_path: pathlib.Path) -> str:
+    """Repository markdown as page HTML, with its relative links repointed.
+
+    `](benchmarks/)` means the directory on GitHub, not a path on this site,
+    and a reader who follows it to a 404 has been told something false about
+    how carefully the rest was made."""
+    md = md_path.read_text("utf-8")
+    here = md_path.parent.relative_to(ROOT).as_posix()
+    def fix(m: "re.Match[str]") -> str:
+        href = m.group(1)
+        if href.startswith(("http://", "https://", "#", "mailto:", "/")):
+            return m.group(0)
+        target = href if here == "." else f"{here}/{href}"
+        kind = "tree" if href.endswith("/") else "blob"
+        return f"]({REPO}/{kind}/main/{target.rstrip('/')})"
+    md = re.sub(r"\]\(([^)]+)\)", fix, md)
+    return markdown.markdown(md, extensions=["fenced_code", "tables", "toc"])
 
 
 def head(title: str, desc: str, path: str, extra: str = "") -> str:
@@ -111,6 +149,107 @@ def build_vanna() -> None:
         "/vanna-alternative/", body), "utf-8")
 
 
+def build_benchmarks() -> None:
+    body = render(ROOT / "BENCHMARKS.md")
+    body += (f'<p><a class="cta" href="{REPO}/tree/main/benchmarks">The scripts</a>'
+             '<a class="cta" href="/schemagate/">Try the demo</a></p>')
+    (SITE / "benchmarks").mkdir(parents=True, exist_ok=True)
+    (SITE / "benchmarks" / "index.html").write_text(page(
+        "schemagate on Spider, BIRD and Spider 2.0 — table recall and execution accuracy",
+        "Measured table recall on Spider (1,034 questions), BIRD (1,534) and Spider 2.0-lite, "
+        "end-to-end execution accuracy, and the two corrections to a published figure.",
+        "/benchmarks/", body), "utf-8")
+
+
+def build_local_models() -> None:
+    body = render(ROOT / "docs" / "local-models.md")
+    body += (f'<p><a class="cta" href="/schemagate/install/">Install</a>'
+             f'<a class="cta" href="{REPO}/blob/main/docs/local-models.md">On GitHub</a></p>')
+    (SITE / "local-models").mkdir(parents=True, exist_ok=True)
+    (SITE / "local-models" / "index.html").write_text(page(
+        "Text-to-SQL with a local model, no API key — schemagate",
+        "What schemagate does offline already, what a local model downloads, how to point it at "
+        "Ollama or LM Studio instead, and what each option actually sends off the machine.",
+        "/local-models/", body), "utf-8")
+
+
+def build_install() -> None:
+    """pip, Docker and the OCI stack.
+
+    Docker first: it is the shortest path from reading this to looking at your
+    own schema, because it skips the question of which extra a given database
+    driver needs.
+    """
+    v = version()
+    body = f"""
+<h1>Install schemagate</h1>
+<p class="muted">Apache-2.0. One required dependency (SQLAlchemy). No API key for the part
+that selects tables &mdash; that is BM25 plus a hashed embedder, and it runs offline.</p>
+
+<h2>Docker &mdash; nothing to install but Docker</h2>
+<pre><code>docker run -p 8770:8770 ghcr.io/ashishsinha1602/schemagate</code></pre>
+<p>Opens the Studio on <code>http://localhost:8770</code> with a demo schema &mdash; 42 objects,
+3,817 rows &mdash; so there is something to click before you have connected anything. Point it at
+your own database with a URL:</p>
+<pre><code>docker run -p 8770:8770 \\
+  -e SCHEMAGATE_DATABASE_URL=postgresql+psycopg://user:pass@host/db \\
+  ghcr.io/ashishsinha1602/schemagate</code></pre>
+<p class="muted">The image runs as a non-root user, carries a healthcheck, and is built for
+linux/amd64 and linux/arm64. Tags are <code>:latest</code> and the release tag with its
+<code>v</code> &mdash; <code>:v{v}</code>. There is no <code>:{v}</code>.</p>
+
+<h2>pip</h2>
+<pre><code>pip install schemagate                 # the library, the CLI and the Studio
+pip install "schemagate[postgres]"     # or [oracle], [mysql], [mssql]
+pip install "schemagate[databases]"    # all four drivers
+</code></pre>
+<p class="muted">The Studio needs no extra &mdash; it is a single page served by the standard
+library. The driver extras are only the database driver.</p>
+<pre><code>schemagate demo                                    # a schema to look at, no database
+schemagate studio --url "postgresql://localhost/app"
+schemagate select "revenue by month" --url "postgresql://localhost/app" --prompt
+</code></pre>
+<p>In Python, the whole of it:</p>
+<pre><code>from schemagate import Catalog, Principal
+
+cat = Catalog().bootstrap("postgresql://localhost/app")
+cat.restrict("hr_compensation", ["payroll"])       # who may even see it
+
+sel = cat.select("revenue by month", top_k=6,
+                 principal=Principal("okta:jdoe", roles={"finance"}))
+
+sel.prompt_fragment()   # compact DDL for just those tables, for the system prompt
+sel.explain()           # why each object was picked
+</code></pre>
+
+<h2>Oracle Cloud, as a stack</h2>
+<p>A Resource Manager stack that builds an Always Free VM with the Studio behind TLS:</p>
+<p><a class="cta" href="{REPO}/releases/latest/download/schemagate-oci-stack.zip">Download the stack .zip</a>
+<a class="cta" href="https://registry.terraform.io/modules/ashishsinha1602/schemagate/oci/latest">Terraform Registry</a></p>
+
+<h2>Without an API key at all</h2>
+<p>Selecting tables never calls a model. Writing the SQL does, and that can be a model on your own
+machine, a server you already run, or a chat window you have open anyway &mdash;
+<a href="/schemagate/local-models/">the local-model page</a> is the detail.</p>
+
+<h2>Also</h2>
+<ul>
+<li><b>MCP server</b> &mdash; <code>SCHEMAGATE_DATABASE_URL=... python -m schemagate.mcp_server</code> over stdio, or <code>docker run -e SCHEMAGATE_DATABASE_URL=demo -p 8765:8765 ghcr.io/ashishsinha1602/schemagate mcp</code>, which serves streamable-http on 8765 because stdio has no meaning across a container boundary. Needs <code>[mcp]</code>; the image has it.</li>
+<li><b>LangChain</b> &mdash; <code>SchemagateRetriever</code>, from <code>schemagate.integrations.langchain</code>. Needs <code>[langchain]</code>.</li>
+<li><b>Oracle 23ai</b> &mdash; a native VECTOR store, so the index lives in the database.</li>
+</ul>
+
+<p><a class="cta" href="/schemagate/">Try it in the browser first</a>
+<a class="cta" href="{REPO}">GitHub</a></p>
+"""
+    (SITE / "install").mkdir(parents=True, exist_ok=True)
+    (SITE / "install" / "index.html").write_text(page(
+        "Install schemagate — Docker, pip, or an OCI stack",
+        f"docker run -p 8770:8770 ghcr.io/ashishsinha1602/schemagate, or pip install schemagate. "
+        f"Version {v}, Apache-2.0, one dependency, no API key needed to select tables.",
+        "/install/", body), "utf-8")
+
+
 def build_cost() -> None:
     rows = [("Commerce", 42, 2483, 604), ("Clinical claims", 27, 1568, 543),
             ("Claims warehouse (star)", 51, 3312, 880), ("Bank ledger and trading", 39, 2255, 637),
@@ -151,15 +290,19 @@ for(const i of ["tf","ts","q","p"])document.getElementById(i).oninput=r;r();
 
 
 def build_misc() -> None:
+    """Explicit "utf-8" on every write: the default is the platform's, which on
+    Windows is cp1252, and llms.txt has an en dash in it. The CI runner is Linux,
+    so the deployed file was right while the builder was wrong."""
     shutil.copy(ROOT / "docs" / "media" / "social-preview.png", SITE / "social-preview.png")
-    (SITE / "robots.txt").write_text(f"User-agent: *\nAllow: /\nSitemap: {BASE}/sitemap.xml\n")
+    (SITE / "robots.txt").write_text(f"User-agent: *\nAllow: /\nSitemap: {BASE}/sitemap.xml\n", "utf-8")
     (SITE / "google7c61fe50e3637040.html").write_text(
-        "google-site-verification: google7c61fe50e3637040.html\n")
+        "google-site-verification: google7c61fe50e3637040.html\n", "utf-8")
     today = dt.date.today().isoformat()
     urls = "".join(f"<url><loc>{BASE}{p}</loc><lastmod>{today}</lastmod></url>"
-                   for p in ["/", "/cost/", "/vanna-alternative/"])
+                   for p in ["/", "/install/", "/benchmarks/", "/local-models/",
+                             "/cost/", "/vanna-alternative/"])
     (SITE / "sitemap.xml").write_text(
-        f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>')
+        f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>', "utf-8")
     (SITE / "llms.txt").write_text(f"""# schemagate
 
 > {DESC}
@@ -171,21 +314,25 @@ prompt. It reflects any SQLAlchemy database (Oracle, PostgreSQL, SQL Server, MyS
 API key, ships an MCP server, a LangChain retriever, a CLI and a browser Studio, and has a native
 Oracle 23ai VECTOR store.
 
-- Install: pip install schemagate
+- Install: pip install schemagate  --  or  docker run -p 8770:8770 ghcr.io/ashishsinha1602/schemagate
 - Repository: {REPO}
 - PyPI: https://pypi.org/project/schemagate/
 - Demo (runs in the browser, no database): {BASE}/
+- Install, Docker and the OCI stack: {BASE}/install/
+- Benchmarks (Spider, BIRD, Spider 2.0): {BASE}/benchmarks/
+- Running it with a local model, no API key: {BASE}/local-models/
 - Token cost table and calculator: {BASE}/cost/
 - Migrating from Vanna: {BASE}/vanna-alternative/
 - What was tested and what broke: {REPO}/blob/main/TESTING.md
-""")
+""", "utf-8")
 
 
 def main() -> None:
     if SITE.exists():
         shutil.rmtree(SITE)
     SITE.mkdir()
-    build_index(); build_vanna(); build_cost(); build_misc()
+    build_index(); build_install(); build_benchmarks(); build_local_models()
+    build_vanna(); build_cost(); build_misc()
     for p in sorted(SITE.rglob("*")):
         if p.is_file():
             print(f"{p.stat().st_size:9,d}  {p.relative_to(SITE)}")

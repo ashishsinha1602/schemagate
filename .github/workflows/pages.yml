@@ -1,5 +1,6 @@
 name: pages
-# Publishes the Studio, /cost/ and /vanna-alternative/ (scripts/build_site.py) at
+# Publishes the Studio, /install/, /benchmarks/, /local-models/, /cost/ and
+# /vanna-alternative/ (scripts/build_site.py) at
 #   https://ashishsinha1602.github.io/schemagate/
 # One-time setup: repo Settings -> Pages -> Source: "GitHub Actions".
 on:
