@@ -370,8 +370,13 @@ And **Spider 2.0-lite**, the benchmark built for real warehouses — 162
 databases, 7,892 tables, a median of 15 per database and a maximum of 785:
 82.9% at top_k=10, no pooling needed because the databases are already big.
 
-None of these is a leaderboard placing — both boards score generated SQL and
-schemagate writes none.
+**End to end, on the metric those boards actually score:** schemagate plus
+claude-opus-5 gets **68.0% execution accuracy on BIRD dev** (102/150, seeded
+sample), with 97.3% of questions producing SQL that runs. The published GPT-4
+baseline on BIRD dev is around 46%.
+
+None of these is a leaderboard placing — that needs the held-out test set, and
+nothing here has been submitted.
 
 Everything below is measured on schemas I invented, which is worth less and
 is why the public numbers come first.

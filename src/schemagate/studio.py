@@ -183,7 +183,11 @@ class StudioState:
         st = self.settings
         return {"provider": st.get("provider") or "", "model": st.get("model") or "",
                 "has_key": bool(st.get("api_key")), "rerank": bool(st.get("rerank")),
-                "answer": bool(st.get("answer"))}
+                "answer": bool(st.get("answer", True))}
+        # Defaults on. A model is configured in order to be used, and
+        # the page stopping at a table list -- with the SQL and the rows
+        # behind an unticked box in a drawer -- is the single thing this
+        # Studio was most often reported as "not doing".
 
     def _provider(self):
         """The configured provider, or None -- never an exception.
@@ -1101,6 +1105,20 @@ def main(url: Optional[str] = None, host: str = "127.0.0.1", port: int = 8770,
     # `--url` is a connection made before the page opened; the page must not
     # then ask for one.
     state.connected = bool(url)
+    if url and engine is not None:
+        # And it has to say *which* database, not just that there is one.
+        # connections() answers with `self.connection_label if self.connected
+        # else ""`, so a connection made this way reported an empty string:
+        # the header switcher rendered "no database connected" over a live
+        # catalog, and every saved connection showed as not-current because
+        # `last_connect` was None. Two people in a row read that as "the
+        # Studio cannot see my database".
+        #
+        # The Connect panel sets all three; this path set one of them. Both
+        # are now the same three lines.
+        state.connection_label = _describe_connection(
+            url, {"url": url}, engine.dialect.name)
+        state.last_connect = {"url": url}
     # On loopback, connecting needs no permission: the only person who can
     # reach the page is someone already sitting at a shell on this machine,
     # and they can open a database without asking the Studio to do it. The

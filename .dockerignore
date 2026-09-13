@@ -1,0 +1,16 @@
+.git
+.github
+tests
+benchmarks
+docs
+oci
+studio
+dist
+build
+*.egg-info
+__pycache__
+*.pyc
+.pytest_cache
+.venv
+BENCHMARKS.md
+TESTING.md
