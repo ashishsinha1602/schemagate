@@ -9,6 +9,8 @@
 Picks the handful of tables an NL2SQL model actually needs, and never shows it
 tables the person asking isn't allowed to read.
 
+[Demo](https://ashishsinha1602.github.io/schemagate/) · [Install](https://ashishsinha1602.github.io/schemagate/install/) · [Benchmarks](https://ashishsinha1602.github.io/schemagate/benchmarks/) · [Local models](https://ashishsinha1602.github.io/schemagate/local-models/) · [What it costs](https://ashishsinha1602.github.io/schemagate/cost/) · [Coming from Vanna](https://ashishsinha1602.github.io/schemagate/vanna-alternative/)
+
 ```bash
 pip install schemagate
 schemagate demo "which customers owe us money" --answer --provider anthropic --model <model-id>
