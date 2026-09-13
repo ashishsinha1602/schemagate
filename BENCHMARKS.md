@@ -99,15 +99,48 @@ Only the questions whose gold SQL is public are usable -- the rest is held
 out -- which leaves 158 across 103 databases.
 
 ```
-                      all gold present     per-table recall
-  top_k=5                  70.9%                81.7%
-  top_k=10                 82.9%                88.5%
-  top_k=20                 86.1%                90.5%
+247 questions, none excluded     all gold present     per-table recall
+  top_k=5                             53.0%
+  top_k=10                            64.0%
+  top_k=20                            67.2%
+
+for comparison, scoring only the 203 whose gold tables resolve:
+  top_k=5    64.5%      top_k=10   77.8%      top_k=20   81.8%
 ```
 
-Close to the Spider 1.0 pooled numbers, on databases an order of magnitude
-larger and questions written to be hard. That consistency is the part I would
-look at: nothing here was tuned for it.
+**Report the first block.** The second is the same run with 44 questions
+removed, and those 44 are not a random 44: they are the ones whose gold SQL
+reads a wildcard partition -- `events_*`, `ga_sessions_*` -- which schemagate
+cannot select because it holds each day as a separate object. Dropping the
+questions a method fails is how a benchmark number gets inflated, and this
+file did it for two releases before the difference was measured.
+
+The history is worth keeping, because both errors moved the number the same
+way:
+
+```
+  v0.1.48  86.1% @20   39% of schema files silently unreadable (long paths)
+  later    83.3% @20   files fixed, but 44 failed questions still dropped
+  now      67.2% @20   every usable question counted
+```
+
+Nineteen points of the original figure were measurement error, all of it
+flattering. The fix for the first is `benchmarks/longpath.py`; the fix for
+the second is counting.
+
+## What the dropped questions say about the tool
+
+They are not noise. Spider 2.0's `ga4` database is 92 tables named
+`events_20201101` through `events_20210131`, and `ga360` is 366 of the same
+shape. They differ by a date, which no embedder can reason about, so a
+question about January selected twelve tables from November -- measured -- and
+the model correctly refused a question it had been handed the wrong month for.
+
+Collapsing a family of date-suffixed siblings into one entry named with a
+wildcard took the end-to-end run from 0 of 3 questions producing SQL to 3 of
+3 executing. That is implemented in `benchmarks/spider2_e2e.py` and **not yet
+in the library**, which is where it belongs: warehouses are full of dated
+partitions and schemagate currently treats every day as its own table.
 
 ## The embedder, on data I did not write
 

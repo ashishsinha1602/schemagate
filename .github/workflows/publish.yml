@@ -34,3 +34,43 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "${{ github.event.release.tag_name }}" schemagate-oci-stack.zip --clobber
+
+  docker:
+    # Published to GHCR rather than Docker Hub: no extra account, no rate
+    # limit on pulls for anyone inside GitHub's network, and the token the
+    # workflow already has is enough to push. `docker run ghcr.io/<owner>/
+    # schemagate` is the shortest path from "heard about it" to "looking at
+    # my own schema" -- shorter than pip, because it skips the question of
+    # which extra a given database needs.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: lowercase the owner
+        id: owner
+        run: echo "name=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          # arm64 as well as amd64: an Apple laptop is the single most likely
+          # machine someone tries this on, and an amd64-only image runs there
+          # under emulation slowly enough to look broken.
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ghcr.io/${{ steps.owner.outputs.name }}/schemagate:${{ github.event.release.tag_name }}
+            ghcr.io/${{ steps.owner.outputs.name }}/schemagate:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: say where it went
+        run: |
+          echo "pushed ghcr.io/${{ steps.owner.outputs.name }}/schemagate:${{ github.event.release.tag_name }}" >> "$GITHUB_STEP_SUMMARY"

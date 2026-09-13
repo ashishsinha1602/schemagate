@@ -197,6 +197,15 @@ pip install schemagate            # add an extra for your driver, below
 schemagate studio                 # opens http://127.0.0.1:8770
 ```
 
+Or without installing anything, with every driver already in the image:
+
+```bash
+docker run -p 8770:8770 -e SCHEMAGATE_DATABASE_URL=postgresql://…   ghcr.io/ashishsinha1602/schemagate
+```
+
+Leave the URL off and it opens on a 42-object sample schema with data in it,
+so there is something to ask questions of before you point it at your own.
+
 Then, in the page:
 
 1. **Connect.** Paste a URL — `postgres://…`, `postgresql://…`, `mysql://…`,

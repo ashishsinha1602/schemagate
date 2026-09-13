@@ -448,7 +448,26 @@ class LocalProvider:
         except ImportError as e:
             raise ImportError("pip install 'schemagate[huggingface]' to use LocalProvider") from e
         kwargs = {"device": device} if device is not None else {}
-        self._pipe = _pipeline("text-generation", model=model, **kwargs)
+        # Half precision and a streaming load. transformers defaults to
+        # float32 on CPU, which for a 1.5B model is about six gigabytes held
+        # for the life of the process -- enough that the Studio would not
+        # start on an 12 GB laptop with a browser open. bfloat16 halves it and
+        # loads faster; low_cpu_mem_usage streams the weights in rather than
+        # materialising a full float32 copy first, so the peak during loading
+        # stops being the thing that kills it.
+        #
+        # Quality is unaffected in any way that matters here: the model writes
+        # one sentence about a table, or a short SELECT.
+        kwargs.setdefault("torch_dtype", "auto")
+        kwargs.setdefault("model_kwargs", {"low_cpu_mem_usage": True})
+        try:
+            self._pipe = _pipeline("text-generation", model=model, **kwargs)
+        except TypeError:
+            # Older transformers took neither; fall back rather than refuse to
+            # run at all. The cost is memory, not correctness.
+            kwargs.pop("torch_dtype", None)
+            kwargs.pop("model_kwargs", None)
+            self._pipe = _pipeline("text-generation", model=model, **kwargs)
 
     def complete(self, system: str, prompt: str, max_tokens: int = 1024) -> str:
         messages = [{"role": "system", "content": system},
