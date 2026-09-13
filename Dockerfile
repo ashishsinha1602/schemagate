@@ -52,5 +52,12 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 
 # --demo when no database is given, so `docker run -p 8770:8770 schemagate`
 # shows something instead of an empty page. entrypoint.sh does that choosing.
-COPY --chown=schemagate:schemagate docker-entrypoint.sh /usr/local/bin/
+# --chmod because the mode in the index is what the builder copies, and a
+# Windows checkout cannot record one: git stores this script 100644 there,
+# Docker Desktop hands a Windows build context 0777 and hides it, and the
+# Linux runner that builds the published image does not. The image shipped
+# in 0.1.51 could not start at all -- `exec: permission denied` -- and the
+# local build it was tested with was fine. Setting the mode here means the
+# builder's opinion of the checkout stops mattering.
+COPY --chown=schemagate:schemagate --chmod=0755 docker-entrypoint.sh /usr/local/bin/
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
