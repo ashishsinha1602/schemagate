@@ -456,3 +456,30 @@ def test_an_explicit_flag_beats_the_default_either_way():
     assert p.parse_args(["studio", "--no-connect"]).allow_connect is False
     assert p.parse_args(["studio", "--host", "0.0.0.0",
                          "--allow-connect"]).allow_connect is True
+
+
+def test_the_cli_tab_is_filled_for_any_live_connection():
+    """The CLI tab reproduces this connection; it was blank unless you used the panel.
+
+    `recipe` came back only in the reply to a connect made in the page, so a
+    Studio opened with `--url`, or one that replayed a remembered connection
+    at boot, showed two empty boxes and a Copy button. The connection is known
+    in every one of those cases.
+    """
+    from schemagate import Catalog, studio as st
+    from schemagate.demo_schema import create_demo_db
+
+    url = create_demo_db()
+    cat = Catalog().bootstrap(url)
+    cat.index()
+    state = st.StudioState(cat, "t", "b", [])
+    state.connected = True
+    state.connection_label = "sqlite - demo"
+    state.last_connect = {"url": url}
+
+    out = state.connections({})
+    assert out["current"], "a live connection must report itself"
+    assert out.get("recipe"), "no recipe for a connection the server knows about"
+    assert out["recipe"].get("cli"), "the command line is the point of the tab"
+    # and it must not carry a password, whatever the connection was
+    assert "$DB_PASSWORD" in out["recipe"]["cli"] or "://" in out["recipe"]["cli"]

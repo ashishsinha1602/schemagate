@@ -150,6 +150,10 @@ class StudioState:
         #: page never names the database it is showing -- and a person with
         #: two Studios open cannot tell them apart.
         self.connection_label: str = ""
+        #: (provider, model, has_key) -> the built provider. See _provider().
+        self._provider_cache = None
+        #: True while the warm-up thread is building one.
+        self._provider_loading = False
         #: Saving a connection means putting a database password on disk, in a
         #: tool that otherwise stores nothing. That is the user's call, not a
         #: default -- set by --remember, or per-connection by the page's
@@ -176,7 +180,36 @@ class StudioState:
     def set_settings(self, body: Dict[str, Any]) -> Dict[str, Any]:
         allowed = {"provider", "model", "api_key", "rerank", "answer"}
         self.settings.update({k: v for k, v in body.items() if k in allowed})
+        # Whatever was built for the previous settings is not what was asked
+        # for now. The key includes provider, model and whether a key is set,
+        # so this is belt and braces -- but a stale 3 GB model held open
+        # because someone switched away from it is worth being sure about.
+        self._provider_cache = None
+        self._provider_loading = False
+        # A local model is 3.1 GB off disk and about ninety seconds. Built
+        # lazily, that happened inside the first /api/answer -- which hung
+        # until the browser gave up, and the page then reported "no model
+        # configured", which was the one thing that was not true. Start it
+        # here instead, on its own thread, so choosing a model is what loads
+        # it and asking a question is never what waits for it.
+        if str(self.settings.get("provider") or "").lower() == "local":
+            self._warm_provider()
         return self.describe_settings()
+
+    def _warm_provider(self) -> None:
+        """Build the provider in the background; never raise, never block."""
+        if self._provider_loading or self._provider_cache:
+            return
+        self._provider_loading = True
+
+        def _load():
+            try:
+                self._provider(_warming=True)
+            finally:
+                self._provider_loading = False
+
+        threading.Thread(target=_load, daemon=True,
+                         name="schemagate-provider").start()
 
     def describe_settings(self) -> Dict[str, Any]:
         """Never returns the key itself -- only whether one is set."""
@@ -189,7 +222,7 @@ class StudioState:
         # behind an unticked box in a drawer -- is the single thing this
         # Studio was most often reported as "not doing".
 
-    def _provider(self):
+    def _provider(self, _warming: bool = False):
         """The configured provider, or None -- never an exception.
 
         A key typed into a form is wrong more often than one exported in a
@@ -204,20 +237,70 @@ class StudioState:
         self.provider_error = None
         if not name or name == "none" or not model:
             return None
+        # Built once per configuration and kept. For an API client that saves
+        # an object allocation; for a local model it is the difference between
+        # working and not. LocalProvider loads 3.1 GB of weights from disk and
+        # takes about ninety seconds, and this was called on every question --
+        # so picking "Local (transformers)" meant a ninety-second reload per
+        # question, the request timing out, the page reporting "no model
+        # configured", and eventually the server dying of repeated multi-
+        # gigabyte loads in one process.
+        cache_key = (name, model, bool(key))
+        cached = getattr(self, "_provider_cache", None)
+        if cached and cached[0] == cache_key:
+            return cached[1]
+        # Still loading on the warm-up thread. Return no provider -- but with
+        # a reason, so the page can say "loading" instead of "not configured".
+        if getattr(self, "_provider_loading", False) and not _warming:
+            self.provider_error = (
+                "the local model is still loading -- about 90 seconds the "
+                "first time, then it stays loaded. Ask again in a moment.")
+            return None
         try:
             from .ai import providers as _p
             classes = {"anthropic": _p.AnthropicProvider, "openai": _p.OpenAIProvider,
                        "gemini": _p.GeminiProvider, "oci": _p.OCIGenAIProvider,
                        "local": _p.LocalProvider}
+            if name == "hf":
+                # Hugging Face's OpenAI-compatible router. No download and no
+                # local compute -- and no privacy either: the prompt carries
+                # the schema, and it goes to their servers. Kept separate from
+                # the two local options for exactly that reason; calling this
+                # "local" because the weights live on HF would be a lie about
+                # where the metadata goes.
+                built = _p.OpenAIProvider(
+                    model=model, api_key=key or os.environ.get("HF_TOKEN", ""),
+                    base_url=os.environ.get("SCHEMAGATE_HF_BASE_URL",
+                                            "https://router.huggingface.co/v1"))
+                self._provider_cache = (cache_key, built)
+                return built
+            if name == "ollama":
+                # A model server already running on this machine. Same privacy
+                # as the in-process option -- nothing leaves the box -- without
+                # putting three gigabytes of weights inside the web server,
+                # which costs 90 seconds of load and ~6 GB held for the life
+                # of the process. Ollama speaks the OpenAI API, and so does
+                # LM Studio and vLLM, so this is one provider for all of them.
+                base = os.environ.get("SCHEMAGATE_LOCAL_BASE_URL",
+                                      "http://localhost:11434/v1")
+                built = _p.OpenAIProvider(model=model, api_key=(key or "ollama"),
+                                          base_url=base)
+                self._provider_cache = (cache_key, built)
+                return built
             cls = classes.get(name)
             if cls is None:
                 self.provider_error = f"unknown provider {name!r}"
                 return None
             if cls is _p.LocalProvider:
-                return cls(model=model)
+                built = cls(model=model)
+                self._provider_cache = (cache_key, built)
+                return built
             if cls is _p.OCIGenAIProvider:
-                return cls(model=model, compartment_id=key) if key else cls(model=model)
-            return cls(model=model, api_key=key) if key else cls(model=model)
+                built = cls(model=model, compartment_id=key) if key else cls(model=model)
+            else:
+                built = cls(model=model, api_key=key) if key else cls(model=model)
+            self._provider_cache = (cache_key, built)
+            return built
         except Exception as e:                            # noqa: BLE001
             self.provider_error = f"{type(e).__name__}: {e}"
             return None
@@ -577,8 +660,29 @@ class StudioState:
                              _label_url(spec), spec, _label_dialect(spec)),
                          "current": bool(self.last_connect)
                                     and _same_target(spec, self.last_connect)})
-        return {"connections": rows,
-                "current": self.connection_label if self.connected else ""}
+        # The CLI tab reproduces *this* connection as a command. It was
+        # filled in from the reply to a connect made in the page, so a Studio
+        # started with --url -- or one that reconnected a remembered
+        # connection at boot -- showed two empty boxes and a Copy button.
+        # The connection is known either way; the recipe is derivable from it.
+        out: Dict[str, Any] = {
+            "connections": rows,
+            "current": self.connection_label if self.connected else ""}
+        if self.last_connect:
+            try:
+                from .connect import recipe, resolve
+                spec = dict(self.last_connect)
+                url, connect_args = resolve(spec if not spec.get("url")
+                                            else spec["url"])
+                out["recipe"] = recipe(url, connect_args,
+                                       spec.get("schemas"),
+                                       bool(self.restrict_from_grants),
+                                       bool(self.sample_values))
+            except Exception:                                # noqa: BLE001
+                # A recipe is a convenience. Failing to build one must not
+                # take the connection list down with it.
+                pass
+        return out
 
     def models(self, body: Dict[str, Any]) -> Dict[str, Any]:
         """Saved models: list, use one by name, save the current one, forget one."""

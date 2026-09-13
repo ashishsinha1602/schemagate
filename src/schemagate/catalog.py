@@ -381,11 +381,75 @@ class Catalog:
                                  schemas=schemas, include_views=include_views,
                                  sample_values=sample_values,
                                  sample_budget=sample_budget))
+        # Fold the date-partitioned families first: a table written one file
+        # per day is one table, and ninety-two copies of it crowd out
+        # everything else before any of the rest of this can help.
+        self.collapse_partitions()
         # Read the joins the schema implies but never declared, before the
         # index is built -- they are part of what an object *is*.
         self.infer_foreign_keys()
         self.index()
         return self
+
+    #: `events_20240131`, `ga_sessions_20170801`, `logs_202401`. Three of them
+    #: in one schema is a partitioned table, not three tables.
+    _DATED_SUFFIX = re.compile(r"^(.*?[_\-]?)(\d{6}|\d{8})$")
+
+    #: Below this many siblings it is more likely to be a coincidence -- two
+    #: tables ending in a year are a pair of annual snapshots someone may well
+    #: want told apart.
+    _PARTITION_FAMILY_MIN = 3
+
+    def collapse_partitions(self) -> int:
+        """Fold date-suffixed sibling tables into one object each.
+
+        A warehouse writes one table per day and queries them as a set:
+        `events_20201101` through `events_20210131` is ninety-two objects in
+        the dictionary and one table to anybody using it -- BigQuery even
+        spells that `events_*`. Held apart, the siblings differ only by a
+        date, which no retriever can reason about, so they behave as ninety-two
+        near-identical documents competing for the same slots.
+
+        Measured on Spider 2.0's `ga4`: asked about a week in January, the top
+        twelve objects were twelve days in November, and the model correctly
+        said it could not answer. Folding the family into one entry took the
+        same questions from nothing runnable to every query executing.
+
+        Returns the number of objects removed. Conservative: a family must
+        have at least `_PARTITION_FAMILY_MIN` members in the same schema, and
+        the surviving entry keeps the widest column list in the family, since
+        a schema that grew a column mid-year should advertise it.
+        """
+        fams: Dict[tuple, List[str]] = {}
+        for q, doc in self._docs.items():
+            m = self._DATED_SUFFIX.match(doc.name or "")
+            if not m or len(m.group(1).rstrip("_-")) < 3:
+                continue
+            fams.setdefault((doc.schema, m.group(1)), []).append(q)
+
+        removed = 0
+        for (schema, stem), members in fams.items():
+            if len(members) < self._PARTITION_FAMILY_MIN:
+                continue
+            docs = [self._docs[q] for q in members]
+            dates = sorted(self._DATED_SUFFIX.match(d.name).group(2) for d in docs)
+            keep = max(docs, key=lambda d: len(d.columns))
+            note = ("one table per period, %d of them, %s to %s; "
+                    "query the set, not a single day" % (len(docs), dates[0], dates[-1]))
+            keep.name = stem + "*"
+            keep.description = ((keep.description + " ") if keep.description else "") + note
+            for q in members:
+                if self._docs[q] is not keep:
+                    del self._docs[q]
+                    removed += 1
+            # the survivor is re-keyed under its new wildcard name
+            old = next(q for q in members if self._docs.get(q) is keep)
+            self._docs.pop(old, None)
+            self._docs[keep.qname] = keep
+
+        if removed:
+            self._stale = True
+        return removed
 
     def infer_foreign_keys(self) -> int:
         """Add the joins the schema implies but never declared.
