@@ -75,46 +75,6 @@ jobs:
           git push --quiet --force origin "refs/tags/$TAG"
           echo "Registry mirror synced and tagged ${TAG}: https://registry.terraform.io/modules/ashishsinha1602/schemagate/oci" >> "$GITHUB_STEP_SUMMARY"
 
-  terraform-registry:
-    # The Registry module is a copy of oci/stack in a repo named the way the
-    # Registry insists on (terraform-oci-<name>). It was synced by hand and
-    # last at 0.1.45 while everything else moved on -- so the module people
-    # actually pulled pinned a version eight releases old. This keeps the copy
-    # current: same files, same tag, every release.
-    #
-    # Needs TF_MIRROR_TOKEN: a fine-grained token with contents:write on
-    # ashishsinha1602/terraform-oci-schemagate-mcp. Without it, say so and
-    # pass; a release must not fail because a mirror was unreachable.
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: sync the stack into the Registry mirror and tag it
-        env:
-          TOKEN: ${{ secrets.TF_MIRROR_TOKEN }}
-          TAG: ${{ github.event.release.tag_name }}
-          MIRROR: ashishsinha1602/terraform-oci-schemagate-mcp
-        run: |
-          if [ -z "$TOKEN" ]; then
-            echo "TF_MIRROR_TOKEN is not set; the Registry mirror was not updated." >> "$GITHUB_STEP_SUMMARY"
-            echo "::warning::TF_MIRROR_TOKEN not set -- Registry mirror left at its previous version"
-            exit 0
-          fi
-          git clone --quiet "https://x-access-token:${TOKEN}@github.com/${MIRROR}" mirror
-          cp oci/stack/*.tf oci/stack/cloud-init.yaml oci/stack/schema.yaml mirror/
-          cd mirror
-          git config user.name  "schemagate release"
-          git config user.email "noreply@github.com"
-          git add -A
-          if git diff --cached --quiet; then
-            echo "mirror already matches oci/stack"
-          else
-            git commit --quiet -m "${TAG}: sync from schemagate oci/stack"
-          fi
-          git tag -f "$TAG"
-          git push --quiet origin HEAD:main
-          git push --quiet --force origin "refs/tags/$TAG"
-          echo "Registry mirror synced and tagged ${TAG}: https://registry.terraform.io/modules/ashishsinha1602/schemagate/oci" >> "$GITHUB_STEP_SUMMARY"
-
   docker:
     # Published to GHCR rather than Docker Hub: no extra account, no rate
     # limit on pulls for anyone inside GitHub's network, and the token the
