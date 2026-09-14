@@ -13,6 +13,8 @@ import statistics
 
 HERE = pathlib.Path(__file__).resolve().parent
 
+from longpath import read_json  # noqa: E402
+
 
 def report(label, descs, total, table_counts=None):
     have = [d for d in descs if d and str(d).strip()]
@@ -21,8 +23,16 @@ def report(label, descs, total, table_counts=None):
     print(f"  {label:18} {len(have):5}/{total:<5} tables have a description "
           f"({pct:5.1f}%)", end="")
     if words:
+        # p90 as well as the median: this distribution is the whole point of
+        # the prose cap, and it has a tail the median cannot show -- a mean
+        # eight times the median says so. The p90 is the number quoted when
+        # arguing that some descriptions are too long to be worth their tokens,
+        # so it belongs in the same line as the median rather than in a
+        # separate calculation done later from memory.
+        p90 = sorted(words)[min(len(words) - 1, int(round(0.9 * (len(words) - 1))))]
         print(f"   mean {statistics.mean(words):6.1f} words, "
-              f"median {statistics.median(words):.0f}")
+              f"median {statistics.median(words):.0f}, p90 {p90:,}, "
+              f"max {max(words):,}")
     else:
         print("   -")
     if table_counts:
@@ -64,7 +74,10 @@ for eng in root.iterdir():
         counts.append(len(files))
         for f in files:
             try:
-                d = json.loads(f.read_text("utf-8"))
+                # read_json: see longpath.py. Over a third of these paths are
+                # longer than the Windows API will open unprefixed, and the
+                # except below would score them as tables with no prose.
+                d = read_json(f)
             except Exception:                                # noqa: BLE001
                 descs.append(None)
                 continue
