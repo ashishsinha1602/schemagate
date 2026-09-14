@@ -27,6 +27,7 @@ import time
 
 HERE = pathlib.Path(__file__).resolve().parent
 
+from longpath import read_json                           # noqa: E402
 from schemagate import Catalog, Column, ObjectDoc          # noqa: E402
 
 ROOT = HERE / "Spider2" / "spider2-lite"
@@ -65,7 +66,11 @@ def load_db(path, cap):
     docs = []
     for f in path.rglob("*.json"):
         try:
-            d = json.loads(f.read_text("utf-8"))
+            # read_json, not json.loads(read_text): 2,868 of these 7,892 paths
+            # are over 260 characters and open() refuses them on Windows. The
+            # except below then counts a table that exists as one that does
+            # not, which is how a 39% shortfall reads as a smaller database.
+            d = read_json(f)
         except Exception:                                   # noqa: BLE001
             continue
         names = d.get("column_names") or []
@@ -121,8 +126,8 @@ def main():
     lens = []
     for db in base:
         for f in dirs[db].rglob("*.json"):
-            try:                       # a few paths exceed what Windows opens
-                n_ = len((raw_desc(json.loads(f.read_text("utf-8"))) or "").split())
+            try:
+                n_ = len((raw_desc(read_json(f)) or "").split())
             except Exception:          # noqa: BLE001
                 continue
             if n_:

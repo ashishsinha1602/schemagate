@@ -1,0 +1,1641 @@
+{
+ "model": "claude-opus-5",
+ "dialect": "SQLite",
+ "generated": "2026-09-13",
+ "answers": {
+  "total revenue by month last year": {
+   "sql": "SELECT month, SUM(revenue_net) AS revenue_net\nFROM main.v_monthly_revenue\nWHERE substr(month, 1, 4) = CAST(CAST(strftime('%Y', 'now') AS INTEGER) - 1 AS TEXT)\nGROUP BY month\nORDER BY month",
+   "columns": [
+    "month",
+    "revenue_net"
+   ],
+   "rows": [
+    [
+     "2025-01",
+     6449.72
+    ],
+    [
+     "2025-02",
+     4685.46
+    ],
+    [
+     "2025-03",
+     4341.25
+    ],
+    [
+     "2025-04",
+     8993.09
+    ],
+    [
+     "2025-05",
+     4812.48
+    ],
+    [
+     "2025-06",
+     2796.4500000000003
+    ],
+    [
+     "2025-07",
+     1909.8600000000001
+    ],
+    [
+     "2025-08",
+     6616.93
+    ]
+   ],
+   "more": true,
+   "tables": [
+    "v_monthly_revenue",
+    "sales_invoice_draft",
+    "billing_invoice",
+    "v_supplier_spend",
+    "v_customer_balance",
+    "sales_quote",
+    "sup_purchase_order",
+    "sales_order",
+    "crm_customer",
+    "sup_supplier",
+    "core_address",
+    "sales_order_status"
+   ],
+   "ms": 4636
+  },
+  "which customers owe us money": {
+   "sql": "SELECT c.id AS id_customer,\n       c.account_number,\n       p.display_name,\n       b.invoiced,\n       b.paid,\n       COALESCE(b.invoiced, 0) - COALESCE(b.paid, 0) AS balance_due\nFROM main.v_customer_balance b\nJOIN main.crm_customer c ON c.id = b.id_customer\nLEFT JOIN main.core_party p ON p.id = c.id_party\nWHERE COALESCE(b.invoiced, 0) - COALESCE(b.paid, 0) > 0\nORDER BY balance_due DESC",
+   "columns": [
+    "id_customer",
+    "account_number",
+    "display_name",
+    "invoiced",
+    "paid",
+    "balance_due"
+   ],
+   "rows": [
+    [
+     17,
+     "AC-01119",
+     "Nordvik AS",
+     7883.73,
+     3164.16,
+     4719.57
+    ],
+    [
+     13,
+     "AC-01091",
+     "Juniper Foods",
+     7733.99,
+     4421.63,
+     3312.3599999999997
+    ],
+    [
+     14,
+     "AC-01098",
+     "Kestrel Parts",
+     8379.42,
+     5282.69,
+     3096.7300000000005
+    ],
+    [
+     18,
+     "AC-01126",
+     "Oakline Traders",
+     15302.62,
+     12480.87,
+     2821.75
+    ],
+    [
+     2,
+     "AC-01014",
+     "Kellner GmbH",
+     7397.49,
+     4612.59,
+     2784.8999999999996
+    ],
+    [
+     10,
+     "AC-01070",
+     "Granite Works",
+     8359.05,
+     5867.98,
+     2491.0699999999997
+    ],
+    [
+     3,
+     "AC-01021",
+     "Pacific Foods",
+     9206.88,
+     6757.78,
+     2449.0999999999995
+    ],
+    [
+     11,
+     "AC-01077",
+     "Harbour Provisions",
+     7888.33,
+     5749.34,
+     2138.99
+    ]
+   ],
+   "more": true,
+   "tables": [
+    "v_customer_balance",
+    "crm_customer",
+    "billing_invoice",
+    "sales_order",
+    "sales_quote",
+    "crm_opportunity",
+    "crm_contact",
+    "v_monthly_revenue",
+    "core_party",
+    "core_address",
+    "sales_order_status"
+   ],
+   "ms": 3321
+  },
+  "how much did we pay each supplier in 2024": {
+   "sql": "SELECT s.vendor_number, p.display_name AS supplier_name, vs.spend AS spend_2024\nFROM main.v_supplier_spend vs\nJOIN main.sup_supplier s ON s.vendor_number = vs.vendor_number\nJOIN main.core_party p ON p.id = s.id_party\nWHERE vs.year = 2024\nORDER BY vs.spend DESC",
+   "columns": [
+    "vendor_number",
+    "supplier_name",
+    "spend_2024"
+   ],
+   "rows": [
+    [
+     "V-0405",
+     "Yuki Sato",
+     13600.58
+    ],
+    [
+     "V-0403",
+     "Rosa Marquez",
+     12980.65
+    ],
+    [
+     "V-0412",
+     "Jonas Weber",
+     8499.21
+    ],
+    [
+     "V-0404",
+     "Tom Fielding",
+     8138.85
+    ],
+    [
+     "V-0409",
+     "Sam Okonkwo",
+     7420.62
+    ],
+    [
+     "V-0411",
+     "Priya Nair",
+     6807.79
+    ],
+    [
+     "V-0408",
+     "Grace Lin",
+     6229.5
+    ],
+    [
+     "V-0407",
+     "Omar Haddad",
+     5812.98
+    ]
+   ],
+   "more": true,
+   "tables": [
+    "v_supplier_spend",
+    "sup_supplier",
+    "sup_purchase_order",
+    "sup_purchase_order_line",
+    "sales_quote_line",
+    "sales_order_line",
+    "sales_order",
+    "v_monthly_revenue",
+    "core_party",
+    "cat_product",
+    "sales_quote",
+    "core_address",
+    "crm_customer",
+    "sales_order_status"
+   ],
+   "ms": 2867
+  },
+  "products below their reorder point": {
+   "sql": "SELECT p.sku,\n       p.name AS product_name,\n       w.code AS warehouse_code,\n       w.name AS warehouse_name,\n       s.qty_on_hand,\n       s.qty_reserved,\n       s.reorder_point,\n       f.shortfall\nFROM main.v_stock_shortfall f\nJOIN main.cat_product p ON p.id = f.id_product\nJOIN main.inv_warehouse w ON w.id = f.id_warehouse\nJOIN main.inv_stock_level s ON s.id_product = f.id_product AND s.id_warehouse = f.id_warehouse\nORDER BY f.shortfall DESC, p.sku",
+   "columns": [
+    "sku",
+    "product_name",
+    "warehouse_code",
+    "warehouse_name",
+    "qty_on_hand",
+    "qty_reserved",
+    "reorder_point",
+    "shortfall"
+   ],
+   "rows": [
+    [
+     "SKU-0163",
+     "Chickpeas 400g",
+     "LON",
+     "London DC",
+     76.0,
+     10.0,
+     100.0,
+     34.0
+    ],
+    [
+     "SKU-0157",
+     "Balsamic Vinegar 250ml",
+     "SFO",
+     "San Francisco DC",
+     27.0,
+     9.0,
+     50.0,
+     32.0
+    ],
+    [
+     "SKU-0130",
+     "Basmati Rice 5kg",
+     "LON",
+     "London DC",
+     22.0,
+     1.0,
+     50.0,
+     29.0
+    ],
+    [
+     "SKU-0172",
+     "Vanilla Pods 5g",
+     "LON",
+     "London DC",
+     0.0,
+     9.0,
+     20.0,
+     29.0
+    ],
+    [
+     "SKU-0121",
+     "Espresso Beans 1kg",
+     "LON",
+     "London DC",
+     38.0,
+     12.0,
+     50.0,
+     24.0
+    ],
+    [
+     "SKU-0124",
+     "Green Tea 100g",
+     "LON",
+     "London DC",
+     0.0,
+     3.0,
+     20.0,
+     23.0
+    ],
+    [
+     "SKU-0103",
+     "Olive Oil 1L",
+     "BER",
+     "Berlin DC",
+     33.0,
+     5.0,
+     50.0,
+     22.0
+    ],
+    [
+     "SKU-0154",
+     "Honey 500g",
+     "BER",
+     "Berlin DC",
+     6.0,
+     5.0,
+     20.0,
+     19.0
+    ]
+   ],
+   "more": true,
+   "tables": [
+    "sales_order_line",
+    "cat_product",
+    "cat_product_attribute",
+    "inv_stock_level",
+    "v_stock_shortfall",
+    "inv_movement",
+    "cat_price_list_item",
+    "sup_purchase_order_line",
+    "sales_order",
+    "cat_category",
+    "inv_warehouse",
+    "cat_price_list",
+    "sup_purchase_order"
+   ],
+   "ms": 4014
+  },
+  "average discount per product category": {
+   "sql": "SELECT c.id AS id_category, c.name AS category_name, AVG(l.discount_pct) AS avg_discount_pct FROM main.sales_order_line l JOIN main.cat_product p ON p.id = l.id_product JOIN main.cat_category c ON c.id = p.id_category GROUP BY c.id, c.name ORDER BY c.name",
+   "columns": [
+    "id_category",
+    "category_name",
+    "avg_discount_pct"
+   ],
+   "rows": [
+    [
+     5,
+     "Baking",
+     4.137931034482759
+    ],
+    [
+     4,
+     "Beverages",
+     5.0
+    ],
+    [
+     2,
+     "Chilled",
+     5.151515151515151
+    ],
+    [
+     6,
+     "Dairy",
+     4.913793103448276
+    ],
+    [
+     3,
+     "Frozen",
+     5.163934426229508
+    ],
+    [
+     7,
+     "Ready meals",
+     5.919540229885057
+    ]
+   ],
+   "more": false,
+   "tables": [
+    "sales_order_line",
+    "cat_product",
+    "cat_category",
+    "cat_product_attribute",
+    "cat_price_list_item",
+    "sup_purchase_order_line",
+    "sales_quote_line",
+    "v_stock_shortfall",
+    "sales_order",
+    "cat_price_list",
+    "sup_purchase_order",
+    "sales_quote",
+    "inv_warehouse"
+   ],
+   "ms": 2675
+  },
+  "late shipments by carrier": {
+   "sql": "SELECT c.id AS id_carrier,\n       c.name AS carrier_name,\n       c.scac_code,\n       COUNT(s.id) AS total_shipments,\n       SUM(CASE WHEN s.status = 'delayed'\n                 OR (s.delivered_at IS NOT NULL AND s.promised_at IS NOT NULL AND s.delivered_at > s.promised_at)\n                THEN 1 ELSE 0 END) AS late_shipments,\n       ROUND(100.0 * SUM(CASE WHEN s.status = 'delayed'\n                 OR (s.delivered_at IS NOT NULL AND s.promised_at IS NOT NULL AND s.delivered_at > s.promised_at)\n                THEN 1 ELSE 0 END) / COUNT(s.id), 2) AS late_pct\nFROM main.ship_carrier c\nJOIN main.ship_shipment s ON s.id_carrier = c.id\nGROUP BY c.id, c.name, c.scac_code\nORDER BY late_shipments DESC, carrier_name",
+   "columns": [
+    "id_carrier",
+    "carrier_name",
+    "scac_code",
+    "total_shipments",
+    "late_shipments",
+    "late_pct"
+   ],
+   "rows": [
+    [
+     3,
+     "Harbour Express",
+     "HBEX",
+     47,
+     12,
+     25.53
+    ],
+    [
+     2,
+     "Colvin Logistics",
+     "CLVN",
+     38,
+     9,
+     23.68
+    ],
+    [
+     1,
+     "Meridian Freight",
+     "MRDN",
+     35,
+     6,
+     17.14
+    ]
+   ],
+   "more": false,
+   "tables": [
+    "ship_shipment",
+    "ship_carrier",
+    "ship_shipment_line",
+    "v_order_fulfilment",
+    "sup_purchase_order",
+    "sup_supplier",
+    "sales_order",
+    "inv_movement",
+    "inv_warehouse",
+    "sales_order_line",
+    "core_party",
+    "sales_quote",
+    "core_address",
+    "crm_customer",
+    "sales_order_status",
+    "cat_product"
+   ],
+   "ms": 5133
+  },
+  "unpaid invoices over 90 days old": {
+   "sql": "SELECT i.id,\n       i.invoice_number,\n       c.account_number,\n       p.display_name AS customer_name,\n       i.issued_on,\n       i.due_on,\n       i.currency,\n       i.total_gross,\n       COALESCE(pay.paid, 0) AS paid,\n       COALESCE(cn.credited, 0) AS credited,\n       i.total_gross - COALESCE(pay.paid, 0) - COALESCE(cn.credited, 0) AS outstanding,\n       CAST(julianday('now') - julianday(i.issued_on) AS INTEGER) AS age_days\nFROM main.billing_invoice i\nJOIN main.crm_customer c ON c.id = i.id_customer\nJOIN main.core_party p ON p.id = c.id_party\nLEFT JOIN (\n    SELECT id_invoice, SUM(amount) AS paid\n    FROM main.billing_payment\n    WHERE status = 'settled'\n    GROUP BY id_invoice\n) pay ON pay.id_invoice = i.id\nLEFT JOIN (\n    SELECT id_invoice, SUM(amount) AS credited\n    FROM main.billing_credit_note\n    GROUP BY id_invoice\n) cn ON cn.id_invoice = i.id\nWHERE julianday('now') - julianday(i.issued_on) > 90\n  AND i.total_gross - COALESCE(pay.paid, 0) - COALESCE(cn.credited, 0) > 0\nORDER BY age_days DESC, outstanding DESC",
+   "columns": [
+    "id",
+    "invoice_number",
+    "account_number",
+    "customer_name",
+    "issued_on",
+    "due_on",
+    "currency",
+    "total_gross",
+    "paid",
+    "credited",
+    "outstanding",
+    "age_days"
+   ],
+   "rows": [
+    [
+     17,
+     "INV-009017",
+     "AC-01070",
+     "Granite Works",
+     "2025-01-01",
+     "2025-01-15",
+     "GBP",
+     1946.51,
+     0,
+     0,
+     1946.51,
+     621
+    ],
+    [
+     26,
+     "INV-009026",
+     "AC-01091",
+     "Juniper Foods",
+     "2025-01-15",
+     "2025-01-28",
+     "GBP",
+     53.0,
+     0,
+     0,
+     53.0,
+     607
+    ],
+    [
+     7,
+     "INV-009007",
+     "AC-01077",
+     "Harbour Provisions",
+     "2025-01-23",
+     "2025-01-28",
+     "GBP",
+     166.68,
+     0,
+     0,
+     166.68,
+     599
+    ],
+    [
+     36,
+     "INV-009036",
+     "AC-01014",
+     "Kellner GmbH",
+     "2025-02-10",
+     "2025-02-24",
+     "EUR",
+     942.24,
+     0,
+     0,
+     942.24,
+     581
+    ],
+    [
+     59,
+     "INV-009059",
+     "AC-01042",
+     "Cedar & Sons",
+     "2025-02-10",
+     "2025-02-24",
+     "GBP",
+     298.72,
+     0,
+     0,
+     298.72,
+     581
+    ],
+    [
+     8,
+     "INV-009008",
+     "AC-01091",
+     "Juniper Foods",
+     "2025-02-19",
+     "2025-02-28",
+     "GBP",
+     160.52,
+     0,
+     0,
+     160.52,
+     572
+    ],
+    [
+     74,
+     "INV-009074",
+     "AC-01140",
+     "Quarry Hill Co",
+     "2025-03-02",
+     "2025-03-16",
+     "GBP",
+     724.66,
+     0,
+     0,
+     724.66,
+     561
+    ],
+    [
+     60,
+     "INV-009060",
+     "AC-01077",
+     "Harbour Provisions",
+     "2025-03-12",
+     "2025-03-26",
+     "GBP",
+     998.77,
+     0,
+     0,
+     998.77,
+     551
+    ]
+   ],
+   "more": true,
+   "tables": [
+    "billing_invoice",
+    "billing_credit_note",
+    "billing_payment",
+    "v_customer_balance",
+    "sales_invoice_draft",
+    "billing_invoice_line",
+    "v_monthly_revenue",
+    "sup_supplier",
+    "sales_order",
+    "crm_customer",
+    "sales_order_line",
+    "core_party"
+   ],
+   "ms": 6883
+  },
+  "headcount per department": {
+   "sql": "SELECT d.name AS department, COUNT(e.id) AS headcount FROM main.hr_department d LEFT JOIN main.hr_employee e ON e.id_department = d.id GROUP BY d.id, d.name ORDER BY headcount DESC, d.name",
+   "columns": [
+    "department",
+    "headcount"
+   ],
+   "rows": [
+    [
+     "Customer Service",
+     11
+    ],
+    [
+     "Finance",
+     10
+    ],
+    [
+     "Sales",
+     9
+    ],
+    [
+     "Engineering",
+     6
+    ],
+    [
+     "Operations",
+     4
+    ]
+   ],
+   "more": false,
+   "tables": [
+    "v_employee_headcount",
+    "hr_department",
+    "sales_order_line",
+    "hr_employee",
+    "v_monthly_revenue",
+    "v_customer_balance",
+    "billing_invoice",
+    "billing_tax_rate",
+    "cat_product",
+    "sales_order",
+    "core_party",
+    "crm_customer",
+    "core_country"
+   ],
+   "ms": 2050
+  },
+  "purchase order lines for SKU-0103": {
+   "sql": "SELECT pol.id, po.po_number, po.raised_on, po.status, p.sku, p.name, pol.quantity, pol.unit_cost\nFROM main.sup_purchase_order_line pol\nJOIN main.cat_product p ON p.id = pol.id_product\nJOIN main.sup_purchase_order po ON po.id = pol.id_po\nWHERE p.sku = 'SKU-0103'",
+   "columns": [
+    "id",
+    "po_number",
+    "raised_on",
+    "status",
+    "sku",
+    "name",
+    "quantity",
+    "unit_cost"
+   ],
+   "rows": [
+    [
+     7,
+     "PO-002004",
+     "2024-05-27",
+     "open",
+     "SKU-0103",
+     "Olive Oil 1L",
+     271.0,
+     2.42
+    ],
+    [
+     25,
+     "PO-002012",
+     "2025-01-19",
+     "received",
+     "SKU-0103",
+     "Olive Oil 1L",
+     238.0,
+     2.42
+    ],
+    [
+     42,
+     "PO-002017",
+     "2026-02-03",
+     "cancelled",
+     "SKU-0103",
+     "Olive Oil 1L",
+     258.0,
+     2.42
+    ],
+    [
+     72,
+     "PO-002028",
+     "2025-06-16",
+     "cancelled",
+     "SKU-0103",
+     "Olive Oil 1L",
+     145.0,
+     2.42
+    ],
+    [
+     78,
+     "PO-002031",
+     "2025-03-09",
+     "received",
+     "SKU-0103",
+     "Olive Oil 1L",
+     19.0,
+     2.42
+    ],
+    [
+     88,
+     "PO-002036",
+     "2024-10-04",
+     "received",
+     "SKU-0103",
+     "Olive Oil 1L",
+     114.0,
+     2.42
+    ],
+    [
+     94,
+     "PO-002038",
+     "2026-05-06",
+     "open",
+     "SKU-0103",
+     "Olive Oil 1L",
+     281.0,
+     2.42
+    ],
+    [
+     167,
+     "PO-002072",
+     "2026-12-16",
+     "received",
+     "SKU-0103",
+     "Olive Oil 1L",
+     173.0,
+     2.42
+    ]
+   ],
+   "more": true,
+   "tables": [
+    "sales_order_line",
+    "sup_purchase_order_line",
+    "sup_purchase_order",
+    "fct_txn_ln",
+    "sales_order",
+    "v_order_fulfilment",
+    "sales_order_status",
+    "ship_shipment_line",
+    "cat_product",
+    "sup_supplier",
+    "dim_ct_mstr",
+    "sales_quote",
+    "core_address",
+    "crm_customer",
+    "ship_shipment"
+   ],
+   "ms": 3332
+  },
+  "credit notes raised and why": {
+   "sql": "SELECT cn.reason_code, COUNT(*) AS credit_note_count, SUM(cn.amount) AS total_credited, MIN(cn.issued_on) AS first_issued_on, MAX(cn.issued_on) AS last_issued_on FROM main.billing_credit_note cn GROUP BY cn.reason_code ORDER BY total_credited DESC",
+   "columns": [
+    "reason_code",
+    "credit_note_count",
+    "total_credited",
+    "first_issued_on",
+    "last_issued_on"
+   ],
+   "rows": [
+    [
+     "goodwill",
+     6,
+     1919.84,
+     "2026-03-08",
+     "2026-09-01"
+    ],
+    [
+     "price correction",
+     3,
+     1065.89,
+     "2026-07-18",
+     "2026-09-08"
+    ],
+    [
+     "damaged",
+     2,
+     1040.71,
+     "2026-06-11",
+     "2026-07-15"
+    ],
+    [
+     "short delivery",
+     1,
+     366.86,
+     "2026-09-13",
+     "2026-09-13"
+    ]
+   ],
+   "more": false,
+   "tables": [
+    "billing_credit_note",
+    "sales_invoice_draft",
+    "crm_customer",
+    "sup_purchase_order",
+    "v_supplier_spend",
+    "fct_txn_ln",
+    "v_customer_balance",
+    "billing_payment",
+    "billing_invoice",
+    "sales_order",
+    "core_party",
+    "sup_supplier",
+    "dim_ct_mstr"
+   ],
+   "ms": 3591
+  },
+  "quote conversion to orders": {
+   "sql": "SELECT q.id AS id_quote,\n       q.quote_number,\n       q.issued_on,\n       q.expires_on,\n       q.state,\n       q.total_net AS quote_net,\n       c.account_number,\n       c.segment,\n       COUNT(o.id) AS orders_converted,\n       CASE WHEN COUNT(o.id) > 0 THEN 1 ELSE 0 END AS is_converted,\n       SUM(COALESCE(o.total_net, 0)) AS order_net,\n       MIN(o.ordered_at) AS first_order_at,\n       SUM(COALESCE(o.total_net, 0)) - q.total_net AS net_variance\nFROM main.sales_quote q\nJOIN main.crm_customer c ON c.id = q.id_customer\nLEFT JOIN main.sales_order o ON o.id_quote = q.id\nGROUP BY q.id, q.quote_number, q.issued_on, q.expires_on, q.state, q.total_net,\n         c.account_number, c.segment\nORDER BY is_converted DESC, q.issued_on",
+   "columns": [
+    "id_quote",
+    "quote_number",
+    "issued_on",
+    "expires_on",
+    "state",
+    "quote_net",
+    "account_number",
+    "segment",
+    "orders_converted",
+    "is_converted",
+    "order_net",
+    "first_order_at",
+    "net_variance"
+   ],
+   "rows": [
+    [
+     45,
+     "QU-00745",
+     "2026-01-07",
+     "2026-12-18",
+     "accepted",
+     401.6,
+     "AC-01077",
+     "enterprise",
+     2,
+     1,
+     1491.77,
+     "2026-05-09",
+     1090.17
+    ],
+    [
+     58,
+     "QU-00758",
+     "2026-01-19",
+     "2026-10-22",
+     "rejected",
+     28.2,
+     "AC-01049",
+     "enterprise",
+     1,
+     1,
+     762.74,
+     "2026-12-14",
+     734.54
+    ],
+    [
+     6,
+     "QU-00706",
+     "2026-01-20",
+     "2026-11-27",
+     "open",
+     629.55,
+     "AC-01105",
+     "enterprise",
+     1,
+     1,
+     2393.98,
+     "2026-05-20",
+     1764.43
+    ],
+    [
+     48,
+     "QU-00748",
+     "2026-01-22",
+     "2026-09-12",
+     "open",
+     257.6,
+     "AC-01140",
+     "smb",
+     2,
+     1,
+     1835.29,
+     "2025-04-03",
+     1577.69
+    ],
+    [
+     60,
+     "QU-00760",
+     "2026-01-26",
+     "2026-11-14",
+     "accepted",
+     319.64,
+     "AC-01119",
+     "smb",
+     2,
+     1,
+     1497.6499999999999,
+     "2026-02-16",
+     1178.0099999999998
+    ],
+    [
+     39,
+     "QU-00739",
+     "2026-02-10",
+     "2026-10-17",
+     "expired",
+     100.8,
+     "AC-01098",
+     "smb",
+     1,
+     1,
+     1862.89,
+     "2025-11-04",
+     1762.0900000000001
+    ],
+    [
+     56,
+     "QU-00756",
+     "2026-02-10",
+     "2026-12-15",
+     "accepted",
+     212.8,
+     "AC-01112",
+     "enterprise",
+     5,
+     1,
+     3664.17,
+     "2025-06-06",
+     3451.37
+    ],
+    [
+     21,
+     "QU-00721",
+     "2026-02-11",
+     "2026-09-16",
+     "open",
+     631.96,
+     "AC-01140",
+     "smb",
+     3,
+     1,
+     1406.69,
+     "2025-06-22",
+     774.73
+    ]
+   ],
+   "more": true,
+   "tables": [
+    "sales_order_line",
+    "dim_ct_mstr",
+    "sales_order",
+    "sales_quote_line",
+    "sales_quote",
+    "v_order_fulfilment",
+    "sup_purchase_order_line",
+    "sales_order_status",
+    "cat_product",
+    "core_address",
+    "crm_customer",
+    "sup_purchase_order"
+   ],
+   "ms": 6444
+  },
+  "stock on hand per warehouse": {
+   "sql": "SELECT w.id AS id_warehouse, w.code, w.name, SUM(s.qty_on_hand) AS total_qty_on_hand FROM inv_warehouse w JOIN inv_stock_level s ON s.id_warehouse = w.id GROUP BY w.id, w.code, w.name ORDER BY total_qty_on_hand DESC",
+   "columns": [
+    "id_warehouse",
+    "code",
+    "name",
+    "total_qty_on_hand"
+   ],
+   "rows": [
+    [
+     3,
+     "SFO",
+     "San Francisco DC",
+     4277.0
+    ],
+    [
+     2,
+     "BER",
+     "Berlin DC",
+     3590.0
+    ],
+    [
+     1,
+     "LON",
+     "London DC",
+     2971.0
+    ]
+   ],
+   "more": false,
+   "tables": [
+    "inv_stock_level",
+    "v_stock_shortfall",
+    "inv_warehouse",
+    "sales_order_line",
+    "ship_shipment",
+    "inv_movement",
+    "sup_purchase_order",
+    "v_supplier_spend",
+    "cat_product",
+    "core_address",
+    "sales_order",
+    "ship_carrier",
+    "sup_supplier"
+   ],
+   "ms": 2704
+  },
+  "who hasn't paid us yet": {
+   "sql": "SELECT p.display_name,\n       c.account_number,\n       c.segment,\n       COALESCE(b.invoiced, 0) AS invoiced,\n       COALESCE(b.paid, 0) AS paid,\n       COALESCE(b.invoiced, 0) - COALESCE(b.paid, 0) AS outstanding\nFROM v_customer_balance b\nJOIN crm_customer c ON c.id = b.id_customer\nJOIN core_party p ON p.id = c.id_party\nWHERE COALESCE(b.invoiced, 0) - COALESCE(b.paid, 0) > 0\nORDER BY outstanding DESC",
+   "columns": [
+    "display_name",
+    "account_number",
+    "segment",
+    "invoiced",
+    "paid",
+    "outstanding"
+   ],
+   "rows": [
+    [
+     "Nordvik AS",
+     "AC-01119",
+     "smb",
+     7883.73,
+     3164.16,
+     4719.57
+    ],
+    [
+     "Juniper Foods",
+     "AC-01091",
+     "smb",
+     7733.99,
+     4421.63,
+     3312.3599999999997
+    ],
+    [
+     "Kestrel Parts",
+     "AC-01098",
+     "smb",
+     8379.42,
+     5282.69,
+     3096.7300000000005
+    ],
+    [
+     "Oakline Traders",
+     "AC-01126",
+     "smb",
+     15302.62,
+     12480.87,
+     2821.75
+    ],
+    [
+     "Kellner GmbH",
+     "AC-01014",
+     "smb",
+     7397.49,
+     4612.59,
+     2784.8999999999996
+    ],
+    [
+     "Granite Works",
+     "AC-01070",
+     "smb",
+     8359.05,
+     5867.98,
+     2491.0699999999997
+    ],
+    [
+     "Pacific Foods",
+     "AC-01021",
+     "enterprise",
+     9206.88,
+     6757.78,
+     2449.0999999999995
+    ],
+    [
+     "Harbour Provisions",
+     "AC-01077",
+     "enterprise",
+     7888.33,
+     5749.34,
+     2138.99
+    ]
+   ],
+   "more": true,
+   "tables": [
+    "billing_payment",
+    "v_customer_balance",
+    "sup_supplier",
+    "sales_invoice_draft",
+    "hr_department",
+    "sup_purchase_order",
+    "v_supplier_spend",
+    "billing_credit_note",
+    "billing_invoice",
+    "crm_customer",
+    "core_party",
+    "sales_order"
+   ],
+   "ms": 4145
+  },
+  "money coming in each month": {
+   "sql": "SELECT strftime('%Y-%m', bp.paid_on) AS month,\n       SUM(bp.amount) AS money_in\nFROM billing_payment bp\nWHERE bp.status = 'settled'\nGROUP BY strftime('%Y-%m', bp.paid_on)\nORDER BY month",
+   "columns": [
+    "month",
+    "money_in"
+   ],
+   "rows": [
+    [
+     "2025-01",
+     5573.48
+    ],
+    [
+     "2025-02",
+     4221.07
+    ],
+    [
+     "2025-03",
+     3486.06
+    ],
+    [
+     "2025-04",
+     7677.99
+    ],
+    [
+     "2025-05",
+     3248.67
+    ],
+    [
+     "2025-06",
+     1888.1899999999998
+    ],
+    [
+     "2025-07",
+     2262.69
+    ],
+    [
+     "2025-08",
+     7855.219999999999
+    ]
+   ],
+   "more": true,
+   "tables": [
+    "v_monthly_revenue",
+    "v_supplier_spend",
+    "v_customer_balance",
+    "crm_opportunity",
+    "sales_invoice_draft",
+    "billing_credit_note",
+    "billing_payment",
+    "billing_tax_rate",
+    "crm_customer",
+    "sales_order",
+    "billing_invoice",
+    "core_country"
+   ],
+   "ms": 3241
+  },
+  "things we're running out of": {
+   "sql": "SELECT w.code AS warehouse_code,\n       w.name AS warehouse_name,\n       p.sku,\n       p.name AS product_name,\n       s.shortfall\nFROM main.v_stock_shortfall s\nJOIN main.cat_product p ON p.id = s.id_product\nJOIN main.inv_warehouse w ON w.id = s.id_warehouse\nORDER BY s.shortfall DESC",
+   "columns": [
+    "warehouse_code",
+    "warehouse_name",
+    "sku",
+    "product_name",
+    "shortfall"
+   ],
+   "rows": [
+    [
+     "LON",
+     "London DC",
+     "SKU-0163",
+     "Chickpeas 400g",
+     34.0
+    ],
+    [
+     "SFO",
+     "San Francisco DC",
+     "SKU-0157",
+     "Balsamic Vinegar 250ml",
+     32.0
+    ],
+    [
+     "LON",
+     "London DC",
+     "SKU-0130",
+     "Basmati Rice 5kg",
+     29.0
+    ],
+    [
+     "LON",
+     "London DC",
+     "SKU-0172",
+     "Vanilla Pods 5g",
+     29.0
+    ],
+    [
+     "LON",
+     "London DC",
+     "SKU-0121",
+     "Espresso Beans 1kg",
+     24.0
+    ],
+    [
+     "LON",
+     "London DC",
+     "SKU-0124",
+     "Green Tea 100g",
+     23.0
+    ],
+    [
+     "BER",
+     "Berlin DC",
+     "SKU-0103",
+     "Olive Oil 1L",
+     22.0
+    ],
+    [
+     "BER",
+     "Berlin DC",
+     "SKU-0154",
+     "Honey 500g",
+     19.0
+    ]
+   ],
+   "more": true,
+   "tables": [
+    "cat_product",
+    "v_stock_shortfall",
+    "inv_movement",
+    "v_supplier_spend",
+    "sales_invoice_draft",
+    "cat_price_list_item",
+    "v_employee_headcount",
+    "v_customer_balance",
+    "cat_category",
+    "inv_warehouse",
+    "sales_order",
+    "cat_price_list",
+    "crm_customer"
+   ],
+   "ms": 3442
+  },
+  "how many people work in each team": {
+   "sql": "SELECT department, headcount FROM main.v_employee_headcount",
+   "columns": [
+    "department",
+    "headcount"
+   ],
+   "rows": [
+    [
+     "Customer Service",
+     11
+    ],
+    [
+     "Engineering",
+     6
+    ],
+    [
+     "Finance",
+     10
+    ],
+    [
+     "Operations",
+     4
+    ],
+    [
+     "Sales",
+     9
+    ]
+   ],
+   "more": false,
+   "tables": [
+    "v_employee_headcount",
+    "hr_employee",
+    "v_customer_balance",
+    "crm_opportunity",
+    "v_supplier_spend",
+    "sales_order_line",
+    "crm_customer",
+    "v_monthly_revenue",
+    "core_party",
+    "hr_department",
+    "cat_product",
+    "sales_order"
+   ],
+   "ms": 1801
+  },
+  "parcels that arrived late": {
+   "sql": "SELECT s.id, s.tracking_number, s.id_order, s.id_carrier, s.id_warehouse, s.dispatched_at, s.promised_at, s.delivered_at, s.status, s.freight_cost\nFROM main.ship_shipment AS s\nWHERE s.delivered_at IS NOT NULL\n  AND s.promised_at IS NOT NULL\n  AND s.delivered_at > s.promised_at\nORDER BY s.delivered_at",
+   "columns": [
+    "id",
+    "tracking_number",
+    "id_order",
+    "id_carrier",
+    "id_warehouse",
+    "dispatched_at",
+    "promised_at",
+    "delivered_at",
+    "status",
+    "freight_cost"
+   ],
+   "rows": [
+    [
+     55,
+     "TRK031668736",
+     109,
+     2,
+     1,
+     "2025-01-03",
+     "2025-01-05",
+     "2025-01-08",
+     "delayed",
+     67.43
+    ],
+    [
+     19,
+     "TRK029528738",
+     37,
+     1,
+     1,
+     "2025-01-17",
+     "2025-01-18",
+     "2025-01-23",
+     "delayed",
+     4.7
+    ],
+    [
+     56,
+     "TRK070700826",
+     111,
+     2,
+     2,
+     "2025-03-02",
+     "2025-03-04",
+     "2025-03-06",
+     "delayed",
+     21.73
+    ],
+    [
+     26,
+     "TRK034911549",
+     51,
+     1,
+     3,
+     "2025-03-22",
+     "2025-03-23",
+     "2025-03-24",
+     "delayed",
+     55.54
+    ],
+    [
+     14,
+     "TRK072869781",
+     27,
+     3,
+     2,
+     "2025-03-29",
+     "2025-04-03",
+     "2025-04-06",
+     "delayed",
+     71.8
+    ],
+    [
+     15,
+     "TRK089337922",
+     29,
+     2,
+     2,
+     "2025-05-25",
+     "2025-05-27",
+     "2025-05-29",
+     "delayed",
+     41.64
+    ],
+    [
+     39,
+     "TRK088831855",
+     77,
+     3,
+     3,
+     "2025-05-23",
+     "2025-05-28",
+     "2025-06-01",
+     "delayed",
+     75.93
+    ],
+    [
+     34,
+     "TRK056239919",
+     67,
+     1,
+     2,
+     "2025-07-17",
+     "2025-07-18",
+     "2025-07-25",
+     "delayed",
+     24.99
+    ]
+   ],
+   "more": true,
+   "tables": [
+    "ship_shipment",
+    "v_order_fulfilment",
+    "ship_shipment_line",
+    "inv_movement",
+    "sup_purchase_order",
+    "sales_invoice_draft",
+    "sales_order",
+    "v_stock_shortfall",
+    "inv_warehouse",
+    "ship_carrier",
+    "sales_order_line",
+    "cat_product",
+    "sup_supplier",
+    "sales_quote",
+    "core_address",
+    "crm_customer",
+    "sales_order_status"
+   ],
+   "ms": 3238
+  },
+  "what we spend with vendors": {
+   "sql": "SELECT s.vendor_number, p.display_name, v.year, v.spend FROM main.v_supplier_spend v JOIN main.sup_supplier s ON s.vendor_number = v.vendor_number JOIN main.core_party p ON p.id = s.id_party ORDER BY v.year DESC, v.spend DESC",
+   "columns": [
+    "vendor_number",
+    "display_name",
+    "year",
+    "spend"
+   ],
+   "rows": [
+    [
+     "V-0412",
+     "Jonas Weber",
+     2026,
+     15264.73
+    ],
+    [
+     "V-0405",
+     "Yuki Sato",
+     2026,
+     11316.400000000001
+    ],
+    [
+     "V-0411",
+     "Priya Nair",
+     2026,
+     8357.64
+    ],
+    [
+     "V-0410",
+     "Elena Rossi",
+     2026,
+     7750.67
+    ],
+    [
+     "V-0407",
+     "Omar Haddad",
+     2026,
+     7375.49
+    ],
+    [
+     "V-0409",
+     "Sam Okonkwo",
+     2026,
+     7326.07
+    ],
+    [
+     "V-0402",
+     "Ben Sharma",
+     2026,
+     6144.66
+    ],
+    [
+     "V-0406",
+     "Nina Petrov",
+     2026,
+     4622.8099999999995
+    ]
+   ],
+   "more": true,
+   "tables": [
+    "v_supplier_spend",
+    "sup_supplier",
+    "sup_purchase_order_line",
+    "cat_price_list_item",
+    "sales_quote_line",
+    "cat_product",
+    "ship_shipment",
+    "v_monthly_revenue",
+    "core_party",
+    "sup_purchase_order",
+    "cat_price_list",
+    "sales_quote",
+    "cat_category",
+    "inv_warehouse",
+    "ship_carrier",
+    "sales_order"
+   ],
+   "ms": 2427
+  },
+  "salary by employee |roles=payroll": {
+   "sql": "SELECT e.id AS id_employee, e.employee_number, p.display_name, d.name AS department, c.effective_from, c.annual_amount, c.currency, c.pay_grade FROM main.hr_compensation c JOIN main.hr_employee e ON e.id = c.id_employee LEFT JOIN main.core_party p ON p.id = e.id_party LEFT JOIN main.hr_department d ON d.id = e.id_department ORDER BY p.display_name, c.effective_from",
+   "columns": [
+    "id_employee",
+    "employee_number",
+    "display_name",
+    "department",
+    "effective_from",
+    "annual_amount",
+    "currency",
+    "pay_grade"
+   ],
+   "rows": [
+    [
+     1,
+     "E-0101",
+     "Ada Okafor",
+     "Engineering",
+     "2026-01-01",
+     117000.0,
+     "GBP",
+     "G4"
+    ],
+    [
+     21,
+     "E-0121",
+     "Ada Okafor",
+     "Finance",
+     "2026-01-01",
+     70000.0,
+     "GBP",
+     "G3"
+    ],
+    [
+     17,
+     "E-0117",
+     "Aiko Tanaka",
+     "Customer Service",
+     "2026-01-01",
+     69000.0,
+     "GBP",
+     "G5"
+    ],
+    [
+     37,
+     "E-0137",
+     "Aiko Tanaka",
+     "Customer Service",
+     "2026-01-01",
+     108000.0,
+     "GBP",
+     "G3"
+    ],
+    [
+     2,
+     "E-0102",
+     "Ben Sharma",
+     "Customer Service",
+     "2026-01-01",
+     85000.0,
+     "GBP",
+     "G3"
+    ],
+    [
+     22,
+     "E-0122",
+     "Ben Sharma",
+     "Customer Service",
+     "2026-01-01",
+     138000.0,
+     "GBP",
+     "G6"
+    ],
+    [
+     14,
+     "E-0114",
+     "Carlos Vega",
+     "Sales",
+     "2026-01-01",
+     92000.0,
+     "GBP",
+     "G6"
+    ],
+    [
+     34,
+     "E-0134",
+     "Carlos Vega",
+     "Operations",
+     "2026-01-01",
+     33000.0,
+     "GBP",
+     "G4"
+    ]
+   ],
+   "more": true,
+   "tables": [
+    "hr_compensation",
+    "v_employee_headcount",
+    "hr_employee",
+    "v_supplier_spend",
+    "v_monthly_revenue",
+    "v_customer_balance",
+    "billing_payment",
+    "sales_invoice_draft",
+    "core_party",
+    "hr_department",
+    "crm_customer",
+    "billing_invoice",
+    "sales_order"
+   ],
+   "ms": 3589
+  },
+  "salary by employee": {
+   "error": "refused",
+   "detail": "the model said the selected tables cannot answer this, 3 times. That is usually selection, not the model: try --top-k higher, or a hint.",
+   "tables": [
+    "v_employee_headcount",
+    "hr_employee",
+    "v_supplier_spend",
+    "v_monthly_revenue",
+    "v_customer_balance",
+    "billing_payment",
+    "sales_invoice_draft",
+    "sup_purchase_order",
+    "core_party",
+    "hr_department",
+    "crm_customer",
+    "billing_invoice",
+    "sales_order",
+    "sup_supplier"
+   ]
+  }
+ }
+}

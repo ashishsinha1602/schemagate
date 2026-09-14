@@ -944,7 +944,17 @@ class StudioState:
         if body.get("principal"):
             who = Principal(str(body["principal"]),
                             roles=frozenset(str(r) for r in body.get("roles") or []))
-        reranker = self._provider() if self.settings.get("rerank") else None
+        # Reranking is optional and selection is not allowed to fail with it.
+        # A provider that is missing, still loading, or broken means no
+        # reranking -- not a failed question. The bare `self._provider()` here
+        # used to build the model inline and, with a local one, take the whole
+        # server down.
+        reranker = None
+        if self.settings.get("rerank"):
+            try:
+                reranker = self._provider()
+            except Exception:                                # noqa: BLE001
+                reranker = None
         sel = cat.select(question, top_k=top_k, principal=who, reranker=reranker)
         visible = [d for d in cat._docs.values() if cat._visible(d, who)]
         hidden = [d.qname for d in cat._docs.values() if not cat._visible(d, who)]
