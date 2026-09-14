@@ -121,6 +121,24 @@ Two things make that survivable:
 Pass `device="cuda"` to `LocalProvider` if you have a GPU, and the numbers
 above stop mattering.
 
+## It needs the memory to be free, not just installed
+
+The weights are memory-mapped, and on Windows a mapped page that cannot be
+brought in does not raise `MemoryError` -- the process takes an access
+violation and stops existing, with nothing logged. Measured with the same
+worker, the same model, the same laptop, nothing else changed:
+
+| free RAM when it loaded | result |
+|---|---|
+| 3.0 GB | loads, answers |
+| 1.2 GB (2.5 GB held by another process) | exit `0xC0000005` |
+
+Inside the Studio this is what it looks like: connect a database, ask a
+question, and the page shows nothing -- the server is gone, so there is nobody
+left to report an error. If the machine has less than about 3.5 GB free with
+the Studio and a browser already open, use the Ollama option, which keeps the
+weights in a process of their own.
+
 ## What it is good at, and what it is not
 
 **Writing descriptions: yes.** One sentence per table is a small, bounded job,
