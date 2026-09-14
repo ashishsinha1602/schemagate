@@ -1912,7 +1912,7 @@ if (typeof module === "object" && module.exports) module.exports = blakejs;
         note.textContent =
           v === "hf" ? "Runs the model on Hugging Face's servers, so nothing is downloaded and nothing loads here -- but this is NOT local: the table names, columns and comments in the prompt leave your machine. Needs an HF token with inference access. Use the Local server option above if the schema must stay on the box."
         : v === "ollama" ? "Talks to a model server already running on this machine -- Ollama (localhost:11434) or LM Studio. Nothing leaves the machine, no key, nothing downloaded through this page, and the Studio stays light because the model lives in the other process. Install Ollama, run `ollama pull qwen2.5:7b`, and put the tag above."
-        : v === "local" ? "Loads the model inside this server: pip install 'schemagate[huggingface]' (about 2 GB of wheels), then about 3 GB of weights on first use, ~90s to load and ~6 GB of RAM held for as long as the Studio runs. Works, but the Ollama option above is lighter and faster unless you have a reason to want it in-process."
+        : v === "local" ? "Loads the model inside this server: pip install 'schemagate[huggingface]' (about 2 GB of wheels), then 2.9 GB of weights on first use. The first answer waits 15-40s for the load; after that about 6s each, with ~3 GB of RAM held for as long as the Studio runs. Works, but the Ollama option above is lighter and faster unless you have a reason to want it in-process."
         : v === "none" ? ""
         : "The key stays in this process and is never written to disk.";
       }

@@ -94,12 +94,20 @@ On a CPU laptop, measured:
 
 | | |
 |---|---|
-| loading the model, before the first description | **91 s** |
-| resident memory while running | **~6 GB** |
-| per description | seconds, not milliseconds |
+| loading the model, before the first answer | **16–37 s** (whatever the OS has cached) |
+| every answer after that, in the same process | **~6 s** |
+| resident memory while running | **~3 GB** |
+| weights on disk | 2.9 GB |
 | second run over the same schema | free — see caching |
 
-The load happens once per process. On a 1,200-object schema, cataloguing with
+Measured on a CPU laptop with the weights already downloaded. Half precision
+and a streaming load (0.1.51) are what make it 3 GB rather than the 5.8 GB
+transformers' float32 default costs; they do not make it load faster.
+
+The load happens once per process, which is the part that matters and the part
+that was broken until 0.1.51: the Studio rebuilt the provider on every request,
+so each question paid the whole load again and then reported that no model was
+configured. On a 1,200-object schema, cataloguing with
 a local model is a coffee-break job, not an interactive one; with a hosted
 model it is minutes.
 
