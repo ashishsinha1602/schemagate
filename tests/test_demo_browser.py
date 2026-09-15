@@ -134,14 +134,51 @@ def test_the_two_step_identity_story_changes_the_answer(page):
     assert "no sql was written" in page.locator("#answerRows").inner_text().lower()
 
 
-def test_every_suggested_question_has_a_recorded_answer(page):
-    """A button that leads to 'no recorded answer' is a broken button."""
-    _pick(page, "Commerce")
+SCHEMAS = ["Commerce", "Clinical claims", "Claims warehouse", "Bank ledger",
+           "IoT fleet", "Hostile"]
+
+
+@pytest.mark.parametrize("title", SCHEMAS)
+def test_every_suggested_question_answers_on_every_schema(page, title):
+    """A button that leads to "no recorded answer" is a broken button.
+
+    Parametrised over all six databases because the first version of this
+    checked Commerce only -- and Commerce was the only schema with any
+    recordings, so five sixths of the demo was dead and the test was green.
+    """
+    _pick(page, title)
     ex = page.locator(".examples button")
-    missing = []
+    assert ex.count() > 0, "no suggested questions on %s" % title
+    dead = []
     for i in range(ex.count()):
+        q = ex.nth(i).inner_text()
         ex.nth(i).click()
-        page.wait_for_timeout(900)
-        if page.locator("#answerRows tr").count() < 2:
-            missing.append(ex.nth(i).inner_text())
-    assert not missing, missing
+        page.wait_for_timeout(700)
+        body = page.locator("#answerRows").inner_text().lower()
+        if "no answer was recorded" in body:
+            dead.append(q)
+    assert not dead, "%s: %d question(s) with no recording: %s" % (title, len(dead), dead[:4])
+
+
+def test_no_answer_is_served_from_the_wrong_database(page):
+    """Two schemas ask "paid amount per claim line" in exactly those words.
+
+    Keyed on the question alone, whichever was recorded last won and the other
+    schema showed rows from a database it was not looking at.
+    """
+    shared = "paid amount per claim line"
+    seen = {}
+    for title in ("Clinical claims", "Claims warehouse"):
+        _pick(page, title)
+        ex = page.locator(".examples button", has_text=shared)
+        if ex.count() == 0:
+            continue
+        ex.first.click()
+        page.wait_for_timeout(1200)
+        page.locator("#answerSqlWrap summary").click()
+        page.wait_for_timeout(200)
+        seen[title] = page.locator("#answerSql").inner_text().strip()
+        page.locator("#answerSqlWrap summary").click()
+    if len(seen) == 2:
+        a, b = list(seen.values())
+        assert a != b, "both schemas served identical SQL for %r" % shared
