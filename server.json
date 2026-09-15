@@ -6,16 +6,22 @@
     "url": "https://github.com/ashishsinha1602/schemagate",
     "source": "github"
   },
-  "version": "0.1.0",
+  "version": "0.1.53",
   "packages": [
     {
       "registry_type": "pypi",
       "identifier": "schemagate",
-      "version": "0.1.0",
+      "version": "0.1.53",
       "runtime_hint": "python",
       "package_arguments": [
-        {"type": "positional", "value": "-m"},
-        {"type": "positional", "value": "schemagate.mcp_server"}
+        {
+          "type": "positional",
+          "value": "-m"
+        },
+        {
+          "type": "positional",
+          "value": "schemagate.mcp_server"
+        }
       ],
       "environment_variables": [
         {
