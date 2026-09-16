@@ -11,6 +11,26 @@ tables the person asking isn't allowed to read.
 
 [Demo](https://ashishsinha1602.github.io/schemagate/) · [Install](https://ashishsinha1602.github.io/schemagate/install/) · [Benchmarks](https://ashishsinha1602.github.io/schemagate/benchmarks/) · [Local models](https://ashishsinha1602.github.io/schemagate/local-models/) · [What it costs](https://ashishsinha1602.github.io/schemagate/cost/) · [Coming from Vanna](https://ashishsinha1602.github.io/schemagate/vanna-alternative/)
 
+Same question, two callers, no database and no key:
+
+```bash
+schemagate demo "salary by employee"                                     # hr_compensation absent
+schemagate demo "salary by employee" --principal okta:hr --role payroll  # now it is first
+```
+
+Absent, not ranked low. A table the caller may not read never enters the
+prompt, so no rewording of the question reaches it and there is nothing to
+filter out of the answer afterwards.
+
+![Same question, two callers. Without the payroll role hr_compensation is absent from the prompt; with it, it is the first table.](docs/media/before-after.png)
+
+*[Try it in the browser](https://ashishsinha1602.github.io/schemagate/) — no
+install, no database, no model call.*
+
+## And it answers
+
+The selection is a prompt, so the rest follows:
+
 ```bash
 pip install schemagate
 schemagate demo "which customers owe us money" --answer --provider anthropic --model <model-id>
@@ -45,37 +65,11 @@ schemagate select "which customers owe us money" \
 No key? Drop `--provider` and it prints a prompt to paste into any chat, then
 run the SQL it gives you back with `--sql "SELECT ..."`.
 
-## The part that is not a search box
-
-Same question, two callers — two commands, still no database:
-
-```bash
-schemagate demo "salary by employee"                                     # hr_compensation absent
-schemagate demo "salary by employee" --principal okta:hr --role payroll  # now it is first
-```
-
-Absent, not ranked low. A table the caller may not read never enters the
-prompt, so no rewording of the question reaches it and there is nothing to
-filter out of the answer afterwards.
-
-![Same question, two callers. Without the payroll role hr_compensation is absent from the prompt; with it, it is the first table.](docs/media/before-after.png)
-
-*[Try it in the browser](https://ashishsinha1602.github.io/schemagate/) — no
-install, no database, no model call.*
-
-```bash
-pip install schemagate
-schemagate demo
-```
-
-That runs against a bundled 42-object schema. No database, no key, nothing to
-configure. Then try it with the questions people actually type:
+More of the bundled schema, with the questions people actually type:
 
 ```bash
 schemagate demo "which customers owe us money"
-schemagate demo "salary by employee"                                   # restricted table absent
-schemagate demo "salary by employee" --principal okta:hr --role payroll  # now it's there
-schemagate demo "late shipments by carrier" --prompt                    # the DDL the model gets
+schemagate demo "late shipments by carrier" --prompt   # the DDL the model gets
 ```
 
 Against your own database it's the same shape:
@@ -712,6 +706,14 @@ object. An object with no grant row is **left untouched** and named in
 `report.objects_unmatched` — silence is not a denial, and restricting on
 absence would break a working catalog the first time a connection could not
 see everything.
+
+**It reads grants, so it does not see row-level policies.** Measured on Oracle
+26ai: a caller whose Virtual Private Database policy admits zero rows still
+holds `SELECT` in `ALL_TAB_PRIVS`, still appears in `ALL_TABLES`, and is still
+put in front of the model with every column. Nothing leaks -- the database
+enforces the policy -- but the prompt names a table that caller cannot get a
+row out of. [docs/row-level-security.md](docs/row-level-security.md) has the
+measurement, what to do about it today, and the fix.
 
 ## Databases
 

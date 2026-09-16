@@ -25,8 +25,8 @@ ROOT = Path(__file__).resolve().parent.parent
 SITE = ROOT / "site"
 BUILD = ROOT / "scripts" / "build_site.py"
 
-PAGES = ["/", "/install/", "/benchmarks/", "/local-models/", "/cost/",
-         "/vanna-alternative/"]
+PAGES = ["/", "/install/", "/benchmarks/", "/local-models/",
+         "/row-level-security/", "/cost/", "/vanna-alternative/"]
 
 pytestmark = pytest.mark.skipif(not BUILD.is_file(), reason="no site builder in this tree")
 
@@ -126,7 +126,8 @@ def test_sitemap_and_llms_txt_list_every_page(site: Path):
     for p in PAGES:
         assert f"/schemagate{p}" in sitemap or sitemap.count(p) , f"{p} missing from sitemap.xml"
     llms = (site / "llms.txt").read_text("utf-8")
-    for p in ["/install/", "/benchmarks/", "/local-models/", "/cost/"]:
+    for p in ["/install/", "/benchmarks/", "/local-models/",
+              "/row-level-security/", "/cost/"]:
         assert p in llms, f"{p} missing from llms.txt"
 
 
