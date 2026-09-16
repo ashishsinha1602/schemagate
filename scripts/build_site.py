@@ -173,6 +173,19 @@ def build_local_models() -> None:
         "/local-models/", body), "utf-8")
 
 
+def build_rls() -> None:
+    body = render(ROOT / "docs" / "row-level-security.md")
+    body += (f'<p><a class="cta" href="{REPO}/blob/main/docs/row-level-security.md">On GitHub</a>'
+             '<a class="cta" href="/schemagate/">Try the demo</a></p>')
+    (SITE / "row-level-security").mkdir(parents=True, exist_ok=True)
+    (SITE / "row-level-security" / "index.html").write_text(page(
+        "Row-level security and schema selection — schemagate",
+        "Measured on Oracle 26ai: a caller whose VPD policy admits no rows still holds "
+        "SELECT in the data dictionary, so a grant-based catalogue still shows the model "
+        "the table. What to do about it, and the fix.",
+        "/row-level-security/", body), "utf-8")
+
+
 def build_install() -> None:
     """pip, Docker and the OCI stack.
 
@@ -300,7 +313,7 @@ def build_misc() -> None:
     today = dt.date.today().isoformat()
     urls = "".join(f"<url><loc>{BASE}{p}</loc><lastmod>{today}</lastmod></url>"
                    for p in ["/", "/install/", "/benchmarks/", "/local-models/",
-                             "/cost/", "/vanna-alternative/"])
+                             "/row-level-security/", "/cost/", "/vanna-alternative/"])
     (SITE / "sitemap.xml").write_text(
         f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>', "utf-8")
     (SITE / "llms.txt").write_text(f"""# schemagate
@@ -321,6 +334,7 @@ Oracle 23ai VECTOR store.
 - Install, Docker and the OCI stack: {BASE}/install/
 - Benchmarks (Spider, BIRD, Spider 2.0): {BASE}/benchmarks/
 - Running it with a local model, no API key: {BASE}/local-models/
+- Row-level security (VPD) and what grant-based scoping misses: {BASE}/row-level-security/
 - Token cost table and calculator: {BASE}/cost/
 - Migrating from Vanna: {BASE}/vanna-alternative/
 - What was tested and what broke: {REPO}/blob/main/TESTING.md
@@ -332,6 +346,7 @@ def main() -> None:
         shutil.rmtree(SITE)
     SITE.mkdir()
     build_index(); build_install(); build_benchmarks(); build_local_models()
+    build_rls()
     build_vanna(); build_cost(); build_misc()
     for p in sorted(SITE.rglob("*")):
         if p.is_file():

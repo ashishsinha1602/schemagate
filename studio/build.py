@@ -39,6 +39,34 @@ descriptions = {
     },
 }
 
+# --------------------------------------------------------------------------
+# Refuse to run when the template is behind the file this would overwrite.
+#
+# This script has not been run since 0.1.33. Everything since -- the
+# answer-first layout, the vertical database picker, the identity controls in
+# the rail, the recorded answers -- went straight into
+# src/schemagate/studio.html, which is what scripts/build_site.py publishes and
+# what `schemagate studio` serves. The template is around 1,300 lines behind
+# it, so running this would silently revert all of it: a build that destroys
+# the thing it claims to produce.
+#
+# Rather than delete the pipeline, refuse while the output is far larger than
+# what would replace it, and say what to do instead. --force is for whoever
+# eventually reconciles the two.
+existing = PKG / "studio.html"
+if existing.is_file() and "--force" not in sys.argv:
+    have = len(existing.read_text("utf-8").splitlines())
+    tmpl = len((HERE / "studio.template.html").read_text("utf-8").splitlines())
+    if have > tmpl + 200:
+        sys.exit(
+            "refusing to build: %s is %d lines, the template is %d.\n"
+            "The template stopped tracking that file at 0.1.33, so this build\n"
+            "would revert every change since. Edit src/schemagate/studio.html\n"
+            "directly (its JSON islands are read and written by\n"
+            "studio/islands.py), or re-run with --force once the template has\n"
+            "been brought back into line." % (existing, have, tmpl))
+
+
 template = (HERE / "studio.template.html").read_text("utf-8")
 html = (template
         .replace("__BLAKE__", (HERE / "blake2b.browser.js").read_text("utf-8"))
