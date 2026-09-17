@@ -210,7 +210,63 @@ class ObjectDoc:
         """The columns this caller may see, in declaration order."""
         return [c for c in self.columns if allowed(c.roles, principal)]
 
-    def render_ddl(self, max_columns: int = 40, principal: Any = None) -> str:
+    def choose_columns(self, visible: List[Column], max_columns: int,
+                       question: Optional[str] = None) -> List[Column]:
+        """Which columns survive the budget, in declaration order.
+
+        Without a question this is `visible[:max_columns]`, which is what it
+        has always been. The problem with that as the only behaviour is that
+        it is positional: on a 200-column fact table the column the question
+        needs may be number 147 and is cut, while the prompt pays for 40
+        nobody asked about. Truncation is not selection.
+
+        Three rules, in order:
+
+        * Keys are kept whatever the question. Dropping a primary or foreign
+          key does not cost a column, it costs a join -- the model can no
+          longer connect this table to the one it was expanded alongside, and
+          an unjoinable table in the prompt is worse than a missing one.
+        * Then by overlap with the question, over the column's name, its
+          comment and any sampled values, which are the three places a
+          column's meaning is written down. Name matches count double: a
+          comment repeats the domain's vocabulary the way object descriptions
+          do, and that is what diluted IDF on the 1,245-object schema.
+        * Ties break on declaration order, so the result is deterministic for
+          a given question and schema rather than dependent on dict order.
+
+        Selection and rendering are separate on purpose: whatever is chosen
+        comes back in declaration order, so the DDL still reads like the DDL.
+        Reordering it would churn every prompt and buy nothing.
+        """
+        if len(visible) <= max_columns:
+            return visible
+        if not question:
+            return visible[:max_columns]
+
+        from .embedder import tokenize
+
+        want = set(tokenize(question))
+        if not want:
+            return visible[:max_columns]
+
+        key_cols = {c for fk in self.foreign_keys for c in fk.columns}
+        ranked = []
+        for position, col in enumerate(visible):
+            is_key = bool(col.pk) or col.name in key_cols
+            score = 2.0 * len(want & set(tokenize(col.name)))
+            if col.comment:
+                score += len(want & set(tokenize(col.comment)))
+            if col.values:
+                text = " ".join(str(v) for v in col.values)
+                score += len(want & set(tokenize(text)))
+            # not is_key: False sorts first, so keys lead. -score: descending.
+            ranked.append((not is_key, -score, position, col))
+
+        chosen = sorted(ranked)[:max_columns]
+        return [entry[3] for entry in sorted(chosen, key=lambda e: e[2])]
+
+    def render_ddl(self, max_columns: int = 40, principal: Any = None,
+                   question: Optional[str] = None) -> str:
         """The DDL for this object as one caller may see it.
 
         A restricted column is absent -- not masked, not renamed, no REDACTED
@@ -218,19 +274,30 @@ class ObjectDoc:
         model the table holds one, and a model that knows a column exists can
         ask about it, join on it, or mention it in an explanation. A name that
         was never in the prompt cannot be referenced.
+
+        ``question`` only decides *which* columns are kept when there are more
+        than ``max_columns``; it can never add one, and it is applied after
+        ``visible_columns``, so it cannot reach a column this caller may not
+        see. Omit it and the behaviour is exactly what it was.
         """
         head = f"{self.kind} {self.qname}"
         note = _one_line(self.hint or _sentence(self.description))
         lines = [f"-- {note}" if note else "", head + " ("]
         visible = self.visible_columns(principal)
-        cols = visible[:max_columns]
+        cols = self.choose_columns(visible, max_columns, question)
         for c in cols:
             decl, note = c.render_parts()
             # Comma first, then the comment. The other order hands the list's
             # last value a trailing comma it does not own.
             lines.append(f"  {decl},  -- {note}" if note else f"  {decl},")
-        if len(visible) > max_columns:
-            lines.append(f"  -- ...{len(visible) - max_columns} more columns")
+        if len(visible) > len(cols):
+            # Say which kind of omission it was. "the rest" after a positional
+            # cut and "the least relevant" after a ranked one are different
+            # claims, and a reader who cannot tell them apart cannot tell
+            # whether the column they wanted was considered.
+            how = " (least relevant to the question)" if question else ""
+            lines.append(
+                f"  -- ...{len(visible) - len(cols)} more columns{how}")
         # The last column carries no comma. With the comma now before the
         # comment it is no longer the last character, so trim it where it is.
         if lines[-1].endswith(","):
@@ -295,8 +362,15 @@ class Selection:
         return [d.qname for d in self.objects]
 
     def prompt_fragment(self, max_columns: int = 40) -> str:
-        return "\n\n".join(d.render_ddl(max_columns, principal=self.principal)
-                            for d in self.objects)
+        """The question is passed down so a table wider than the budget keeps
+        the columns this question needs rather than its first `max_columns`.
+        It is the selection's own question, not a caller's argument, for the
+        same reason `principal` is: the fragment and the audit record have to
+        describe the same request."""
+        return "\n\n".join(
+            d.render_ddl(max_columns, principal=self.principal,
+                         question=self.question)
+            for d in self.objects)
 
     def to_dict(self) -> Dict[str, Any]:
         """A record of what was shown to whom, and what was held back.
