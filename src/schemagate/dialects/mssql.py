@@ -21,14 +21,17 @@ Same three hooks as the other two modules, and the same reasons.
   arrives as ``NVARCHAR(20)`` and the name the user would write is lost.
   ``sys.types`` keeps both, so the prompt can carry the name and the base.
 
-**Not exercised against a live SQL Server.** The machine this was written on
-could not spare the ~2 GB the image needs, and rather than claim otherwise:
-the queries below follow the documented shapes of ``sys.schemas``,
-``sys.columns`` and ``sys.types``, the module registers and its predicates are
-tested, but the type-fill path has not been run against a real instance.
-``FILL_UNKNOWN_TYPES`` is called through ``fill_unknown_types``, which
-swallows exceptions, so a query that is wrong on a real server degrades to the
-behaviour before this module existed rather than breaking reflection.
+Exercised against SQL Server 2022 (16.0.4295.3) by
+``tests/test_dialect_mssql_live.py``, which the ``mssql`` workflow runs on
+every push against a service container -- the alias type that reflection
+resolves away, the two types SQLAlchemy renders as NULL, and ``max_length``
+being bytes rather than characters, all of which are invisible to a unit test.
+``schemagate certify`` passes its ten checks on the same server.
+
+``FILL_UNKNOWN_TYPES`` is still called through ``fill_unknown_types``, which
+swallows exceptions, so a query that goes wrong on a version this has not seen
+degrades to the behaviour before this module existed rather than breaking
+reflection.
 """
 from __future__ import annotations
 
