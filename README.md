@@ -391,19 +391,39 @@ Six test schemas ship with the library. Run `python tests/bench.py` and you
 get all of this printed back. `TESTING.md` is the full record of what was
 tested, what broke, and what was found to be the database rather than schemagate.
 
+Every number below is printed by that run, and the run fails if any of them
+stops matching — `bench.py` reads this table back and compares.
+
+**recall@6** here is the share of *gold tables* retrieved in the top six,
+micro-averaged over questions. The **literal** column asks questions that
+reuse the schema's own vocabulary; the **business words** column asks for the
+same things the way a person does, with no vocabulary overlap. Both matter and
+they disagree, which is the point of showing both.
+
+| schema | objects | recall@6, literal | recall@6, business words |
+|---|---|---|---|
+| commerce | 42 | 100% | 50.0% |
+| clinical claims | 27 | 100% | 46.7% |
+| claims warehouse (star) | 51 | 100% | 50.0% |
+| bank ledger and trading | 39 | 100% | 64.3% |
+| IoT telemetry | 40 | 100% | 60.0% |
+| hostile (4 schemas, copies of everything) | 260 | 100% | 85.7% |
+
 | | |
 |---|---|
-| recall@6, 12 questions, 42-object schema | 100% |
-| recall@6, same schema, questions phrased in business words | 50% |
-| recall@6, unrelated 27-object clinical schema | 100% |
-| recall@6, hostile 260-object schema | 100% |
-| recall@6, 51-object claims star schema with 15 backup/staging copies | 100% |
-| recall@6, 39-object bank ledger and trading book | 100% |
-| recall@6, 40-object IoT telemetry fleet | 100% |
 | real table beats its backup/staging copy, 19 cases across schemas | 19/19 |
 | recall without foreign-key expansion | 93.8% |
-| prompt tokens, full schema every call | 2,583 |
-| prompt tokens, schemagate average | 631 (−75.6%) |
+| prompt tokens, full schema every call | 2,812 |
+| prompt tokens, schemagate average | 742 (−73.6%) |
+
+Measured with the **hashed embedder** — what `pip install schemagate` gives
+you, no extras. `schemagate[huggingface]` swaps in sentence-transformers and
+the business-word numbers move a long way: on the held-out paraphrase set
+`tests/run_paraphrase_eval.py` reports 58.6% overall hashed and 82.8% with
+MiniLM. That harness counts a question as hit if *any* gold table is
+retrieved, which is a looser predicate than this table's, so its figures are
+not comparable with these — it prints which embedder it used for the same
+reason.
 
 Token counts come from an estimator built into the benchmark so the number is
 reproducible with no network and no extra install. `pip install tiktoken` and

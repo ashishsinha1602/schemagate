@@ -1,9 +1,10 @@
 """Measure business-language recall on every schema. Prints a table + misses."""
 from __future__ import annotations
 import os
-import sqlite3
 import sys
 import tempfile
+
+import sqlalchemy as sa
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
@@ -21,12 +22,42 @@ MODS = {"commerce": commerce, "health": health, "warehouse": warehouse,
         "finance": finance, "telemetry": telemetry, "complex": complex_}
 
 
+def _engine(ddl, attached):
+    """A SQLite engine with `attached` extra schemas on every connection.
+
+    Files, not ':memory:'. ATTACH is per-connection and an in-memory database
+    dies with the connection that made it, so the weights of this fixture --
+    three tables all called `account`, in three schemas -- were being created
+    and then silently dropped before bootstrap ever looked. Measured: 256
+    objects instead of 260, all in `main`, none named `account`, and no error
+    raised. Statement-by-statement rather than executescript, because the
+    ATTACHes have to be in place before the first qualified CREATE runs.
+
+    Same shape as tests/test_complex_schema.py::_build_sqlite, deliberately:
+    two builders for one fixture is how they drift.
+    """
+    base = tempfile.mkdtemp()
+    eng = sa.create_engine("sqlite:///" + os.path.join(base, "main.db"))
+
+    if attached:
+        @sa.event.listens_for(eng, "connect")
+        def _attach(dbapi_connection, _record):
+            for schema in attached:
+                dbapi_connection.execute(
+                    f"ATTACH DATABASE '{os.path.join(base, schema)}.db' AS {schema}")
+
+    with eng.begin() as conn:
+        for statement in ddl.split(";\n"):
+            if statement.strip():
+                conn.exec_driver_sql(statement)
+    return eng
+
+
 def build(name, use_hints=True, use_desc=False):
     m = MODS[name]
-    ddl = m.DDL
-    path = tempfile.mktemp(suffix=".db")
-    con = sqlite3.connect(path); con.executescript(ddl); con.commit(); con.close()
-    cat = Catalog(name=name).bootstrap(f"sqlite:///{path}")
+    attached = list(getattr(m, "ATTACHED_SCHEMAS", []))
+    eng = _engine(m.DDL, attached)
+    cat = Catalog(name=name).bootstrap(eng, schemas=["main"] + attached if attached else None)
     if use_hints:
         for t, h in getattr(m, "HINTS", {}).items():
             try: cat.hint(t, h)
@@ -49,7 +80,21 @@ def score(cat, questions, top_k=6, show=False):
     return hits, len(questions), misses
 
 
+def _embedder_name():
+    """Whichever one a Catalog would actually pick here."""
+    try:
+        return Catalog(name="_probe").embedder.name
+    except Exception:                                        # noqa: BLE001
+        return "unknown"
+
+
 def main(show_misses=("commerce", "health")):
+    # Which embedder, said out loud. The same questions score 58.6% overall on
+    # the hashed vectoriser that `pip install schemagate` gives you and 82.8%
+    # with sentence-transformers installed -- so a number from this harness
+    # means nothing without knowing which of the two produced it.
+    print(f"embedder: {_embedder_name()}"
+          f"   (SCHEMAGATE_AUTO_EMBEDDER=0 forces the built-in hashed one)")
     print(f"{'schema':<12}{'set':<9}{'recall@6':>10}   {'hit/total':>10}")
     print("-" * 46)
     tot_h = tot_n = 0

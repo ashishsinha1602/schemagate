@@ -5,6 +5,9 @@ import schema_fixture_health as health
 import schema_fixture_warehouse as warehouse
 import schema_fixture_finance as finance
 import schema_fixture_telemetry as telemetry
+import schema_fixture_complex as complex_
+import paraphrase_eval as EV
+import sqlalchemy as sa
 from schemagate import Catalog
 
 # ---- token counting -------------------------------------------------------
@@ -112,6 +115,7 @@ for q, m in wmisses:
 
 # ---- more domains: same contract -----------------------------------------
 extra = {}
+extra_cats = {}
 for label, mod in (("finance", finance), ("telemetry", telemetry)):
     c = build(ddl=mod.DDL, hint_map=mod.HINTS, name=label)
     r, _ = recall(c, 1.0, 1.0, qs=mod.GOLDEN)
@@ -120,9 +124,62 @@ for label, mod in (("finance", finance), ("telemetry", telemetry)):
         names = [d.name for d in c.select(q, top_k=8, expand_fks=False).objects]
         dec += wanted in names and (decoy not in names or names.index(wanted) < names.index(decoy))
     extra[label] = (r, dec, len(mod.DECOYS), len(c._docs), len(c.shadows()))
+    extra_cats[label] = c
     print(f"\n--- {label}: {len(c._docs)} objects, {len(c.shadows())} backup/staging copies ---")
     print(f"recall@6       {r:>9.1%}")
     print(f"real table beats its copy   {dec}/{len(mod.DECOYS)}")
+
+# ---- the hostile schema: 260 objects, four schemas, repeated names --------
+# The README has always claimed a number for this one and nothing here
+# produced it. It needs ATTACHed schemas, which is why it was skipped: three
+# of its tables are called `account`, in three different databases, and a
+# builder that loses them scores the easy half of the fixture. Same shape as
+# tests/test_complex_schema.py::_build_sqlite.
+complex_base = tempfile.mkdtemp()
+complex_eng = sa.create_engine("sqlite:///" + os.path.join(complex_base, "main.db"))
+
+
+@sa.event.listens_for(complex_eng, "connect")
+def _attach_complex(dbapi_connection, _record):
+    for schema in complex_.ATTACHED_SCHEMAS:
+        dbapi_connection.execute(
+            f"ATTACH DATABASE '{os.path.join(complex_base, schema)}.db' AS {schema}")
+
+
+with complex_eng.begin() as _conn:
+    for _stmt in complex_.DDL.split(";\n"):
+        if _stmt.strip():
+            _conn.exec_driver_sql(_stmt)
+ccat = Catalog(name="complex").bootstrap(
+    complex_eng, schemas=["main"] + list(complex_.ATTACHED_SCHEMAS))
+for _t, _h in complex_.HINTS.items():
+    try:
+        ccat.hint(_t, _h)
+    except Exception:                                        # noqa: BLE001
+        pass
+ccat.index()
+crecall, _ = recall(ccat, 1.0, 1.0, qs=complex_.GOLDEN)
+print(f"\n--- hostile: {len(ccat._docs)} objects across "
+      f"{len({d.schema for d in ccat.objects()})} schemas ---")
+print(f"recall@6       {crecall:>9.1%}   ({len(complex_.GOLDEN)} questions)")
+
+# ---- the same schemas, asked in business words ---------------------------
+# The literal sets above reuse the schema's own vocabulary. These do not, and
+# the gap is the honest part: 100% on one set and 50-83% on the other is two
+# facts about the same system, and the README used to show only the first for
+# five of the six schemas.
+para = {}
+for label, c, qs in (("commerce", cat, GOLDEN_PARAPHRASE),
+                     ("health", hcat, EV.ALL["health"]),
+                     ("warehouse", wcat, EV.ALL["warehouse"]),
+                     ("finance", extra_cats["finance"], EV.ALL["finance"]),
+                     ("telemetry", extra_cats["telemetry"], EV.ALL["telemetry"]),
+                     ("hostile", ccat, EV.ALL["complex"])):
+    r, _ = recall(c, 1.0, 1.0, qs=[(q, set(g)) for q, g in qs])
+    para[label] = r
+print("\n--- the same schemas, questions phrased in business words ---")
+for label, r in para.items():
+    print(f"{label:<12}{r:>9.1%}")
 
 # ---- prompt size ----------------------------------------------------------
 # The other half of the claim: selection is only worth doing if the prompt
@@ -157,9 +214,61 @@ for label, (r, dec, n, _, _) in extra.items():
         failures.append(f"{label}: a copy outranked its real table ({dec}/{n})")
 if reduction < 0.70:
     failures.append(f"token reduction fell to {reduction:.1%}, expected >=70%")
+
+# ---- and the README itself ------------------------------------------------
+# The line at the bottom says "README claims hold". It used to say that having
+# checked four thresholds and no claim: the README read 2,583 full-schema
+# tokens while this file printed 2,812, for several releases, and the 260-
+# object row was not produced here at all. So read the table back and compare
+# every cell. A number that has gone stale now fails the run that would have
+# published it.
+README = os.path.join(os.path.dirname(__file__), "..", "README.md")
+if os.path.exists(README):
+    md = open(README, encoding="utf-8").read()
+
+    def _claimed(pattern):
+        """The number the README prints for one row, or None."""
+        m = re.search(pattern, md)
+        return m.group(1) if m else None
+
+    measured_rows = {
+        "commerce": (1.0, para["commerce"]),
+        "clinical claims": (hrecall, para["health"]),
+        r"claims warehouse \(star\)": (wrecall, para["warehouse"]),
+        "bank ledger and trading": (extra["finance"][0], para["finance"]),
+        "IoT telemetry": (extra["telemetry"][0], para["telemetry"]),
+        r"hostile \(4 schemas, copies of everything\)": (crecall, para["hostile"]),
+    }
+    for label, (lit, par) in measured_rows.items():
+        row = re.search(r"\| *" + label + r" *\| *[\d,]+ *\| *([\d.]+)% *\| *([\d.]+)% *\|", md)
+        if not row:
+            failures.append(f"README has no benchmark row for {label!r}")
+            continue
+        for got, said, which in ((lit, row.group(1), "literal"),
+                                 (par, row.group(2), "business words")):
+            if abs(got * 100 - float(said)) > 0.05:
+                failures.append(
+                    f"README says {label} {which} {said}%, this run measured "
+                    f"{got:.1%}")
+
+    said_full = _claimed(r"\| prompt tokens, full schema every call \| ([\d,]+) \|")
+    if said_full is None:
+        failures.append("README has no full-schema token row")
+    elif int(said_full.replace(",", "")) != full:
+        failures.append(f"README says {said_full} full-schema tokens, measured {full:,}")
+
+    said_avg = _claimed(r"\| prompt tokens, schemagate average \| ([\d,]+) ")
+    if said_avg is None:
+        failures.append("README has no average token row")
+    elif int(said_avg.replace(",", "")) != round(avg):
+        failures.append(f"README says {said_avg} average tokens, measured {avg:,.0f}")
+
+    said_red = _claimed(r"\| prompt tokens, schemagate average \| [\d,]+ \(\u2212([\d.]+)%\)")
+    if said_red is not None and abs(float(said_red) - reduction * 100) > 0.05:
+        failures.append(f"README says \u2212{said_red}% reduction, measured {reduction:.1%}")
 if failures:
     print("\nBENCH FAILED:")
     for f in failures:
         print(f"  {f}")
     sys.exit(1)
-print("\nbench OK: README claims hold")
+print("\nbench OK: every number in the README table matches this run")

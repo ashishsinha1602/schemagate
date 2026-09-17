@@ -918,7 +918,15 @@ class Catalog:
         #
         # So after ranking, each informative word the question used that no
         # chosen object carries in its name gets the best object that does.
-        # Bounded, and only ever additive -- it cannot displace a ranked pick.
+        #
+        # Budget-neutral, not additive. It used to grow the selection past
+        # top_k; since 5199001 it stays inside the budget, which means that
+        # once the budget is full a coverage pick *displaces* the weakest
+        # ranked object -- see the drop below. A caller that asked for six
+        # objects gets six, and the prompt it sized stays the size it sized.
+        # Pinned and previous coverage picks are not droppable, so if nothing
+        # else remains the coverage pick is abandoned rather than the budget
+        # broken.
         dims = self.dimensions()
         uncovered = []
         if self._bm25_name is not None and self._bm25_name.idf:
