@@ -85,3 +85,25 @@ def test_a_restriction_survives_into_the_prompt_end_to_end():
 def test_the_fk_line_is_dropped_in_the_fragment_too():
     frag = cat().select("employee pay", principal=ANALYST).prompt_fragment()
     assert "pay_band" not in frag
+
+
+def test_the_reason_comment_lists_every_reason_the_code_writes():
+    """models.py names the legal `reason` values in a comment, and the comment
+    drifted twice -- `hybrid` once, then `covers`, which the coverage pass has
+    written since 5199001 while the list still said five values. A comment is
+    the only documentation this field has, so it is checked."""
+    import re
+    from pathlib import Path
+    src = Path(__file__).resolve().parent.parent / "src" / "schemagate"
+    documented = set(re.search(
+        r'reason: str = "vector"\s*#\s*([a-z |]+)',
+        (src / "models.py").read_text("utf-8")).group(1).split("|"))
+    documented = {d.strip() for d in documented if d.strip()}
+    written = set(re.findall(r'Scored\([^)]*?"([a-z]+)"\)',
+                             (src / "catalog.py").read_text("utf-8")))
+    written |= set(re.findall(r'reason = "([a-z]+)"',
+                              (src / "catalog.py").read_text("utf-8")))
+    written |= set(re.findall(r'else\s*\(?\s*"([a-z]+)"',
+                              (src / "catalog.py").read_text("utf-8")))
+    missing = written - documented
+    assert not missing, "catalog.py writes reasons the comment omits: %s" % sorted(missing)
