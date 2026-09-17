@@ -938,7 +938,7 @@ v0.1. Alpha, and the API may still move.
 
 | | |
 |---|---|
-| Reflection | certified on SQLite, PostgreSQL 16 and Oracle 26ai; SQL Server and MySQL reflect but have not been run against a live instance |
+| Reflection | certified on SQLite, PostgreSQL 16, Oracle 26ai, MySQL 8.4 and SQL Server 2022 |
 | `MemoryStore` | done |
 | AI cataloging | done, tested offline against fake providers |
 | CLI | done |

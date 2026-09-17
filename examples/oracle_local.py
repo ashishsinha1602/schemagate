@@ -9,6 +9,9 @@ Starts Oracle 26ai Free in Docker if it is not already up, builds a 219-object
 hospital schema, then answers questions against it. Re-running is cheap: the
 container and schema are reused if they are already there.
 
+Reflected with `sample_values=True`, so status-style columns carry their real
+values into the prompt.
+
     python3 schemagate_oracle.py --rebuild   # drop and rebuild the schema
     python3 schemagate_oracle.py --stop      # remove the container
 
@@ -444,7 +447,19 @@ def main():
     print(f"\nreflecting with schemagate {schemagate.__version__}...",
           end=" ", flush=True)
     t0 = time.time()
-    cat = Catalog().bootstrap(create_engine(URL))
+    # sample_values: read the distinct values of short, low-cardinality,
+    # non-personal columns so the prompt says `status IN ('denied', 'paid',
+    # 'pending')` instead of leaving the model to guess whether it is 'denied',
+    # 'DENIED' or 'D'. This schema has several such columns and a question
+    # below turns on one of them, so the default of False made this example
+    # demonstrate the problem rather than the fix.
+    #
+    # sample_budget is seconds, 30 by default: it is the only part of
+    # reflection that touches rows, so it is the only part whose cost is set by
+    # the data rather than the schema, and it stops early rather than holding
+    # up a connect on a large table.
+    cat = Catalog().bootstrap(create_engine(URL),
+                              sample_values=True, sample_budget=30.0)
     print(f"{len(cat)} objects in {time.time() - t0:.1f}s")
 
     # Two tables that must never reach the wrong caller. Applied at select

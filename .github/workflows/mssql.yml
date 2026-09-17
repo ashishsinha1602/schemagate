@@ -1,0 +1,109 @@
+# SQL Server, against a real one.
+#
+# The dialect module was written from the documentation for `sys.schemas`,
+# `sys.columns` and `sys.types`, and said so in its own docstring: the machine
+# it was written on could not spare the memory the image wants. Documentation
+# is not a run. This job is the run: a real SQL Server 2022, the fixture the
+# live test builds, and `schemagate certify` on top of it.
+name: mssql
+on:
+  # push only. On a PR branch `pull_request` would run the identical job a
+  # second time against the same commit, standing up a second SQL Server for it.
+  push:
+  workflow_dispatch:
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          # Throwaway. This container exists for the length of one job, listens
+          # only on the runner's loopback, and is destroyed with it. It is not
+          # a credential and must never be reused anywhere that is.
+          MSSQL_SA_PASSWORD: "Sg_CI_throwaway_2026!"
+          MSSQL_PID: Developer
+        ports:
+          - 1433:1433
+    env:
+      # `TrustServerCertificate` because the container serves a self-signed
+      # cert; Driver 18 defaults to Encrypt=yes and would otherwise refuse.
+      SCHEMAGATE_MSSQL_URL: "mssql+pyodbc://sa:Sg_CI_throwaway_2026!@127.0.0.1:1433/master?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: ODBC Driver 18
+        # pyodbc is the driver the README and the `mssql` extra name, so it is
+        # the one the test should go through.
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          # `odbcinst` is its own package on 24.04 -- installing unixodbc alone
+          # still leaves "odbcinst: command not found".
+          sudo apt-get install -y -qq unixodbc unixodbc-dev odbcinst gnupg
+          if ! odbcinst -q -d | grep -qi "ODBC Driver 18 for SQL Server"; then
+            # --batch --yes: gpg otherwise tries to prompt on /dev/tty, which a
+            # runner does not have, and dies with "cannot open /dev/tty".
+            curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
+            . /etc/os-release
+            # Written out rather than patched into Microsoft's own prod.list.
+            # That file already carries an [arch=...] option group, so inserting
+            # a [signed-by=...] group in front of it puts two groups on one line
+            # and apt rejects the whole file: "Malformed entry 1 (URI parse)".
+            echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/ubuntu/${VERSION_ID}/prod ${VERSION_CODENAME} main" | sudo tee /etc/apt/sources.list.d/mssql-release.list >/dev/null
+            sudo apt-get update -qq
+            sudo ACCEPT_EULA=Y apt-get install -y -qq msodbcsql18
+          fi
+          # Fail here rather than three steps later as a connection error that
+          # looks like the server never came up.
+          odbcinst -q -d
+          odbcinst -q -d | grep -qi "ODBC Driver 18 for SQL Server"
+
+      - run: pip install -e ".[dev]" pyodbc
+
+      - name: wait for the server to accept connections
+        # The container reports healthy before the database is up, and 2022 no
+        # longer ships sqlcmd to ask it properly, so ask the way the tests
+        # will: open a connection and run a statement.
+        run: |
+          python - <<'PY'
+          import os, sys, time
+          import sqlalchemy as sa
+          url = os.environ["SCHEMAGATE_MSSQL_URL"]
+          last = None
+          for _ in range(60):
+              try:
+                  with sa.create_engine(url).connect() as c:
+                      print(c.exec_driver_sql("SELECT @@VERSION").scalar())
+                  sys.exit(0)
+              except Exception as e:          # noqa: BLE001
+                  last = e
+                  time.sleep(2)
+          print(f"never came up: {type(last).__name__}: {last}", file=sys.stderr)
+          sys.exit(1)
+          PY
+
+      - name: dialect hooks against the live server
+        run: pytest tests/test_dialect_mssql_live.py -v
+
+      - name: the tests must not have skipped
+        # A skip reads as a pass in the checks list. The module skips itself
+        # when SCHEMAGATE_MSSQL_URL is unset, which is exactly the false green
+        # this job exists to rule out.
+        run: |
+          set -euo pipefail
+          pytest tests/test_dialect_mssql_live.py -q | tee /tmp/out.txt
+          grep -qE "[0-9]+ passed" /tmp/out.txt
+          if grep -qE "[0-9]+ skipped" /tmp/out.txt; then
+            echo "::error::the live SQL Server tests skipped -- nothing was verified"
+            exit 1
+          fi
+
+      - name: schemagate certify
+        # The same command the README hands a user, on the same server.
+        run: python scripts/certify_dialect.py "$SCHEMAGATE_MSSQL_URL"

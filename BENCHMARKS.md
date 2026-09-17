@@ -275,7 +275,8 @@ asserted it, and a claim withdrawn should be visible rather than deleted.
 The sweep also removes the obvious fix. Truncating descriptions at 200 or
 1,000 words is indistinguishable from leaving them alone -- one to four
 discordant pairs, p=1.000. Only deleting them entirely moves anything, and
-that is the cell at p=0.065. There is no cap worth setting, so none is set.
+that is the p=0.001 cell above -- which, as that paragraph says, does not
+carry the claim either. There is no cap worth setting, so none is set.
 
 For comparison, prose in the other two benchmarks:
 
