@@ -42,24 +42,25 @@ jobs:
         # the one the test should go through.
         run: |
           set -euo pipefail
-          # unixodbc first: without it there is no `odbcinst` to ask, so the
-          # check below could not even run.
           sudo apt-get update -qq
-          sudo apt-get install -y -qq unixodbc unixodbc-dev gnupg
+          # `odbcinst` is its own package on 24.04 -- installing unixodbc alone
+          # still leaves "odbcinst: command not found".
+          sudo apt-get install -y -qq unixodbc unixodbc-dev odbcinst gnupg
           if ! odbcinst -q -d | grep -qi "ODBC Driver 18 for SQL Server"; then
             # --batch --yes: gpg otherwise tries to prompt on /dev/tty, which a
             # runner does not have, and dies with "cannot open /dev/tty".
-            curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
-              | sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
+            curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
             . /etc/os-release
-            curl -fsSL "https://packages.microsoft.com/config/ubuntu/${VERSION_ID}/prod.list" \
-              | sudo tee /etc/apt/sources.list.d/mssql-release.list >/dev/null
-            sudo sed -i 's|^deb |deb [signed-by=/usr/share/keyrings/microsoft-prod.gpg] |' \
-              /etc/apt/sources.list.d/mssql-release.list
+            # Written out rather than patched into Microsoft's own prod.list.
+            # That file already carries an [arch=...] option group, so inserting
+            # a [signed-by=...] group in front of it puts two groups on one line
+            # and apt rejects the whole file: "Malformed entry 1 (URI parse)".
+            echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/ubuntu/${VERSION_ID}/prod ${VERSION_CODENAME} main" | sudo tee /etc/apt/sources.list.d/mssql-release.list >/dev/null
             sudo apt-get update -qq
             sudo ACCEPT_EULA=Y apt-get install -y -qq msodbcsql18
           fi
-          # Fail here rather than three steps later with a connection error.
+          # Fail here rather than three steps later as a connection error that
+          # looks like the server never came up.
           odbcinst -q -d
           odbcinst -q -d | grep -qi "ODBC Driver 18 for SQL Server"
 
