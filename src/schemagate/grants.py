@@ -132,6 +132,13 @@ def restrict_from_grants(catalog, engine, *, expand_roles: bool = True,
     grants = grantees_by_object(engine)
     rep.objects_seen = len(grants)
 
+    # An empty map means "nothing to restrict" everywhere except one case:
+    # MySQL does not show a user the grants it inherits through a role, so a
+    # role-only connection reads zero grants and restricts nothing while
+    # looking exactly like a database that needed no restricting.
+    if not grants and engine.dialect.name == "mysql" and my_role_only_blind_spot(engine):
+        rep.warnings.append(_MY_ROLE_ONLY_WARNING)
+
     graph: Dict[str, Set[str]] = {}
     if expand_roles:
         reader = ROLE_GRAPH_READERS.get(engine.dialect.name)
@@ -286,7 +293,145 @@ def _ora_role_graph(engine):
     return graph
 
 
+# --------------------------------------------------------------------------
+# MySQL
+# --------------------------------------------------------------------------
+
+#: Skipped everywhere below. These are the server's own schemas and reflection
+#: already ignores them; expanding a global `GRANT SELECT ON *.*` across them
+#: would bury the real objects in several hundred system tables.
+_MY_SYSTEM = "('mysql', 'information_schema', 'performance_schema', 'sys')"
+
+#: Three levels, unioned. Table-level is a direct row; schema-level and global
+#: are expressed against the schema or the server and have to be expanded over
+#: the tables they cover, or every object reachable only by one of those grants
+#: comes back with no grantee and is reported unmatched.
+#:
+#: information_schema.TABLES is itself grant-filtered, which is the point: the
+#: expansion can only ever name objects the connected user may already see.
+#: information_schema.INNODB_* is not filtered -- it answers to PROCESS, not to
+#: any privilege on the data -- and is deliberately absent from this query.
+_MY_SQL = f"""
+    SELECT p.TABLE_SCHEMA, p.TABLE_NAME, p.GRANTEE
+      FROM information_schema.TABLE_PRIVILEGES p
+     WHERE p.PRIVILEGE_TYPE = 'SELECT'
+       AND p.TABLE_SCHEMA NOT IN {_MY_SYSTEM}
+    UNION
+    SELECT t.TABLE_SCHEMA, t.TABLE_NAME, s.GRANTEE
+      FROM information_schema.SCHEMA_PRIVILEGES s
+      JOIN information_schema.TABLES t
+        ON t.TABLE_SCHEMA = s.TABLE_SCHEMA
+     WHERE s.PRIVILEGE_TYPE = 'SELECT'
+       AND t.TABLE_SCHEMA NOT IN {_MY_SYSTEM}
+    UNION
+    SELECT t.TABLE_SCHEMA, t.TABLE_NAME, u.GRANTEE
+      FROM information_schema.USER_PRIVILEGES u
+      JOIN information_schema.TABLES t
+        ON 1 = 1
+     WHERE u.PRIVILEGE_TYPE = 'SELECT'
+       AND t.TABLE_SCHEMA NOT IN {_MY_SYSTEM}
+"""
+
+#: `FROM_USER` is the role that was GRANTED; `TO_USER` inherits it. Keyed by
+#: the granted role, valued by what inherits it -- the direction this module
+#: requires, and the one that over-grants if you reverse it. Verified on a live
+#: server: `GRANT r_orders TO u_reader` yields FROM_USER=r_orders,
+#: TO_USER=u_reader.
+_MY_ROLES = "SELECT FROM_USER, TO_USER FROM mysql.role_edges"
+
+#: mysql.role_edges needs SELECT on the `mysql` schema, which an application
+#: user does not have -- measured: ERROR 1142 for a user with one table grant.
+#: applicable_roles is grant-filtered and covers the connected user's own
+#: roles, which is less than the whole graph and more than nothing. Here
+#: ROLE_NAME is the granted role and GRANTEE inherits it.
+_MY_ROLES_FALLBACK = """
+    SELECT ROLE_NAME, GRANTEE FROM information_schema.APPLICABLE_ROLES
+"""
+
+
+def _my_grantees(raw):
+    """Every name a principal might plausibly carry for one MySQL grantee.
+
+    MySQL writes a grantee as `'u_reader'@'%'` in the privilege views and as a
+    bare `u_reader` in the role views, so a map built from one will not match
+    roles read from the other. Both forms go in: a Principal holding the role
+    name works, and so does one holding the fully qualified account.
+    """
+    text = str(raw).strip()
+    bare = text.replace("`", "").replace("'", "").replace('"', "")
+    out = {bare}
+    if "@" in bare:
+        user, _, host = bare.partition("@")
+        if user:
+            out.add(user)
+        if host:
+            out.add(f"{user}@{host}")
+    return {x for x in out if x}
+
+
+#: A user whose SELECT arrives through a role cannot see the row that grants
+#: it. Measured on 8.4.11, with the role active and CURRENT_ROLE() confirming
+#: it: a direct grant to the user shows one row in table_privileges, a schema
+#: grant shows one in schema_privileges, and a grant to a role the user holds
+#: shows *nothing* in either. The map then comes back empty, every object is
+#: unmatched, and nothing is restricted -- which is the right failure, because
+#: silence is not a denial, but it is indistinguishable from "there was
+#: nothing to restrict" unless somebody says so.
+_MY_ROLE_ONLY_WARNING = (
+    "MySQL: the connected user holds role(s) but information_schema returned "
+    "no SELECT grants. MySQL does not show a user the grants it inherits "
+    "through a role, so nothing could be restricted. Read the grants from a "
+    "connection that can see them, or grant SELECT to the user directly."
+)
+
+
+def _my_grants(engine):
+    out: Dict[Tuple[Optional[str], str], Set[str]] = {}
+    with engine.connect() as conn:
+        for schema, obj, grantee in conn.exec_driver_sql(_MY_SQL).fetchall():
+            out.setdefault((schema, obj), set()).update(_my_grantees(grantee))
+    return out
+
+
+def my_role_only_blind_spot(engine) -> bool:
+    """True when this connection holds roles and can see no grants at all.
+
+    The one case where an empty map means "I cannot see" rather than "there is
+    nothing there".
+    """
+    try:
+        with engine.connect() as conn:
+            roles = conn.exec_driver_sql(
+                "SELECT COUNT(*) FROM information_schema.APPLICABLE_ROLES"
+            ).scalar() or 0
+            grants = conn.exec_driver_sql(
+                "SELECT COUNT(*) FROM information_schema.TABLE_PRIVILEGES "
+                "WHERE PRIVILEGE_TYPE = 'SELECT'"
+            ).scalar() or 0
+        return bool(roles) and not grants
+    except Exception:                                        # noqa: BLE001
+        return False
+
+
+def _my_role_graph(engine):
+    graph: Dict[str, Set[str]] = {}
+    with engine.connect() as conn:
+        try:
+            rows = conn.exec_driver_sql(_MY_ROLES).fetchall()
+        except Exception:
+            # No privilege on the `mysql` schema. Warn by degrading rather than
+            # failing: a partial graph restricts no more than an absent one,
+            # because an object nobody is mapped to is left alone.
+            rows = conn.exec_driver_sql(_MY_ROLES_FALLBACK).fetchall()
+        for granted, inheritor in rows:
+            for g in _my_grantees(granted):
+                graph.setdefault(g, set()).update(_my_grantees(inheritor))
+    return graph
+
+
 GRANT_READERS["postgresql"] = _pg_grants
 GRANT_READERS["oracle"] = _ora_grants
+GRANT_READERS["mysql"] = _my_grants
 ROLE_GRAPH_READERS["postgresql"] = _pg_role_graph
 ROLE_GRAPH_READERS["oracle"] = _ora_role_graph
+ROLE_GRAPH_READERS["mysql"] = _my_role_graph

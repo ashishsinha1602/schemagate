@@ -324,9 +324,26 @@ class Selection:
         }
 
     def explain(self) -> str:
-        return "\n".join(
-            f"{h.score:6.3f}  {h.reason:8s}  {h.doc.qname}" for h in self.hits
-        )
+        """One line per selected object: score, why, name, and -- where any
+        exist -- how many of its columns this caller did not get.
+
+        The count, never the names, for the reason `to_dict` gives: naming a
+        withheld column in a log discloses it to everyone who can read the
+        log, and `explain()` output is pasted into issues and chat windows far
+        more often than the JSON is. Rows with nothing withheld are left
+        alone, so the annotation is visible when it matters instead of being
+        noise on every line.
+        """
+        who = self.principal
+        lines = []
+        for h in self.hits:
+            line = f"{h.score:6.3f}  {h.reason:8s}  {h.doc.qname}"
+            withheld = len(h.doc.columns) - len(h.doc.visible_columns(who))
+            if withheld:
+                line += (f"   ({withheld} column{'' if withheld == 1 else 's'}"
+                         f" withheld)")
+            lines.append(line)
+        return "\n".join(lines)
 
     def __len__(self) -> int:
         return len(self.hits)

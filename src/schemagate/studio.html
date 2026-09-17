@@ -391,6 +391,7 @@ table.shadows td.arrow{color:var(--muted);width:30px;text-align:center;font-fami
 .foot h4{margin:0;font-size:12.5px;font-weight:600}
 .foot pre{margin:0;font:12px/1.45 var(--mono);white-space:pre-wrap;color:var(--muted);overflow-x:auto}
 .foot p{margin:0;color:var(--muted);font-size:12.5px}
+.warn{margin-top:6px;color:var(--restrict);font-size:12px;line-height:1.5}
 .err{background:var(--restrict-soft);color:var(--restrict);border-radius:var(--r);padding:8px 12px;font-size:13px}
 @media (prefers-reduced-motion:no-preference){.obj{transition:background .12s}}
 </style>
@@ -2288,10 +2289,31 @@ if (typeof module === "object" && module.exports) module.exports = blakejs;
       if (out.schemas && out.schemas.length) msg += " from " + out.schemas.join(", ");
       const g = out.grants;
       if (g && g.error) msg += ". GRANTs: " + g.error;
-      else if (g) msg += ". GRANTs: " + g.restricted + " restricted, " + g.public +
-                         " public, " + g.unmatched + " left untouched" +
-                         (g.roles_expanded ? ", " + g.roles_expanded + " role(s) expanded" : "");
+      else if (g) {
+        // `seen` first: without a denominator "12 restricted" could mean the
+        // database has twelve objects or four hundred. `left untouched` is
+        // the one that says nothing happened -- an object with no grant row
+        // is deliberately not restricted, and a user who assumed otherwise
+        // needs to see the count.
+        msg += ". GRANTs: " + g.seen + " grant row(s) read, " + g.restricted +
+               " restricted, " + g.public + " public, " + g.unmatched +
+               " left untouched" +
+               (g.roles_expanded ? ", " + g.roles_expanded + " role(s) expanded" : "");
+      }
       note("cNote", msg + ".");
+      // Warnings on their own lines. These are the cases where nothing was
+      // restricted *and the reason matters* -- a role graph that could not be
+      // read, or a MySQL connection that cannot see the grants it inherits --
+      // so folding them into the sentence above is how they get missed.
+      if (g && g.warnings && g.warnings.length) {
+        const box = $("cNote");
+        for (const w of g.warnings) {
+          const p = document.createElement("div");
+          p.className = "warn";
+          p.textContent = "\u26a0 " + w;
+          box.appendChild(p);
+        }
+      }
       if (out.recipe){
         $("recipeCli").value = out.recipe.cli;
         $("recipePy").value  = out.recipe.python;
