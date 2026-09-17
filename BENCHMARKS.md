@@ -290,6 +290,55 @@ on Spider 2.0.
 
 Indexing 876 tables takes 0.8s hashed and 9.3s with the sentence model.
 
+## The reranker, measured for the first time
+
+`select(..., reranker=provider, rerank_candidates=20)` has existed since the
+reranker landed and had never been measured. `tests/test_rerank.py` proves it
+is *safe* -- a model that fails, or replies with nonsense, leaves the maths
+order untouched, and a restricted object cannot be promoted into an answer --
+but safety is not usefulness, and no recall number for it existed.
+
+`benchmarks/rerank_eval.py` scores every business-language question twice
+against the same catalog, the same embedder and the same `top_k`: once with
+`reranker=None`, once with a model reordering the shortlist. Paired, so the
+report is discordant pairs and McNemar's exact test rather than a net margin.
+
+anthropic:claude-sonnet-4-5, all-MiniLM-L6-v2, top_k=6, candidates=20:
+
+```
+schema      set          base   rerank    b    c        p
+commerce    TUNE        75.0%    91.7%    2    0    0.500
+health      TUNE        90.0%   100.0%    1    0    1.000
+warehouse   HELDOUT     80.0%   100.0%    2    0    0.500
+finance     HELDOUT     80.0%   100.0%    2    0    0.500
+telemetry   HELDOUT     80.0%   100.0%    2    0    0.500
+complex     HELDOUT    100.0%   100.0%    0    0    1.000
+---------------------------------------------------------
+TUNE                    81.8%    95.5%    3    0    0.250
+HELD OUT                83.3%   100.0%    6    0    0.031
+OVERALL                 82.8%    98.3%    9    0    0.004
+```
+
+**Nine questions fixed, none broken.** That the count of broken questions is
+zero is the more interesting half: the model only reorders a shortlist of 20
+and the maths still decides eligibility, so it can lift a gold table from
+position 7-20 into the top 6 but cannot invent one, and every question the
+ranking already answered it left alone.
+
+**What this is not.** Fifty-eight questions on the six schemas in this
+repository, which are invented, not public benchmarks -- the Spider and BIRD
+numbers above are untouched by this and no reranked figure has been measured
+on either. One model. And the held-out p=0.031 rests on **six discordant
+pairs**: it clears 0.05, and a Bonferroni threshold across the six schemas is
+0.008, which it does not clear. The overall p=0.004 does.
+
+The obvious next control is a second model, for the reason the prose ablation
+records below: a result that survives one model and not another has measured
+the model. That has not been run.
+
+Cost, since it is not free: one API call and roughly two seconds per question
+(58 selections in 115s).
+
 ## FK closure: what a selection carries beyond the budget
 
 A question from the dev.to thread: when you ask for `top_k=K`, how much do you
