@@ -332,12 +332,78 @@ on either. One model. And the held-out p=0.031 rests on **six discordant
 pairs**: it clears 0.05, and a Bonferroni threshold across the six schemas is
 0.008, which it does not clear. The overall p=0.004 does.
 
-The obvious next control is a second model, for the reason the prose ablation
-records below: a result that survives one model and not another has measured
-the model. That has not been run.
+**The second-model control, which this one passes.** The prose ablation below
+evaporated when the embedder was swapped, so the same question had to be put
+here. Re-run end to end with `claude-haiku-4-5` -- a smaller and cheaper model
+-- the result is not merely similar, it is identical:
+
+```
+                        base   rerank    b    c        p
+TUNE                    81.8%    95.5%    3    0    0.250
+HELD OUT                83.3%   100.0%    6    0    0.031
+OVERALL                 82.8%    98.3%    9    0    0.004
+```
+
+Same nine questions fixed, same none broken, the same b and c in every schema.
+Two models of different sizes agreeing to the question is evidence that what
+was measured is the *shortlist* -- gold sitting at rank 7-20 that any
+competent reader can lift into the top 6 -- and not one model's taste.
+
+Both are still Anthropic models. A model from another vendor is the remaining
+control and has not been run, because no other provider key was available on
+the machine that ran this.
 
 Cost, since it is not free: one API call and roughly two seconds per question
 (58 selections in 115s).
+
+## Column ranking, and why this file reports no gain for it
+
+`render_ddl` kept `visible[:max_columns]` -- the first 40 columns in
+declaration order, whatever was asked. That is truncation, not selection: on a
+200-column fact table the column the question needs can be number 147 and is
+cut, while the prompt pays for 40 nobody asked about. Columns over the budget
+are now chosen by overlap with the question, with keys kept unconditionally
+because dropping a foreign key costs a join rather than a column.
+
+**On the six schemas in this repository it changes nothing at all.** Measured
+rather than assumed -- all 58 business-language questions, prompt rendered with
+and without the question passed down:
+
+```
+prompts identical with and without column ranking : 58
+prompts changed by column ranking                 :  0
+```
+
+The reason is in the schemas, not the code. Exactly one object across all six
+is wider than the budget:
+
+```
+schema       objects  maxcols  over40  p95cols
+commerce          42       11       0        8
+health            27       10       0        7
+warehouse         51       22       0       12
+finance           39       14       0       10
+telemetry         40        8       0        7
+complex          260      321       1       15
+```
+
+That one is `wide_measurement_matrix`, whose 321 columns are named
+`attribute_000` through `attribute_319`. It exists to test that a wide table
+does not break rendering, and no question can prefer one of its columns to
+another, so even there ranking has nothing to work with.
+
+So the honest statement is narrow. The mechanism is covered by
+`tests/test_column_ranking.py`, including the property that ranking runs after
+`visible_columns` and so cannot surface a column the caller may not see -- both
+of those tests were checked by reverting the change and confirming they fail.
+What is **not** demonstrated is a retrieval or token gain, because these
+fixtures cannot demonstrate one. A realistic wide table -- a claims or
+telemetry fact table with meaningful column names -- is what would measure it,
+and this repository does not have one yet.
+
+The change is therefore recorded here as safe and unmeasured. It cannot
+regress the numbers above for the concrete reason that it does not alter a
+single prompt that produces them.
 
 ## FK closure: what a selection carries beyond the budget
 
