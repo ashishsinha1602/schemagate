@@ -633,6 +633,30 @@ object; the 165 written in a different voice carry words the rest of the
 schema does not, and were kept. That is the rule discriminating, not clearing
 everything it sees.
 
+**Oracle, same path, same rule: 7 of 8.** Three runs through the product
+path scored 6, 6 and 7 -- the middle one lost a query to a dialect slip by
+the model that did not recur -- and the consistent miss is the email-opens
+question, which PostgreSQL answers. The cause is deterministic and worth
+recording exactly, because it is not the dialect and not the rule. The fact
+table's indexed text is byte-identical on both databases. What differs is a
+*neighbour*: `crm_channel_type` was described independently on each
+database, and the Oracle description happens to read "ways customers can
+reach or interact with the **company**, such as phone, **email**, web" -- two
+of the question's words -- scoring 17.23 on the body channel against the fact
+table's 17.14, and taking the single body slot by 0.09. The PostgreSQL
+description of the same table, "defines the different kinds of communication
+or sales channels", carries neither word, and there the fact table is first.
+
+So: the catalogue is nondeterministic across generations, and a one-slot rule
+is sensitive to that at the margin. Widening the slot would fix this question
+and be tuning to it, so the slot stays at one and the 7 stays in this table.
+
+One object on each database kept its boilerplate comment: the fact table's
+own, whose synthetic text reads "holds engagement **measures** per contact",
+and "measures" appears in no other description. By the rule's definition that
+is a word the schema does not otherwise carry, and the rule is not bent for
+one fixture artifact. 1,035 of 1,036 is the honest count.
+
 The suite is guarded: `tests/conftest.py` sets the kill switch by default, so a
 key in a developer's shell cannot turn a test run into billed calls, and
 `tests/test_auto_describe.py` asserts "no call was made" with a provider that
