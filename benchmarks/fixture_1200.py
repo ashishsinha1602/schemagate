@@ -305,10 +305,14 @@ COMPLEX_QUESTIONS = [
 #: that is the point of them -- and mixing them into (b) would let a probe for
 #: one property quietly move the number for another.
 #:
-#: Note the guard cannot be reached by `contact` itself at this corpus shape:
-#: its flat idf is 0.147, and the threshold is 0.1. Those two targets are
-#: incompatible by construction, which is a property of the specification, not
-#: a failure of the fixture.
+#: Note the guard is not reached by `contact` itself at this corpus shape: its
+#: flat idf is 0.148 (df 1,036 of 1,201 -- the 1,035 saturated descriptions plus
+#: the wide table's "per contact"), and the threshold is 0.1. Those two targets
+#: are not incompatible, they are 52 descriptions apart: with the idf formula
+#: above, idf < 0.1 needs df >= 1,088 (90.6%), so CONTACT_DESCRIPTION_COUNT =
+#: 1087 would put `contact` exactly on the cut, at idf 0.099. The spec keeps
+#: 1,035 because it is pinned to the original finding's ~0.15, which sat at the
+#: same coverage to a tenth of a point; the probes below reach the guard instead.
 ABSTENTION_PROBES = [
     "records held and used",
     "record used by reporting",
