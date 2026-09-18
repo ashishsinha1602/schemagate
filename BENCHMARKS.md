@@ -288,6 +288,21 @@ BIRD            0 of  75
 Both are bare names and columns, which is why the ablation could only be run
 on Spider 2.0.
 
+**What the ablation was actually removing.** Every number in this section was
+measured with a loader that read `description` as a table description --
+joined into one paragraph and indexed as prose. Sampling the raw files for
+the long-path report showed the key is nothing of the kind: it is a
+per-column list, aligned by index to `nested_column_names` when the table has
+nested fields (31 of 31 sampled) and to `column_names` otherwise (9 of 9),
+entries sometimes null, never a string (150 of 150). The loader also built
+columns from `column_names` alone, so a nested table -- gnomAD's
+`v3_genomes__chr7`, 61 top-level and 181 flattened -- was missing the very
+columns its gold SQL reads. `benchmarks/spider2.py` now attaches each entry
+to its column and uses the flattened list; `tests/test_spider2_loader.py`
+holds it there. The figures above are what the joined-paragraph loader
+produced and are left as measured; the re-run with column-aligned prose is
+owed and will replace them, not sit beside them, once it exists.
+
 Indexing 876 tables takes 0.8s hashed and 9.3s with the sentence model.
 
 ## The reranker, measured for the first time
