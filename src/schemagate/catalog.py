@@ -219,6 +219,48 @@ def default_embedder() -> Embedder:
         return HashingEmbedder()
 
 
+#: A field abstains when the best query term it knows is less informative than
+#: this. The number is an idf, on the same scale as `_COVERAGE_MIN_IDF` above.
+#:
+#: The case it exists for is the one the 1,245-object schema produced: every
+#: description written in the domain's own vocabulary, so `contact` appears in
+#: most of them and its idf in the prose field collapses towards zero. That
+#: field then still produces a full ranking -- BM25 happily orders documents on
+#: a term that separates none of them -- and rank fusion treats that ranking as
+#: evidence equal to the name field's, where the same term is still worth 4.3.
+#: Noise given a vote.
+#:
+#: Abstaining is not the same as scoring zero. A field that returns no ranking
+#: contributes nothing to fusion and the remaining fields decide; a field that
+#: ranks on a worthless term actively reorders the result.
+#:
+#: 0.1 is deliberately low. At N=1,200 it is reached only once a term is in
+#: roughly 1,090 of 1,200 documents -- genuinely in almost everything. A term
+#: in "only" 1,035 of 1,200 scores 0.147 and still votes, which is the right
+#: side of the line to err on: a field that abstains too eagerly loses real
+#: signal, and nothing else will put it back.
+ABSTAIN_MIN_IDF = 0.1
+
+
+def _abstains(index: Optional[_BM25], question: str) -> bool:
+    """True when this field knows nothing discriminating about the question.
+
+    Judged on the best term, not the average: one informative word is enough
+    to make a field worth hearing, however much filler surrounds it.
+    """
+    if index is None or not index.idf:
+        return False
+    best = 0.0
+    for token in tokenize(question):
+        value = index.idf.get(_stem(token))
+        if value is not None and value > best:
+            best = value
+    # A question whose terms are entirely absent from this field scores 0.0
+    # here, and abstaining is exactly right for that too -- an index that has
+    # never seen any of these words cannot rank on them.
+    return best < ABSTAIN_MIN_IDF
+
+
 def _competition_rank(pairs: Sequence[Tuple[str, float]]) -> Dict[str, int]:
     """Rank by score, giving equal scores the SAME rank. Fix A of two.
 
@@ -850,6 +892,8 @@ class Catalog:
 
         def _rank(index: Optional[_BM25]) -> Dict[str, int]:
             if index is None:
+                return {}
+            if _abstains(index, question):
                 return {}
             scores = index.scores(question)
             return _competition_rank(
