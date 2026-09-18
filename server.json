@@ -1,7 +1,7 @@
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.json",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.ashishsinha1602/schemagate",
-  "description": "Identity-scoped schema selection for text-to-SQL: returns only the tables the calling user may read, before any SQL is generated. Any SQLAlchemy database.",
+  "description": "Identity-scoped schema selection for text-to-SQL. Returns only the tables the caller may read.",
   "repository": {
     "url": "https://github.com/ashishsinha1602/schemagate",
     "source": "github"
@@ -9,11 +9,14 @@
   "version": "0.1.55",
   "packages": [
     {
-      "registry_type": "pypi",
+      "registryType": "pypi",
       "identifier": "schemagate",
       "version": "0.1.55",
-      "runtime_hint": "python",
-      "package_arguments": [
+      "runtimeHint": "python",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
         {
           "type": "positional",
           "value": "-m"
@@ -23,17 +26,17 @@
           "value": "schemagate.mcp_server"
         }
       ],
-      "environment_variables": [
+      "environmentVariables": [
         {
           "name": "SCHEMAGATE_DATABASE_URL",
           "description": "SQLAlchemy URL of the database to reflect, or 'demo' for the bundled schema",
-          "is_required": true,
-          "is_secret": true
+          "isRequired": true,
+          "isSecret": true
         },
         {
           "name": "SCHEMAGATE_CATALOG_CONFIG",
           "description": "Optional path to a JSON file with roles, hints and shadow-name overrides",
-          "is_required": false
+          "isRequired": false
         }
       ]
     }

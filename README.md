@@ -806,6 +806,8 @@ call schemagate as a tool rather than wiring the library into your code.
 **MCP.** Cursor, Windsurf, Zed, or anything else that speaks the
 Model Context Protocol:
 
+<!-- mcp-name: io.github.ashishsinha1602/schemagate -->
+
 ```bash
 pip install 'schemagate[mcp]'
 SCHEMAGATE_DATABASE_URL=postgresql://localhost/app python -m schemagate.mcp_server
