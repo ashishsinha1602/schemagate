@@ -1018,6 +1018,43 @@ class Catalog:
                 chosen.append(Scored(self._docs[q], s, reason))
                 taken.add(q)
 
+        # Column evidence gets one slot, the way a named thing gets one below.
+        #
+        # Rank fusion rewards breadth over depth: an object that is first on
+        # two channels can lose to twenty objects that are tenth on three.
+        # Measured on a 1,200-object schema, "email opens per contact" ranked
+        # the engagement fact table first on the body channel and first on
+        # prose -- its columns are email_open_7d, email_open_30d -- and fused
+        # it to 30th, behind twenty-nine crm_contact_* and crm_company_*
+        # siblings that merely share a word with the question in their name.
+        # The coverage pass below could not help, because it covers words that
+        # appear in NAMES, and "email" and "open" appear only in columns.
+        #
+        # The body channel is the only one that sees columns, so its single
+        # best hit is the one piece of evidence nothing else guarantees. One
+        # slot, budget-neutral, under the same rules as coverage: it displaces
+        # the weakest ranked pick, never a pinned or covering one, and is
+        # abandoned rather than break the budget. It is a no-op on any schema
+        # where the best lexical match already made the cut -- which is every
+        # small one -- and bites only when a name family floods the budget.
+        # Not a fix for one database: the rule names no schema and no word.
+        if lex_rank:
+            body_best = min(lex_rank.items(), key=lambda p: (p[1], p[0]))[0]
+            if (lex_rank[body_best] == 0 and body_best in allowed_set
+                    and body_best not in taken):
+                if len(chosen) >= top_k:
+                    for i in range(len(chosen) - 1, -1, -1):
+                        if chosen[i].reason not in ("pinned", "covers"):
+                            taken.discard(chosen[i].doc.qname)
+                            del chosen[i]
+                            break
+                    else:
+                        body_best = None
+                if body_best is not None:
+                    chosen.append(Scored(self._docs[body_best],
+                                         fused.get(body_best, 0.0), "covers"))
+                    taken.add(body_best)
+
         # Cover every thing the question named, not just the best-scoring ones.
         #
         # A question that needs a join names two things -- "campaigns … and

@@ -422,6 +422,33 @@
       const chosen = [], taken = new Set();
       for (const name of pin) for (const [q, d] of this.docs) if ((q === name || d.name === name) && allowedSet.has(q) && !taken.has(q)) { chosen.push({ doc: d, score: 1.0, reason: "pinned" }); taken.add(q); }
       for (const [q, s] of fused) { if (chosen.length >= topK) break; if (!taken.has(q)) { const reason = vecRank.has(q) && lexRank.has(q) ? "hybrid" : vecRank.has(q) ? "vector" : "lexical"; chosen.push({ doc: this.docs.get(q), score: s, reason }); taken.add(q); } }
+      // Column evidence gets one slot -- twin of the block in catalog.py.
+      // The body channel is the only one that sees columns, so its single
+      // best hit is the one piece of evidence nothing else guarantees. Same
+      // budget rules as coverage below: displaces the weakest ranked pick,
+      // never a pinned or covering one, and is abandoned rather than break
+      // the budget. A no-op wherever the best lexical match already made the
+      // cut, which is every small schema.
+      if (lexRank.size) {
+        const fusedScore = new Map(fused);
+        let bodyBest = null;
+        for (const [q, r] of lexRank)
+          if (bodyBest === null || r < lexRank.get(bodyBest) || (r === lexRank.get(bodyBest) && q < bodyBest)) bodyBest = q;
+        if (bodyBest !== null && lexRank.get(bodyBest) === 0 && allowedSet.has(bodyBest) && !taken.has(bodyBest)) {
+          if (chosen.length >= topK) {
+            let dropped = false;
+            for (let i = chosen.length - 1; i >= 0; i--)
+              // qname(doc), not doc.qname: the JS doc objects carry no such
+              // property, so the first version deleted `undefined`, left the
+              // dropped table marked as taken, and FK expansion then skipped
+              // it -- one table short of the Python result on 6 of 1,789
+              // parity cases.
+              if (chosen[i].reason !== "pinned" && chosen[i].reason !== "covers") { taken.delete(qname(chosen[i].doc)); chosen.splice(i, 1); dropped = true; break; }
+            if (!dropped) bodyBest = null;
+          }
+          if (bodyBest !== null) { chosen.push({ doc: this.docs.get(bodyBest), score: fusedScore.get(bodyBest) || 0.0, reason: "covers" }); taken.add(bodyBest); }
+        }
+      }
       // Cover every thing the question named -- same rule as catalog.py, and
       // inside topK, never beyond it.
       if (this.bm25Name && this.bm25Name.idf.size) {

@@ -491,6 +491,56 @@ only reason that is known is that it was measured against the thing users
 actually get -- a query that runs -- rather than against the intermediate
 statistic the change was designed to improve.
 
+## Column evidence gets one slot
+
+Rank fusion rewards breadth over depth. An object that is first on two
+channels can lose to twenty objects that are tenth on three, because RRF
+turns every rank into 1/(60+rank) and adds -- so three mediocre ranks beat
+two excellent ones and an absence.
+
+Measured on the 1,200-object fixture, with the AI catalogue applied: "Top 5
+contacts by email opens in the last 30 days, with their company" ranked
+`crm_engagement_fact` **first of 1,199 on the body channel and first on
+prose** -- its columns are `email_open_7d`, `email_open_30d` and so on -- and
+fused it to **30th**, behind twenty-nine `crm_contact_*` and `crm_company_*`
+siblings that merely share a word with the question in their name. The
+coverage pass could not help: it guarantees a slot for informative words
+that appear in NAMES, and "email" and "open" appear only in columns.
+
+The body channel is the only one that sees columns, so its single best hit
+is the one piece of evidence nothing else guarantees. It now gets one slot,
+under exactly the rules coverage uses: budget-neutral, displacing the weakest
+ranked pick, never a pinned or covering one, abandoned rather than break the
+budget. The rule names no schema and no word.
+
+**Where it is a no-op, which is everywhere it should be.** On the six
+shipped schemas the benchmark gate is byte-identical -- every recall cell
+and the token cell unchanged -- because on a small schema the best lexical
+match already made the cut. The 52-question business-language measurement
+is unchanged at 55.8% / 94.2%. Parity between the Python and JS ports holds
+on all 1,789 cases.
+
+**Where it bites.** On the 1,200-object fixture, fielded recall at k=6 went
+from 12/16 to 14/16 (fixes 3, breaks 1), and column ranking now changes 2 of
+16 prompts as retrieved, up from 0 -- which is to say the wide fact table is
+finally being retrieved rather than pinned. The apparatus sweep on (b) is
+still apparatus-dependent (fielded wins at 4 of 7 values of K) and is
+reported as such.
+
+**On the metric that matters.** Eight complex questions, end to end against
+the live Oracle schema -- selection, a model writes SQL from the fragment
+alone, Oracle executes it -- run twice with identical results both times:
+
+```
+                          before      after
+no catalogue               6/8         7/8
+shipped-prompt catalogue   7/8         8/8
+```
+
+The one question still failing without a catalogue ("contacts with a tag
+but no note") is an anti-join across two children of the same parent, and
+with the catalogue applied it runs.
+
 ## FK closure: what a selection carries beyond the budget
 
 A question from the dev.to thread: when you ask for `top_k=K`, how much do you
