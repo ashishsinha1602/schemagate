@@ -129,6 +129,16 @@ def _reflect(url: str, config_path: Optional[str]) -> Catalog:
         finally:
             engine.dispose()     # the index is in memory; hold nothing open
     _apply_config(cat, config_path)
+    if url != "demo":
+        # The catalogue, without being asked for it -- after the config so a
+        # hint or a database comment is never overwritten. No key: no-op.
+        from .ai.auto import ensure_described
+        from sqlalchemy.engine import make_url
+        try:
+            label = make_url(url).render_as_string(hide_password=True)
+        except Exception:                                        # noqa: BLE001
+            label = None
+        ensure_described(cat, label=label)
     return cat
 
 

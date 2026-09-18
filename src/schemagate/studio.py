@@ -898,6 +898,14 @@ class StudioState:
         # this sits after the bootstrap rather than beside the form handler.
         self.last_connect = dict(body)
         self.connection_label = _describe_connection(url, body, engine.dialect.name)
+        # The catalogue, without the Describe button. The label above is what
+        # keys the cache file, so this has to come after it. A provider from
+        # the page's settings is preferred; with none, whatever key is in
+        # the environment; with neither, nothing happens and the page works
+        # exactly as before.
+        from .ai.auto import ensure_described
+        ensure_described(cat, cache_path=self._description_cache(),
+                         provider=self._provider())
         self._load_hints()
         from . import remember
         want = self.remember_connection or bool(body.get("remember"))

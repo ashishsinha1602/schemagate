@@ -461,6 +461,18 @@ If your users type identifier-shaped questions, you're done, and you never need
 an API key. If they type like people, give the catalog descriptions. There are
 two ways, and neither is required.
 
+**With an API key in the environment, you get them without asking.** Every path
+that answers a question — `schemagate select`, `--answer`, the MCP server, the
+Studio's connect — describes the catalogue first, caches the result per
+connection under `~/.schemagate/descriptions/`, and re-describes an object only
+when its structure changes. A hint you wrote, or a database comment that says
+something, is never overwritten; a comment that only restates the object's
+name in the schema's own boilerplate is replaced, because it was diluting
+every word it contained. Measured on a 1,200-object schema, that is the
+difference between six and eight of eight complex questions producing SQL that
+runs. `SCHEMAGATE_AUTO_DESCRIBE=0` turns it off; with no key present nothing
+is called and nothing changes.
+
 ### Without an API key
 
 Any chat window you already have — ChatGPT, Gemini, Copilot, a
@@ -759,12 +771,12 @@ failed. Point it at a scratch schema.
 | SQLite | certified, 10/10, in CI |
 | PostgreSQL | certified, 10/10 on PostgreSQL 16, plus the full 260-object suite |
 | Oracle | certified live on Oracle AI Database 26ai (Autonomous Database), Sep 2026: certify script 10/10, the native `VECTOR(512, FLOAT32)` store conformance suite, and the dialect suite. Also stress-tested against a 127-object, 3-domain schema with ~7M rows |
-| SQL Server | not yet run against a live instance |
-| MySQL / MariaDB | not yet run against a live instance |
+| SQL Server | certified live on SQL Server 2022 (16.0.4295.3), 10/10, **in CI on every push** against a service container, plus 13 live dialect tests covering alias types, `hierarchyid`/`sql_variant`, and `max_length` being bytes |
+| MySQL / MariaDB | certified live on MySQL 8.4.11, 10/10, **in CI on every push** against a service container, plus the GRANT reader suite: all three privilege levels, the role graph, and the role-only blind spot MySQL cannot report. MariaDB has not been run |
 
-The bottom two say what they say because I haven't had a live instance to run
-them against, not because I expect trouble. Run the script and tell me what
-happens.
+Every row above has a real database behind it. The one thing still worth
+saying plainly: MariaDB is inferred from MySQL rather than run. Point the
+script at one and tell me what happens.
 
 The same checks run under pytest if you export a URL, which is how CI certifies
 a dialect for good:

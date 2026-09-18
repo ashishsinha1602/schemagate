@@ -87,6 +87,9 @@ def main() -> int:
                     help="a JSON catalogue {qname: description} to apply "
                          "before selecting, so the effect of the AI catalogue "
                          "on SQL that actually runs can be measured")
+    ap.add_argument("--no-describe", action="store_true",
+                    help="skip the automatic catalogue, to measure the bare "
+                         "schema -- the old default")
     args = ap.parse_args()
 
     if not os.environ.get("ANTHROPIC_API_KEY"):
@@ -113,11 +116,22 @@ def main() -> int:
                       schemas=[F.PG_SCHEMA if args.target == "postgres" else F.SCHEMA])
         cache.write_bytes(pickle.dumps(list(cat._docs.values())))
     if args.describe:
+        # An explicit catalogue file wins, and is applied over whatever the
+        # objects already carry -- this is how two prompts are A/B tested on
+        # the same objects.
         import json
         with open(args.describe, encoding="utf-8") as fh:
             applied = json.load(fh)
         cat.describe(applied, only_missing=False)
         print(f"applied {len(applied)} descriptions from {args.describe}")
+    elif not args.no_describe:
+        # Otherwise the same path the product takes: describe whatever has
+        # no description, with whatever key is present, cached per target.
+        # This is what "the real catalogue, always" means, and the harness
+        # measures the product rather than a hand-fed file.
+        from schemagate.ai.auto import ensure_described
+        n = ensure_described(cat, cache_path=f".sgbench_auto_{args.target}.json")
+        print(f"auto-described {n} object(s) (cache .sgbench_auto_{args.target}.json)")
     cat.index()
     print(f"catalog: {len(cat._docs)} objects\n")
 

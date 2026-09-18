@@ -185,6 +185,17 @@ def _open(args) -> Catalog:
         from sqlalchemy import create_engine
         rep = restrict_from_grants(cat, create_engine(args.url), report=True)
         print(rep, file=sys.stderr)
+    # The catalogue, without being asked for it. Last, so a hint from
+    # --config or a comment from the database is never overwritten, and
+    # after grants so nothing a caller may not see is ever described. With
+    # no API key this is a no-op; SCHEMAGATE_AUTO_DESCRIBE=0 turns it off.
+    from .ai.auto import ensure_described
+    from sqlalchemy.engine import make_url
+    try:
+        label = make_url(args.url).render_as_string(hide_password=True)
+    except Exception:                                            # noqa: BLE001
+        label = None
+    ensure_described(cat, cache_path=getattr(args, "cache", None), label=label)
     return cat
 
 

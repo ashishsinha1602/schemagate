@@ -1,0 +1,77 @@
+# MySQL, against a real one, on every push.
+#
+# The README said MySQL had "not yet run against a live instance" for longer
+# than it should have, and a hand-run on someone's laptop is how that sentence
+# drifts back to being true. This job is the reason it cannot: a real MySQL
+# 8.4, the GRANT-reader suite that only a live server can answer (which of
+# three privilege levels a GRANT lands in, which way mysql.role_edges runs,
+# whether information_schema is grant-filtered), and `schemagate certify`.
+name: mysql
+on:
+  # push only, for the same reason as mssql.yml: on a PR branch pull_request
+  # would stand up a second server for the same commit.
+  push:
+  workflow_dispatch:
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          # Throwaway. Lives for one job on the runner's loopback and is
+          # destroyed with it. Not a credential; never reuse it anywhere.
+          MYSQL_ROOT_PASSWORD: "Sg_CI_throwaway_2026!"
+          MYSQL_DATABASE: app
+        ports:
+          - 3306:3306
+    env:
+      SCHEMAGATE_MYSQL_URL: "mysql+pymysql://root:Sg_CI_throwaway_2026!@127.0.0.1:3306/app"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev]" pymysql
+
+      - name: wait for the server to accept connections
+        # The container reports healthy before mysqld does, so ask the way the
+        # tests will: open a connection and run a statement.
+        run: |
+          python - <<'PY'
+          import os, sys, time
+          import sqlalchemy as sa
+          url = os.environ["SCHEMAGATE_MYSQL_URL"]
+          last = None
+          for _ in range(60):
+              try:
+                  with sa.create_engine(url).connect() as c:
+                      print(c.exec_driver_sql("SELECT VERSION()").scalar())
+                  sys.exit(0)
+              except Exception as e:          # noqa: BLE001
+                  last = e
+                  time.sleep(2)
+          print(f"never came up: {type(last).__name__}: {last}", file=sys.stderr)
+          sys.exit(1)
+          PY
+
+      - name: grant reader and dialect against the live server
+        run: pytest tests/test_grants_mysql.py -v
+
+      - name: the tests must not have skipped
+        # A skip reads as a pass in the checks list. The module skips itself
+        # when SCHEMAGATE_MYSQL_URL is unset, which is exactly the false green
+        # this job exists to rule out.
+        run: |
+          set -euo pipefail
+          pytest tests/test_grants_mysql.py -q | tee /tmp/out.txt
+          grep -qE "[0-9]+ passed" /tmp/out.txt
+          if grep -qE "[0-9]+ skipped" /tmp/out.txt; then
+            echo "::error::the live MySQL tests skipped -- nothing was verified"
+            exit 1
+          fi
+
+      - name: schemagate certify
+        # The same command the README hands a user, on the same server.
+        run: python scripts/certify_dialect.py "$SCHEMAGATE_MYSQL_URL"
