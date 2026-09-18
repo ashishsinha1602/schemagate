@@ -173,6 +173,14 @@ def build_spec():
         cols = list(base_cols)
         for c in extra_pool[: 2 + (i % 5)]:
             cols.append(c)
+        fk = FOREIGN_KEYS.get(name)
+        if fk and fk[0] not in [c for c, _ in cols]:
+            cols.append((fk[0], "NUMBER"))
+        # A view cannot carry a constraint, so anything with a declared key is
+        # a table. Without this a family member could land on the i%7 view slot
+        # and silently drop its half of the join graph.
+        if fk:
+            kind = "TABLE"
         spec.append((name, kind, description, cols))
 
     spec.append((WIDE_TABLE, "TABLE",
@@ -212,6 +220,83 @@ def _wide_columns():
         cols.append((f"reserved_measure_{len(cols):03d}", "NUMBER"))
     return cols[:WIDE_COLUMNS]
 
+
+#: A declared foreign-key graph over the families above.
+#:
+#: Without this the fixture could not exercise the feature that makes generated
+#: SQL runnable at all: a question names one table, and the join tables it
+#: needs are the ones it never mentions. `child: (column, parent)`.
+def _family_keys():
+    """Every suffixed family member references its parent.
+
+    This is what a real schema looks like and the previous version did not have
+    it: only fourteen tables carried a key, so foreign-key expansion -- the
+    thing that turns a ranked pick into a runnable join -- had almost nothing
+    to follow. `crm_contact_note` without a key to `crm_contact` is not a
+    realistic table, it is a table with its most important column deleted.
+
+    Measured consequence of not having it: asked for contacts by status with
+    at least one payment, selection returned six `*_status` tables from six
+    unrelated domains and the model correctly refused to write SQL.
+    """
+    names = set(_object_names())
+    out = {}
+    for name in names:
+        for suffix in SUFFIXES:
+            if not suffix or not name.endswith(suffix):
+                continue
+            parent = name[: -len(suffix)]
+            if parent in names and parent != name:
+                out[name] = ("parent_id", parent)
+            break
+    return out
+
+
+FOREIGN_KEYS = {
+    "crm_contact_list":       ("contact_id", "crm_contact"),
+    "crm_contact_note":       ("contact_id", "crm_contact"),
+    "crm_contact_tag":        ("contact_id", "crm_contact"),
+    "crm_contact_owner":      ("contact_id", "crm_contact"),
+    "crm_contact_audit":      ("contact_id", "crm_contact"),
+    "crm_contact_import_log": ("contact_id", "crm_contact"),
+    "crm_contact_share":      ("contact_id", "crm_contact"),
+    "crm_contact_archive":    ("contact_id", "crm_contact"),
+    "crm_contact_history":    ("contact_id", "crm_contact"),
+    "bill_invoice":           ("contact_id", "crm_contact"),
+    "bill_payment":           ("invoice_id", "bill_invoice"),
+    "bill_refund":            ("invoice_id", "bill_invoice"),
+    "hr_employee":            ("department_id", "hr_department"),
+    WIDE_TABLE:               ("contact_id", "crm_contact"),
+}
+
+# Hand-written cross-family keys win; the generated within-family ones fill in
+# everywhere else. Order matters: `bill_payment` must point at `bill_invoice`,
+# not at a `bill_pay` parent that does not exist.
+for _child, _edge in _family_keys().items():
+    FOREIGN_KEYS.setdefault(_child, _edge)
+
+#: Questions that need MORE THAN ONE table to answer, which is the case the
+#: single-table questions above cannot test. Scored with the strict predicate
+#: -- every gold table present, not merely one of them -- because a join
+#: question answered with half its tables produces SQL that does not run.
+COMPLEX_QUESTIONS = [
+    ("which contacts have unpaid invoices",
+     {"crm_contact", "bill_invoice", "bill_payment"}),
+    ("payments received against invoices per contact",
+     {"crm_contact", "bill_invoice", "bill_payment"}),
+    ("refunds raised against invoices",
+     {"bill_invoice", "bill_refund"}),
+    ("notes written on contacts and who owns them",
+     {"crm_contact", "crm_contact_note", "crm_contact_owner"}),
+    ("contacts on a list together with their tags",
+     {"crm_contact", "crm_contact_list", "crm_contact_tag"}),
+    ("employees and the department they belong to",
+     {"hr_employee", "hr_department"}),
+    ("which contacts failed to import and what was archived",
+     {"crm_contact_import_log", "crm_contact_archive"}),
+    ("email engagement for each contact",
+     {"crm_contact", WIDE_TABLE}),
+]
 
 #: Questions made only of boilerplate every description shares, so no field has
 #: a discriminating term and the abstention guard becomes REACHABLE.
@@ -265,10 +350,21 @@ def oracle_ddl(spec):
         if kind == "VIEW":
             continue
         body = ", ".join(f"{c} {t}" for c, t in cols)
-        creates.append(f'CREATE TABLE {SCHEMA}."{name.upper()}" ({body})')
+        creates.append(
+            f'CREATE TABLE {SCHEMA}."{name.upper()}" ({body}, '
+            f'CONSTRAINT "PK_{name.upper()[:22]}" PRIMARY KEY ("ID"))')
         safe = description.replace("'", "''")
         comments.append(
             f'COMMENT ON TABLE {SCHEMA}."{name.upper()}" IS \'{safe}\'')
+    # Constraints after every table exists, so parent order does not matter.
+    present = {n for n, k, _d, _c in spec if k == "TABLE"}
+    for child, (column, parent) in FOREIGN_KEYS.items():
+        if child in present and parent in present:
+            creates.append(
+                f'ALTER TABLE {SCHEMA}."{child.upper()}" ADD CONSTRAINT '
+                f'"FK_{child.upper()[:22]}" FOREIGN KEY ("{column.upper()}") '
+                f'REFERENCES {SCHEMA}."{parent.upper()}" ("ID")')
+
     # views last: each selects from a table that now exists
     tables = [s[0] for s in spec if s[1] == "TABLE"]
     for name, kind, description, cols in spec:
@@ -293,8 +389,20 @@ def oracle_rows(spec, per_table=3):
     called `amount` gets money. A row that contradicts its column name is worse
     than no row.
     """
+    # Parents before children, or the child's row is rejected by the very
+    # constraint that makes the fixture worth having. Oracle said so out loud:
+    # ORA-02291 on hr_employee, because `employee` precedes `department` in
+    # the entity list and nothing had put them in dependency order.
+    def _depth(name):
+        seen, d = set(), 0
+        while name in FOREIGN_KEYS and name not in seen:
+            seen.add(name)
+            name = FOREIGN_KEYS[name][1]
+            d += 1
+        return d
+
     stmts = []
-    for name, kind, _desc, cols in spec:
+    for name, kind, _desc, cols in sorted(spec, key=lambda s: _depth(s[0])):
         if kind != "TABLE":
             continue
         for r in range(per_table):
@@ -608,6 +716,34 @@ def measure(top_k=6):
     print(f"    probes that reach the guard: {len(reachable)}/{len(probes)}")
     ok["d"] = bool(reachable)
     print(f"    => {'REACHABLE' if ok['d'] else 'NOT REACHABLE'}\n")
+
+    # (e) ---------------------------------------------------------------
+    # Complex questions: more than one table, scored strictly. A join question
+    # answered with half its tables produces SQL that does not run, so
+    # any-gold-present would be the wrong predicate here and would flatter it.
+    print("(e) complex questions, ALL gold tables present")
+    hit = 0
+    for q, gold in COMPLEX_QUESTIONS:
+        g = {x.lower() for x in gold}
+        got = {d.name.lower() for d in cat.select(q, top_k=max(top_k, len(g) + 2)).objects}
+        full = g <= got
+        hit += full
+        if not full:
+            print(f"      MISS {q!r}  missing {sorted(g - got)}")
+    n_c = len(COMPLEX_QUESTIONS)
+    print(f"    {hit}/{n_c} answered completely  ({hit / n_c * 100:.1f}%)")
+    # Without FK expansion the same questions, so the contribution is visible
+    # rather than asserted.
+    no_fk = 0
+    for q, gold in COMPLEX_QUESTIONS:
+        g = {x.lower() for x in gold}
+        got = {d.name.lower() for d in cat.select(
+            q, top_k=max(top_k, len(g) + 2), expand_fks=False).objects}
+        no_fk += g <= got
+    print(f"    {no_fk}/{n_c} with foreign-key expansion turned off")
+    print(f"    foreign-key expansion is worth {hit - no_fk} of {n_c}")
+    ok["e"] = hit >= 1
+    print(f"    => {'PASS' if ok['e'] else 'FAIL'}\n")
 
     # ------------------------------------------------ the apparatus sweep
     # Before publishing (b), move the apparatus and see whether the finding
