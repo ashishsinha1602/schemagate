@@ -22,6 +22,25 @@
   "use strict";
 
   const RRF_K = 60;
+
+  // FIX A of two, the twin of _competition_rank in catalog.py. Every ranked
+  // list feeding rank fusion used to be positional -- sorted by score, then
+  // numbered 0,1,2,... -- so two objects with identical scores were handed
+  // different ranks purely by where they sat in the sort, which is the order
+  // the schema was read in. Tied items now share the first rank of their
+  // group, and the qname breaks the sort so the group boundaries themselves
+  // do not depend on insertion order.
+  function competitionRank(pairs) {
+    const ordered = pairs.slice().sort(
+      (a, b) => (b[1] - a[1]) || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+    const m = new Map();
+    let lastScore = null, lastRank = 0;
+    ordered.forEach(([q, s], i) => {
+      if (lastScore !== null && s === lastScore) { m.set(q, lastRank); }
+      else { m.set(q, i); lastRank = i; lastScore = s; }
+    });
+    return m;
+  }
   const SHADOW_PENALTY = 0.5;
   const STANDALONE_SHADOW = /_(?:bak|bkp|backup)(?:_?\d{4}_?\d{2}_?\d{2}|_\d{6,8})?$/i;
   const PARTITION = /_(?:p\d+|\d{4}(?:_?\d{2}){0,2}|y\d{4}(?:m\d{2})?(?:d\d{2})?)$/i;
@@ -348,17 +367,17 @@
       const joins = expandJoins(baseToks, vocab).filter((t) => !baseToks.includes(t));
       const qvec = this.embedder.embed([question + (joins.length ? " " + joins.join(" ") : "")])[0];
       const hits = this.order.map((q) => ({ q, d: cosineDistance(qvec, this.vecs.get(q)) })).filter((h) => h.d <= 2.0);
-      hits.sort((a, b) => a.d - b.d);   // stable, like Python's sort
+      // FIX A/B twin of catalog.py. Ties on distance used to keep
+      // insertion order, which is reflection order.
+      hits.sort((a, b) => (a.d - b.d) || (a.q < b.q ? -1 : a.q > b.q ? 1 : 0));
       const vecRank = new Map(); hits.filter((h) => allowedSet.has(h.q)).forEach((h, i) => vecRank.set(h.q, i));
       const bm = this.bm25.scores(question);
       const lexPairs = this.order.map((q, i) => [q, bm[i]]).filter(([q, s]) => allowedSet.has(q) && s > 0);
-      lexPairs.sort((a, b) => b[1] - a[1]);
-      const lexRank = new Map(); lexPairs.forEach(([q], i) => lexRank.set(q, i));
+      const lexRank = competitionRank(lexPairs);
       const rankOf = (bm) => {
         const sc = bm.scores(question);
         const pairs = this.order.map((q, i) => [q, sc[i]]).filter(([q, v]) => allowedSet.has(q) && v > 0);
-        pairs.sort((a, b) => b[1] - a[1]);
-        const m = new Map(); pairs.forEach(([q], i) => m.set(q, i)); return m;
+        return competitionRank(pairs);
       };
       const nameRank = rankOf(this.bm25Name), proseRank = rankOf(this.bm25Prose);
       const qTokens = expandJoins(tokenize(question), vocab);
@@ -386,7 +405,10 @@
         if (s && namedBest.has(q)) s *= NAMED_BOOST;
         if (s) fused.push([q, s]);
       }
-      fused.sort((a, b) => b[1] - a[1]);
+      // FIX B: a tie can survive fix A and arrive here with nothing
+      // left to break it. Array.prototype.sort is stable, so it then
+      // falls back on insertion order -- reflection order again.
+      fused.sort((a, b) => (b[1] - a[1]) || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
       const chosen = [], taken = new Set();
       for (const name of pin) for (const [q, d] of this.docs) if ((q === name || d.name === name) && allowedSet.has(q) && !taken.has(q)) { chosen.push({ doc: d, score: 1.0, reason: "pinned" }); taken.add(q); }
       for (const [q, s] of fused) { if (chosen.length >= topK) break; if (!taken.has(q)) { const reason = vecRank.has(q) && lexRank.has(q) ? "hybrid" : vecRank.has(q) ? "vector" : "lexical"; chosen.push({ doc: this.docs.get(q), score: s, reason }); taken.add(q); } }

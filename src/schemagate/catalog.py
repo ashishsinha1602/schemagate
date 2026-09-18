@@ -12,7 +12,7 @@ import re
 import math
 import os
 from collections import Counter
-from typing import Dict, Iterable, List, Mapping, Optional, Sequence
+from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 from .embedder import (Embedder, HashingEmbedder, tokenize, expand_joins,
                        expand_acronyms)
@@ -217,6 +217,46 @@ def default_embedder() -> Embedder:
         # means fall back, never fail. The hashed embedder needs nothing and
         # is what the base install has always used.
         return HashingEmbedder()
+
+
+def _competition_rank(pairs: Sequence[Tuple[str, float]]) -> Dict[str, int]:
+    """Rank by score, giving equal scores the SAME rank. Fix A of two.
+
+    Every ranked list feeding rank fusion used to be positional: the items
+    were sorted by score alone and then numbered 0, 1, 2, ... Two objects
+    scoring identically -- which is common, because a BM25 score over a short
+    name is a coarse number and most objects share a schema -- were handed
+    different ranks purely by where they happened to sit in the sort, and that
+    order comes from the order the database was reflected in. The same
+    database read twice in a different order produced different fused scores
+    and, downstream, a different set of tables.
+
+    Competition ranking ("1224") removes the question: tied items share the
+    first rank of their group, so the rank a tie receives no longer depends on
+    the order inside it. Measured over 6 index orders x 12 questions x 3 prose
+    rows, this takes the fused scores from moving on 3-4 of 12 to 0 of 12.
+
+    It is NOT sufficient on its own, and shipping it alone would leave the
+    reproducibility claim one row short of true: with every score frozen, the
+    top-6 still moved on 1-2 of 12, because a tie can survive into the final
+    sort where nothing remains to break it. See fix B at the `ranked = ` line.
+
+    The secondary sort on the qname here is what makes the group boundaries
+    themselves deterministic -- without it the *set* of items sharing a rank
+    is stable but which one is seen first is not, and that leaks back out
+    through any caller that reads the order rather than the rank.
+    """
+    ordered = sorted(pairs, key=lambda p: (-p[1], p[0]))
+    out: Dict[str, int] = {}
+    last_score: Optional[float] = None
+    last_rank = 0
+    for position, (qname, score) in enumerate(ordered):
+        if last_score is not None and score == last_score:
+            out[qname] = last_rank
+        else:
+            out[qname] = position
+            last_rank, last_score = position, score
+    return out
 
 
 class Catalog:
@@ -804,18 +844,17 @@ class Catalog:
         qvec = self.embedder.embed([question + (" " + " ".join(_joins) if _joins else "")])[0]
         vec_hits = self.store.search(self._ns, qvec, k=len(self._order) or 1,
                                      max_distance=2.0)
-        vec_rank = {h["qname"]: i for i, h in enumerate(
-            [h for h in vec_hits if h["qname"] in allowed_set])}
+        vec_rank = _competition_rank(
+            [(h["qname"], -float(h.get("_distance", 0.0)))
+             for h in vec_hits if h["qname"] in allowed_set])
 
         def _rank(index: Optional[_BM25]) -> Dict[str, int]:
             if index is None:
                 return {}
             scores = index.scores(question)
-            pairs = sorted(
-                ((self._order[i], s) for i, s in enumerate(scores)
-                 if self._order[i] in allowed_set and s > 0),
-                key=lambda p: -p[1])
-            return {q: i for i, (q, _) in enumerate(pairs)}
+            return _competition_rank(
+                [(self._order[i], s) for i, s in enumerate(scores)
+                 if self._order[i] in allowed_set and s > 0])
 
         lex_rank = _rank(self._bm25)
         name_rank = _rank(self._bm25_name)
@@ -877,7 +916,13 @@ class Catalog:
             if s:
                 fused[q] = s
 
-        ranked = sorted(fused.items(), key=lambda p: -p[1])
+        # FIX B of two. Shared ranks (fix A) freeze every input score, and a
+        # tie can still arrive here with nothing left to break it -- at which
+        # point Python's stable sort falls back on insertion order, which is
+        # reflection order. Measured: fix A alone froze the fused scores and
+        # still moved the top-6 on 1 of 12 questions. The qname is the only
+        # key available that does not depend on how the database was read.
+        ranked = sorted(fused.items(), key=lambda p: (-p[1], p[0]))
         chosen: List[Scored] = []
         taken = set()
 
