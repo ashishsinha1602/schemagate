@@ -16,6 +16,7 @@ a wildcard suffix (`ga_sessions_*`). Both are reduced to the bare table name,
 which is what the catalog holds.
 """
 import json
+import os
 import pathlib
 from longpath import read_json, read_text
 import re
@@ -31,6 +32,8 @@ ROOT = HERE / "Spider2" / "spider2-lite"
 DBS = ROOT / "resource" / "databases"
 GOLD = ROOT / "evaluation_suite" / "gold" / "sql"
 QUESTIONS = HERE / "spider2_lite.jsonl"
+#: The prose ablation in BENCHMARKS.md: same files, description entries dropped.
+NO_DESC = os.environ.get("SPIDER2_NO_DESC") == "1"
 
 #: `proj.dataset.table`, "dataset"."table", bare table -- after FROM or JOIN.
 _REF = re.compile(r"\b(?:from|join)\s+([`\"\w.\-*$]+)", re.I)
@@ -64,19 +67,29 @@ def load_db(path: pathlib.Path):
         except Exception:                                    # noqa: BLE001
             continue
         name = d.get("table_name") or f.stem
-        names = d.get("column_names") or []
-        types = d.get("column_types") or []
-        cols = [Column(str(n), str(types[i] if i < len(types) else "TEXT"),
-                       True, None, False)
-                for i, n in enumerate(names)]
+        # `nested_column_names` is the flattened list (nested/repeated fields
+        # included) and is what the gold SQL references; it is present only
+        # when the table has such fields. gnomAD v3_genomes__chr7 has 61
+        # top-level columns and 181 flattened.
+        nested = d.get("nested_column_names")
+        names = nested or d.get("column_names") or []
+        types = (d.get("nested_column_types") if nested else d.get("column_types")) or []
+        # `description` is not a table description: it is one entry per
+        # column, aligned by index to the list above, entries sometimes null
+        # (150/150 sampled files, never a string). This used to be joined
+        # into one paragraph and stored on the table, which read plausibly
+        # and threw away the only column-level text in the dataset.
+        desc = None if NO_DESC else d.get("description")
+        per_col = list(desc) if isinstance(desc, (list, tuple)) else []
+        cols = []
+        for i, n in enumerate(names):
+            comment = per_col[i] if i < len(per_col) else None
+            cols.append(Column(str(n), str(types[i] if i < len(types) else "TEXT"),
+                               True, str(comment) if comment else None, False))
         if not cols:
             continue
-        # Spider 2.0 sometimes carries the description as a list of lines.
-        desc = d.get("description")
-        if isinstance(desc, (list, tuple)):
-            desc = " ".join(str(x) for x in desc)
         docs.append(ObjectDoc(name=str(name), schema=path.name, kind="TABLE",
-                              description=(str(desc) if desc else None),
+                              description=(desc if isinstance(desc, str) and desc else None),
                               columns=cols))
     return docs
 
