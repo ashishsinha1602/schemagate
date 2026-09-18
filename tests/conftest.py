@@ -9,6 +9,11 @@ import sqlite3, sys, os, tempfile, pytest
 # merge. That exact gap (hypothesis absent locally, present in CI) already hid
 # a real bug for a whole session.
 os.environ.setdefault("SCHEMAGATE_AUTO_EMBEDDER", "0")
+# Same reason as the line above: the suite is offline and deterministic. The
+# CLI, MCP and Studio now describe the catalogue automatically when a key is
+# present, and a key in the developer's shell must not turn a test run into
+# forty-two billed API calls. setdefault, so a test can still opt in.
+os.environ.setdefault("SCHEMAGATE_AUTO_DESCRIBE", "0")
 sys.path.insert(0, os.path.dirname(__file__))
 from schema_fixture import DDL, HINTS
 from schemagate import Catalog

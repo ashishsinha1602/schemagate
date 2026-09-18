@@ -586,6 +586,58 @@ against `sgbench.crm_contact`); it is 18 objects and takes 18 s.
 One thing the harness had wrong and now says correctly: its summary line read
 "executed on Oracle" whatever the target was.
 
+## The real catalogue, always
+
+The AI catalogue was the largest accuracy lever in the library and the step
+everyone skipped, because using it meant knowing `schemagate describe` exists,
+running it, and carrying a `--config` file around. Every path that answers a
+question -- `select`, `--answer`, the MCP server, the Studio's connect -- now
+describes the catalogue first, whenever a key is present, and caches the
+result per connection. `SCHEMAGATE_AUTO_DESCRIBE=0` turns it off; with no key
+nothing is called.
+
+**The first version did nothing on the fixture, and that was correct.** It
+described only objects with no description and no hint. Every object on the
+1,200-object schema carries a database comment, so it wrote 0 descriptions
+and PostgreSQL stayed at 6 of 8 complex questions -- the no-catalogue number.
+A comment is a comment.
+
+But those comments are one voice repeated 1,036 times, and the 8 of 8 measured
+earlier had come only from overwriting them by hand. So a second rule: a
+comment whose best word, in the prose index, is less informative than
+`BOILERPLATE_MAX_IDF = 0.5` is boilerplate -- it says something every object
+also says -- and is replaced. A hint is never boilerplate; a missing comment is
+missing, not boilerplate; a call that fails puts the original comment back.
+
+The rule needed one refinement, found by running it: the object's own name
+and column words do not count. A generated comment nearly always restates
+them ("holds crm contact note records"), and with the name counted, 2 of
+1,036 one-voice comments read as boilerplate -- each carried exactly one
+rare word, its own. The digits in `crm_thing_005` were the last of it: not
+"own" under an alphabetic tokenizer, and a token that appears once in the
+corpus scores 3.7. Own words are now taken through the same tokenizer as the
+description, and a run of digits is never prose.
+
+**Through the product path, no flags, no hand-fed file, PostgreSQL 16:**
+
+```
+                                    before       after
+boilerplate comments replaced        0 / 1,201    1,035 / 1,201
+comments kept (the other voice)      --           165
+complex SQL executed                 6 / 8        8 / 8   (twice)
+second run, warm cache               --           30 s, zero describe calls
+```
+
+1,035 is the number the fixture specified for the saturated voice, to the
+object; the 165 written in a different voice carry words the rest of the
+schema does not, and were kept. That is the rule discriminating, not clearing
+everything it sees.
+
+The suite is guarded: `tests/conftest.py` sets the kill switch by default, so a
+key in a developer's shell cannot turn a test run into billed calls, and
+`tests/test_auto_describe.py` asserts "no call was made" with a provider that
+counts its own calls rather than assuming it.
+
 ## FK closure: what a selection carries beyond the budget
 
 A question from the dev.to thread: when you ask for `top_k=K`, how much do you
