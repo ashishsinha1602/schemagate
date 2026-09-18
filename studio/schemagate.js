@@ -22,6 +22,25 @@
   "use strict";
 
   const RRF_K = 60;
+
+  // FIX A of two, the twin of _competition_rank in catalog.py. Every ranked
+  // list feeding rank fusion used to be positional -- sorted by score, then
+  // numbered 0,1,2,... -- so two objects with identical scores were handed
+  // different ranks purely by where they sat in the sort, which is the order
+  // the schema was read in. Tied items now share the first rank of their
+  // group, and the qname breaks the sort so the group boundaries themselves
+  // do not depend on insertion order.
+  function competitionRank(pairs) {
+    const ordered = pairs.slice().sort(
+      (a, b) => (b[1] - a[1]) || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+    const m = new Map();
+    let lastScore = null, lastRank = 0;
+    ordered.forEach(([q, s], i) => {
+      if (lastScore !== null && s === lastScore) { m.set(q, lastRank); }
+      else { m.set(q, i); lastRank = i; lastScore = s; }
+    });
+    return m;
+  }
   const SHADOW_PENALTY = 0.5;
   const STANDALONE_SHADOW = /_(?:bak|bkp|backup)(?:_?\d{4}_?\d{2}_?\d{2}|_\d{6,8})?$/i;
   const PARTITION = /_(?:p\d+|\d{4}(?:_?\d{2}){0,2}|y\d{4}(?:m\d{2})?(?:d\d{2})?)$/i;
@@ -49,9 +68,19 @@
   // two rank identically on the same fixtures, which is what caught this
   // file being left behind when the scoring changed.
   const BOOST_STOP = new Set("of by as at in on to for and or per the a an is are was".split(" "));
+  // Endings whose plural really takes "-es", so the "e" belongs to the suffix
+  // and not to the word: box -> boxes, match -> matches, dish -> dishes.
+  // Everywhere else the singular already ends in "e" and only the "s" goes:
+  // invoice -> invoices, note -> notes, employee -> employees. Stripping both
+  // letters unconditionally meant `invoices` stemmed to `invoic` while
+  // `invoice` stayed put, so the two never met on the lexical channel.
+  const ES_PLURAL = ["s", "x", "z", "ch", "sh"];
   function stemToken(t) {
     if (t.length > 4 && t.endsWith("ies")) return t.slice(0, -3) + "y";
-    if (t.length > 4 && t.endsWith("es") && !t.endsWith("ses")) return t.slice(0, -2);
+    if (t.length > 4 && t.endsWith("es") && !t.endsWith("ses")) {
+      const base = t.slice(0, -2);
+      return ES_PLURAL.some((e) => base.endsWith(e)) ? base : t.slice(0, -1);
+    }
     if (t.length > 3 && t.endsWith("s") && !t.endsWith("ss")) return t.slice(0, -1);
     return t;
   }
@@ -348,17 +377,17 @@
       const joins = expandJoins(baseToks, vocab).filter((t) => !baseToks.includes(t));
       const qvec = this.embedder.embed([question + (joins.length ? " " + joins.join(" ") : "")])[0];
       const hits = this.order.map((q) => ({ q, d: cosineDistance(qvec, this.vecs.get(q)) })).filter((h) => h.d <= 2.0);
-      hits.sort((a, b) => a.d - b.d);   // stable, like Python's sort
+      // FIX A/B twin of catalog.py. Ties on distance used to keep
+      // insertion order, which is reflection order.
+      hits.sort((a, b) => (a.d - b.d) || (a.q < b.q ? -1 : a.q > b.q ? 1 : 0));
       const vecRank = new Map(); hits.filter((h) => allowedSet.has(h.q)).forEach((h, i) => vecRank.set(h.q, i));
       const bm = this.bm25.scores(question);
       const lexPairs = this.order.map((q, i) => [q, bm[i]]).filter(([q, s]) => allowedSet.has(q) && s > 0);
-      lexPairs.sort((a, b) => b[1] - a[1]);
-      const lexRank = new Map(); lexPairs.forEach(([q], i) => lexRank.set(q, i));
+      const lexRank = competitionRank(lexPairs);
       const rankOf = (bm) => {
         const sc = bm.scores(question);
         const pairs = this.order.map((q, i) => [q, sc[i]]).filter(([q, v]) => allowedSet.has(q) && v > 0);
-        pairs.sort((a, b) => b[1] - a[1]);
-        const m = new Map(); pairs.forEach(([q], i) => m.set(q, i)); return m;
+        return competitionRank(pairs);
       };
       const nameRank = rankOf(this.bm25Name), proseRank = rankOf(this.bm25Prose);
       const qTokens = expandJoins(tokenize(question), vocab);
@@ -386,10 +415,40 @@
         if (s && namedBest.has(q)) s *= NAMED_BOOST;
         if (s) fused.push([q, s]);
       }
-      fused.sort((a, b) => b[1] - a[1]);
+      // FIX B: a tie can survive fix A and arrive here with nothing
+      // left to break it. Array.prototype.sort is stable, so it then
+      // falls back on insertion order -- reflection order again.
+      fused.sort((a, b) => (b[1] - a[1]) || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
       const chosen = [], taken = new Set();
       for (const name of pin) for (const [q, d] of this.docs) if ((q === name || d.name === name) && allowedSet.has(q) && !taken.has(q)) { chosen.push({ doc: d, score: 1.0, reason: "pinned" }); taken.add(q); }
       for (const [q, s] of fused) { if (chosen.length >= topK) break; if (!taken.has(q)) { const reason = vecRank.has(q) && lexRank.has(q) ? "hybrid" : vecRank.has(q) ? "vector" : "lexical"; chosen.push({ doc: this.docs.get(q), score: s, reason }); taken.add(q); } }
+      // Column evidence gets one slot -- twin of the block in catalog.py.
+      // The body channel is the only one that sees columns, so its single
+      // best hit is the one piece of evidence nothing else guarantees. Same
+      // budget rules as coverage below: displaces the weakest ranked pick,
+      // never a pinned or covering one, and is abandoned rather than break
+      // the budget. A no-op wherever the best lexical match already made the
+      // cut, which is every small schema.
+      if (lexRank.size) {
+        const fusedScore = new Map(fused);
+        let bodyBest = null;
+        for (const [q, r] of lexRank)
+          if (bodyBest === null || r < lexRank.get(bodyBest) || (r === lexRank.get(bodyBest) && q < bodyBest)) bodyBest = q;
+        if (bodyBest !== null && lexRank.get(bodyBest) === 0 && allowedSet.has(bodyBest) && !taken.has(bodyBest)) {
+          if (chosen.length >= topK) {
+            let dropped = false;
+            for (let i = chosen.length - 1; i >= 0; i--)
+              // qname(doc), not doc.qname: the JS doc objects carry no such
+              // property, so the first version deleted `undefined`, left the
+              // dropped table marked as taken, and FK expansion then skipped
+              // it -- one table short of the Python result on 6 of 1,789
+              // parity cases.
+              if (chosen[i].reason !== "pinned" && chosen[i].reason !== "covers") { taken.delete(qname(chosen[i].doc)); chosen.splice(i, 1); dropped = true; break; }
+            if (!dropped) bodyBest = null;
+          }
+          if (bodyBest !== null) { chosen.push({ doc: this.docs.get(bodyBest), score: fusedScore.get(bodyBest) || 0.0, reason: "covers" }); taken.add(bodyBest); }
+        }
+      }
       // Cover every thing the question named -- same rule as catalog.py, and
       // inside topK, never beyond it.
       if (this.bm25Name && this.bm25Name.idf.size) {

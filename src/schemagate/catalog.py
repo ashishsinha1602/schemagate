@@ -12,7 +12,7 @@ import re
 import math
 import os
 from collections import Counter
-from typing import Dict, Iterable, List, Mapping, Optional, Sequence
+from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 from .embedder import (Embedder, HashingEmbedder, tokenize, expand_joins,
                        expand_acronyms)
@@ -116,12 +116,34 @@ _LAYER_PREFIXES = ("dim_", "fact_", "fct_", "f_", "d_", "v_", "vw_", "view_",
 _BOOST_STOP = frozenset("of by as at in on to for and or per the a an is are was".split())
 
 
+#: Endings whose plural really does take "-es", so the "e" belongs to the
+#: suffix and not to the word: box -> boxes, match -> matches, dish -> dishes.
+_ES_PLURAL = ("s", "x", "z", "ch", "sh")
+
+
 def _stem(t: str) -> str:
-    """Just enough to let a plural meet its singular. Not a stemmer."""
+    """Just enough to let a plural meet its singular. Not a stemmer.
+
+    The "-es" rule used to strip both letters unconditionally, which is right
+    for `boxes -> box` and wrong for every noun whose singular already ends in
+    "e". It turned `invoices` into `invoic` while `invoice` stayed `invoice`,
+    so the two never met -- and the same for employees, notes, prices,
+    packages, services. Six of eleven common plurals did not reach their
+    singular, and this function exists for exactly that.
+
+    It is not a small bug in a small helper. Both sides of the lexical index
+    are stemmed through here, so a question asking about "invoices" simply did
+    not match the `invoice` table on the lexical channel at all; it had to be
+    rescued by vectors. The coverage pass, which asks whether a question word
+    is informative enough to be worth a slot, missed them too.
+
+    The fix is to strip "es" only after a sibilant, where English actually
+    adds one, and otherwise to strip the "s" alone.
+    """
     if len(t) > 4 and t.endswith("ies"):
         return t[:-3] + "y"
     if len(t) > 4 and t.endswith("es") and not t.endswith("ses"):
-        return t[:-2]
+        return t[:-2] if t[:-2].endswith(_ES_PLURAL) else t[:-1]
     if len(t) > 3 and t.endswith("s") and not t.endswith("ss"):
         return t[:-1]
     return t
@@ -217,6 +239,88 @@ def default_embedder() -> Embedder:
         # means fall back, never fail. The hashed embedder needs nothing and
         # is what the base install has always used.
         return HashingEmbedder()
+
+
+#: A field abstains when the best query term it knows is less informative than
+#: this. The number is an idf, on the same scale as `_COVERAGE_MIN_IDF` above.
+#:
+#: The case it exists for is the one the 1,245-object schema produced: every
+#: description written in the domain's own vocabulary, so `contact` appears in
+#: most of them and its idf in the prose field collapses towards zero. That
+#: field then still produces a full ranking -- BM25 happily orders documents on
+#: a term that separates none of them -- and rank fusion treats that ranking as
+#: evidence equal to the name field's, where the same term is still worth 4.3.
+#: Noise given a vote.
+#:
+#: Abstaining is not the same as scoring zero. A field that returns no ranking
+#: contributes nothing to fusion and the remaining fields decide; a field that
+#: ranks on a worthless term actively reorders the result.
+#:
+#: 0.1 is deliberately low. At N=1,200 it is reached only once a term is in
+#: roughly 1,090 of 1,200 documents -- genuinely in almost everything. A term
+#: in "only" 1,035 of 1,200 scores 0.147 and still votes, which is the right
+#: side of the line to err on: a field that abstains too eagerly loses real
+#: signal, and nothing else will put it back.
+ABSTAIN_MIN_IDF = 0.1
+
+
+def _abstains(index: Optional[_BM25], question: str) -> bool:
+    """True when this field knows nothing discriminating about the question.
+
+    Judged on the best term, not the average: one informative word is enough
+    to make a field worth hearing, however much filler surrounds it.
+    """
+    if index is None or not index.idf:
+        return False
+    best = 0.0
+    for token in tokenize(question):
+        value = index.idf.get(_stem(token))
+        if value is not None and value > best:
+            best = value
+    # A question whose terms are entirely absent from this field scores 0.0
+    # here, and abstaining is exactly right for that too -- an index that has
+    # never seen any of these words cannot rank on them.
+    return best < ABSTAIN_MIN_IDF
+
+
+def _competition_rank(pairs: Sequence[Tuple[str, float]]) -> Dict[str, int]:
+    """Rank by score, giving equal scores the SAME rank. Fix A of two.
+
+    Every ranked list feeding rank fusion used to be positional: the items
+    were sorted by score alone and then numbered 0, 1, 2, ... Two objects
+    scoring identically -- which is common, because a BM25 score over a short
+    name is a coarse number and most objects share a schema -- were handed
+    different ranks purely by where they happened to sit in the sort, and that
+    order comes from the order the database was reflected in. The same
+    database read twice in a different order produced different fused scores
+    and, downstream, a different set of tables.
+
+    Competition ranking ("1224") removes the question: tied items share the
+    first rank of their group, so the rank a tie receives no longer depends on
+    the order inside it. Measured over 6 index orders x 12 questions x 3 prose
+    rows, this takes the fused scores from moving on 3-4 of 12 to 0 of 12.
+
+    It is NOT sufficient on its own, and shipping it alone would leave the
+    reproducibility claim one row short of true: with every score frozen, the
+    top-6 still moved on 1-2 of 12, because a tie can survive into the final
+    sort where nothing remains to break it. See fix B at the `ranked = ` line.
+
+    The secondary sort on the qname here is what makes the group boundaries
+    themselves deterministic -- without it the *set* of items sharing a rank
+    is stable but which one is seen first is not, and that leaks back out
+    through any caller that reads the order rather than the rank.
+    """
+    ordered = sorted(pairs, key=lambda p: (-p[1], p[0]))
+    out: Dict[str, int] = {}
+    last_score: Optional[float] = None
+    last_rank = 0
+    for position, (qname, score) in enumerate(ordered):
+        if last_score is not None and score == last_score:
+            out[qname] = last_rank
+        else:
+            out[qname] = position
+            last_rank, last_score = position, score
+    return out
 
 
 class Catalog:
@@ -804,18 +908,19 @@ class Catalog:
         qvec = self.embedder.embed([question + (" " + " ".join(_joins) if _joins else "")])[0]
         vec_hits = self.store.search(self._ns, qvec, k=len(self._order) or 1,
                                      max_distance=2.0)
-        vec_rank = {h["qname"]: i for i, h in enumerate(
-            [h for h in vec_hits if h["qname"] in allowed_set])}
+        vec_rank = _competition_rank(
+            [(h["qname"], -float(h.get("_distance", 0.0)))
+             for h in vec_hits if h["qname"] in allowed_set])
 
         def _rank(index: Optional[_BM25]) -> Dict[str, int]:
             if index is None:
                 return {}
+            if _abstains(index, question):
+                return {}
             scores = index.scores(question)
-            pairs = sorted(
-                ((self._order[i], s) for i, s in enumerate(scores)
-                 if self._order[i] in allowed_set and s > 0),
-                key=lambda p: -p[1])
-            return {q: i for i, (q, _) in enumerate(pairs)}
+            return _competition_rank(
+                [(self._order[i], s) for i, s in enumerate(scores)
+                 if self._order[i] in allowed_set and s > 0])
 
         lex_rank = _rank(self._bm25)
         name_rank = _rank(self._bm25_name)
@@ -877,7 +982,13 @@ class Catalog:
             if s:
                 fused[q] = s
 
-        ranked = sorted(fused.items(), key=lambda p: -p[1])
+        # FIX B of two. Shared ranks (fix A) freeze every input score, and a
+        # tie can still arrive here with nothing left to break it -- at which
+        # point Python's stable sort falls back on insertion order, which is
+        # reflection order. Measured: fix A alone froze the fused scores and
+        # still moved the top-6 on 1 of 12 questions. The qname is the only
+        # key available that does not depend on how the database was read.
+        ranked = sorted(fused.items(), key=lambda p: (-p[1], p[0]))
         chosen: List[Scored] = []
         taken = set()
 
@@ -906,6 +1017,43 @@ class Catalog:
                     "vector" if q in vec_rank else "lexical")
                 chosen.append(Scored(self._docs[q], s, reason))
                 taken.add(q)
+
+        # Column evidence gets one slot, the way a named thing gets one below.
+        #
+        # Rank fusion rewards breadth over depth: an object that is first on
+        # two channels can lose to twenty objects that are tenth on three.
+        # Measured on a 1,200-object schema, "email opens per contact" ranked
+        # the engagement fact table first on the body channel and first on
+        # prose -- its columns are email_open_7d, email_open_30d -- and fused
+        # it to 30th, behind twenty-nine crm_contact_* and crm_company_*
+        # siblings that merely share a word with the question in their name.
+        # The coverage pass below could not help, because it covers words that
+        # appear in NAMES, and "email" and "open" appear only in columns.
+        #
+        # The body channel is the only one that sees columns, so its single
+        # best hit is the one piece of evidence nothing else guarantees. One
+        # slot, budget-neutral, under the same rules as coverage: it displaces
+        # the weakest ranked pick, never a pinned or covering one, and is
+        # abandoned rather than break the budget. It is a no-op on any schema
+        # where the best lexical match already made the cut -- which is every
+        # small one -- and bites only when a name family floods the budget.
+        # Not a fix for one database: the rule names no schema and no word.
+        if lex_rank:
+            body_best = min(lex_rank.items(), key=lambda p: (p[1], p[0]))[0]
+            if (lex_rank[body_best] == 0 and body_best in allowed_set
+                    and body_best not in taken):
+                if len(chosen) >= top_k:
+                    for i in range(len(chosen) - 1, -1, -1):
+                        if chosen[i].reason not in ("pinned", "covers"):
+                            taken.discard(chosen[i].doc.qname)
+                            del chosen[i]
+                            break
+                    else:
+                        body_best = None
+                if body_best is not None:
+                    chosen.append(Scored(self._docs[body_best],
+                                         fused.get(body_best, 0.0), "covers"))
+                    taken.add(body_best)
 
         # Cover every thing the question named, not just the best-scoring ones.
         #
@@ -941,7 +1089,14 @@ class Catalog:
             uncovered = []
             for t in q_tokens:
                 if (len(t) > 2 and t not in _BOOST_STOP
-                        and self._bm25_name.idf.get(t, 0.0) >= _COVERAGE_MIN_IDF
+                        # Stemmed, because the index is. Looking up the raw
+                        # token meant a plural scored 0.0 here and never
+                        # cleared the threshold, so coverage silently did
+                        # nothing for "contacts", "payments", "invoices" --
+                        # the ordinary way anyone phrases a question. The line
+                        # below already stems for the `covered` test.
+                        and self._bm25_name.idf.get(
+                            _stem(t), 0.0) >= _COVERAGE_MIN_IDF
                         and t not in covered and _stem(t) not in covered_stems
                         and t not in uncovered):
                     uncovered.append(t)

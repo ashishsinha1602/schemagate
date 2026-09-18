@@ -79,11 +79,44 @@ class UnsafeSQL(RuntimeError):
     """Generated SQL that would do something other than read."""
 
 
+#: The first fenced block anywhere in the reply, not only at the very start.
+_FENCE = re.compile(r"```[a-zA-Z]*[ \t]*\r?\n(.*?)```", re.S)
+
+#: A statement keyword at the start of a line, used only to find where prose
+#: ends and SQL begins in an unfenced reply.
+_STATEMENT_START = re.compile(r"(?im)^[ \t]*(select|with)\b")
+
+
 def _strip_fences(sql: str) -> str:
+    """Pull the SQL out of whatever the model wrapped around it.
+
+    The old version only stripped a fence when the reply *began* with one, so
+    two ordinary model habits broke it outright: a sentence of preamble before
+    the block, and -- more often on a hard question -- a paragraph of
+    second-guessing after it. Measured on eight complex questions against a
+    live database, three failed here with "not a SELECT: 'I'" while the model
+    had in fact written correct SQL a line further down.
+
+    Safety is not relaxed. Whatever this returns still goes through
+    `check_read_only` in full; this only decides which span of the reply is
+    offered to it. The one place that could go wrong is skipping a prose
+    prefix -- if the "prose" were really `DELETE FROM t;` then cutting to the
+    SELECT after it would hide the write from the semicolon check. So the
+    prefix is only dropped when it holds no statement separator and nothing
+    forbidden, and otherwise the text is handed over untouched to be rejected.
+    """
     s = sql.strip()
-    if s.startswith("```"):
-        s = re.sub(r"^```[a-zA-Z]*\n?", "", s)
-        s = re.sub(r"\n?```$", "", s.strip())
+
+    fenced = _FENCE.search(s)
+    if fenced:
+        return fenced.group(1).strip().rstrip(";").strip()
+
+    match = _STATEMENT_START.search(s)
+    if match and match.start() > 0:
+        prefix = s[:match.start()]
+        if ";" not in prefix and not _FORBIDDEN.search(prefix):
+            s = s[match.start():]
+
     return s.strip().rstrip(";").strip()
 
 

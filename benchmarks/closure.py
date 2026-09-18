@@ -24,11 +24,11 @@ min(K, supply) is supply, and closure is 0 because there is nothing left to
 add -- a clamp, not a measurement. Across these five schemas most of the zeros
 on a coarse grid are clamp-forced that way.
 
-The ceiling moves with the grid. On a six-value K grid health peaks at 7;
-sweeping every K from 1 to supply it peaks at 8, and 22 of the 52 questions
-have a higher ceiling on the dense grid than the coarse one (commerce 5,
-health 5, warehouse 5, finance 4, telemetry 3). A maximum over an arbitrary
-grid is a property of the grid.
+The ceiling moves with the grid: a maximum taken over an arbitrary set of K
+values is a property of that set, not of the system. Counting how many
+questions peak higher on a dense grid than a coarse one measures the two
+grids against each other and tells you nothing about foreign-key expansion,
+so it is not reported here either.
 
 So this reports the whole curve for K < supply, with the grid and the supply
 printed beside it, and the argmax K -- where the expansion does the most work
@@ -88,8 +88,6 @@ def main(argv=None):
     reasons = Counter()
     covers_by_schema = Counter()
     total_selections = 0
-    higher_on_dense = Counter()
-    COARSE = [1, 3, 6, 10, 20, 50]          # the grid a min/max pair came from
 
     for name in names:
         cat = RPE.build(name)
@@ -105,12 +103,13 @@ def main(argv=None):
             body = c[:-1]
             peak = max(body) if body else 0
             argmax = body.index(peak) + 1 if body else 0
-            coarse_peak = max((c[k - 1] for k in COARSE if k <= supply), default=0)
-            if peak > coarse_peak:
-                higher_on_dense[name] += 1
-            print("  %-46s peak %d at K=%-3d  %s"
-                  % (q[:46], peak, argmax,
-                     " ".join(str(x) for x in c)))
+            # `body`, not `c`: the curve is reported for K < supply, and the
+            # final point is the clamp -- at K = supply the ranked set is
+            # everything, min(K, supply) is supply, and closure is 0 by
+            # arithmetic. Printing it invites it to be read as a measurement.
+            print("  %-46s argmax K=%-3d closure %d  |  %s"
+                  % (q[:46], argmax, peak,
+                     " ".join(str(x) for x in body)))
         covers_by_schema[name] = reasons["covers"] - before_covers
         print()
 
@@ -121,10 +120,6 @@ def main(argv=None):
     print("`covers` picks returned, by schema:")
     for name in names:
         print("  %-11s %d" % (name, covers_by_schema[name]))
-    print()
-    print("questions whose peak is higher on the dense grid than on %s:" % COARSE)
-    for name in names:
-        print("  %-11s %d" % (name, higher_on_dense[name]))
     return 0
 
 
