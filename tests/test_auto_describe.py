@@ -136,16 +136,41 @@ def test_the_same_connection_always_maps_to_the_same_file():
 # ------------------------------------------------------ model selection
 
 def test_a_named_model_wins_over_the_default():
+    # Building the provider imports the vendor SDK, which the dev extra does
+    # not carry. CI failed here with `None` before this skip existed -- which
+    # was the helper doing its job, not the helper being wrong (see the test
+    # after these two).
+    pytest.importorskip("anthropic")
     env = {"ANTHROPIC_API_KEY": "k", auto.MODEL_VARS[0]: "claude-test-model"}
     p = auto.provider_from_env(env)
     assert p is not None and "claude-test-model" in p.name
 
 
 def test_a_key_with_no_model_gets_that_providers_default():
+    pytest.importorskip("anthropic")
     env = {"ANTHROPIC_API_KEY": "k"}
     p = auto.provider_from_env(env)
     assert p is not None
     assert auto.DEFAULT_MODELS["AnthropicProvider"] in p.name
+
+
+def test_a_key_without_its_sdk_is_none_not_an_exception(monkeypatch):
+    """The guarantee that matters at connect time: a key whose SDK is not
+    installed must degrade to 'no provider', never raise into the middle of
+    a Studio connect or an MCP startup."""
+    import builtins
+    real_import = builtins.__import__
+
+    def no_anthropic(name, *a, **k):
+        if name == "anthropic" or name.startswith("anthropic."):
+            raise ImportError("simulated: anthropic not installed")
+        return real_import(name, *a, **k)
+
+    monkeypatch.setattr(builtins, "__import__", no_anthropic)
+    assert auto.provider_from_env({"ANTHROPIC_API_KEY": "k"}) is None
+    # and the whole path is a no-op rather than a crash
+    cat = _catalog()
+    assert auto.ensure_described(cat, env={"ANTHROPIC_API_KEY": "k"}) == 0
 
 
 def test_oci_without_a_model_is_not_guessed():
