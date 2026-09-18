@@ -1,4 +1,4 @@
-# schemagate
+# schemagate — text-to-SQL access control at schema selection
 
 [![PyPI](https://img.shields.io/pypi/v/schemagate.svg)](https://pypi.org/project/schemagate/)
 [![Python](https://img.shields.io/pypi/pyversions/schemagate.svg)](https://pypi.org/project/schemagate/)
@@ -6,8 +6,9 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Try it in the browser](https://img.shields.io/badge/demo-in%20your%20browser-0F7B6C)](https://ashishsinha1602.github.io/schemagate/)
 
-Picks the handful of tables an NL2SQL model actually needs, and never shows it
-tables the person asking isn't allowed to read.
+Your text-to-SQL agent picks which tables to show the model before anyone checks what the caller is allowed to read. schemagate does the check first: it filters the schema by the caller's grants, so restricted tables are absent from the prompt rather than ranked low. Works with LangChain, MCP, or any SQL agent, on Postgres, Oracle, MySQL, SQL Server and SQLite.
+
+With row-level security alone the failure is quiet: the model writes valid SQL against a table the caller cannot read, RLS strips every row, and the user is told "no records found" — indistinguishable from "this data does not exist."
 
 [Demo](https://ashishsinha1602.github.io/schemagate/) · [Install](https://ashishsinha1602.github.io/schemagate/install/) · [Benchmarks](https://ashishsinha1602.github.io/schemagate/benchmarks/) · [Local models](https://ashishsinha1602.github.io/schemagate/local-models/) · [What it costs](https://ashishsinha1602.github.io/schemagate/cost/) · [Coming from Vanna](https://ashishsinha1602.github.io/schemagate/vanna-alternative/)
 
