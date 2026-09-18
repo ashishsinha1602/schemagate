@@ -541,6 +541,51 @@ The one question still failing without a catalogue ("contacts with a tag
 but no note") is an anti-join across two children of the same parent, and
 with the catalogue applied it runs.
 
+## The same fixture on PostgreSQL
+
+A finding that holds on one database is a finding about that database. So
+`benchmarks/fixture_1200.py --target postgres` builds the identical spec --
+same 1,201 objects, same 1,144 foreign keys, same 3,579 rows, same one-voice
+descriptions -- on PostgreSQL 16 (a local container; 1,200 tables is not
+something to put on a shared database unasked), and every number is
+re-measured there.
+
+The generator is what is checked in. The two databases differ only in
+dialect: `NUMBER -> NUMERIC`, `VARCHAR2 -> VARCHAR`, `DATE -> TIMESTAMP`, the
+date literal, and identifier case. Reflection takes 8 s on PostgreSQL against
+160 s on the Autonomous Database.
+
+**Every acceptance check reproduces number for number:**
+
+```
+                                   Oracle 26ai    PostgreSQL 16
+(a) idf('contact') name / flat     4.288 / 0.147  4.288 / 0.148
+(b) flat vs fielded @k=6           12 / 14 of 16  12 / 14 of 16
+(c) column ranking, as retrieved   2 of 16        2 of 16
+(d) probes reaching the guard      2 of 3         2 of 3
+(e) complex, all gold present      4 of 8         4 of 8
+    (b) sweep: fielded wins at     4 of 7 K       4 of 7 K
+```
+
+**And on the metric that matters -- SQL that executes on the live
+database.** Eight complex questions, a model writing SQL from the fragment
+alone, each run twice with identical results:
+
+```
+                          Oracle    PostgreSQL
+no catalogue               7/8        6/8
+real AI catalogue          8/8        8/8
+```
+
+The one extra miss on PostgreSQL without a catalogue is the refund question,
+which fails at generation -- the model declines the tables it was shown. With
+a catalogue it runs on both. The AI catalogue is generated separately for
+each database, because the qualified names differ (`SGBENCH.crm_contact`
+against `sgbench.crm_contact`); it is 18 objects and takes 18 s.
+
+One thing the harness had wrong and now says correctly: its summary line read
+"executed on Oracle" whatever the target was.
+
 ## FK closure: what a selection carries beyond the budget
 
 A question from the dev.to thread: when you ask for `top_k=K`, how much do you

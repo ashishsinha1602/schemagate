@@ -80,6 +80,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--model", default="claude-sonnet-4-5")
     ap.add_argument("--top-k", type=int, default=8)
+    ap.add_argument("--target", choices=("oracle", "postgres"), default="oracle",
+                    help="which live database to select against and execute on")
     ap.add_argument("--show-sql", action="store_true")
     ap.add_argument("--describe", metavar="FILE",
                     help="a JSON catalogue {qname: description} to apply "
@@ -100,12 +102,15 @@ def main() -> int:
                                    run_sql)
 
     F._load_env()
-    cache = pathlib.Path(os.environ.get("SGBENCH_CACHE", ".sgbench_docs.pkl"))
+    default_cache = (".sgbench_docs.pkl" if args.target == "oracle"
+                     else f".sgbench_docs_{args.target}.pkl")
+    cache = pathlib.Path(os.environ.get("SGBENCH_CACHE", default_cache))
     cat = Catalog(name="sgbench")
     if cache.exists():
         cat.add_all(pickle.loads(cache.read_bytes()))
     else:
-        cat.bootstrap(F.live_engine(), schemas=[F.SCHEMA])
+        cat.bootstrap(F.live_engine(args.target),
+                      schemas=[F.PG_SCHEMA if args.target == "postgres" else F.SCHEMA])
         cache.write_bytes(pickle.dumps(list(cat._docs.values())))
     if args.describe:
         import json
@@ -116,7 +121,7 @@ def main() -> int:
     cat.index()
     print(f"catalog: {len(cat._docs)} objects\n")
 
-    engine = F.live_engine()
+    engine = F.live_engine(args.target)
     provider = _p.AnthropicProvider(model=args.model)
     print(f"model  : {provider.name}   top_k={args.top_k}\n")
 
@@ -131,7 +136,7 @@ def main() -> int:
         print(f"   hard because: {why}")
         print(f"   selected    : {tables[:6]}")
         try:
-            sql = generate_sql(provider, question, fragment, dialect="oracle")
+            sql = generate_sql(provider, question, fragment, dialect=args.target)
             sql = check_read_only(sql)
             generated += 1
         except (UnsafeSQL, Exception) as e:                     # noqa: BLE001
@@ -153,7 +158,7 @@ def main() -> int:
     n = len(COMPLEX_SQL)
     print("-" * 64)
     print(f"generated read-only SQL : {generated}/{n}")
-    print(f"executed on Oracle      : {ran}/{n}")
+    print(f"executed on {args.target:<12}: {ran}/{n}")
     print(f"returned at least a row : {returned}/{n}   (not the headline --"
           f" an empty result can be correct)")
     print(f"{time.time() - t0:.0f}s")

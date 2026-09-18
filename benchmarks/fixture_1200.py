@@ -439,6 +439,141 @@ def _value_for(col, typ, r):
 
 
 # --------------------------------------------------------------------------
+# the same fixture on PostgreSQL
+#
+# Same spec, same FK graph, same rows, second dialect. A finding that holds on
+# one database is a finding about that database; the point of a second target
+# is that the generator, not the fixture, is what is checked in.
+# --------------------------------------------------------------------------
+
+PG_SCHEMA = "sgbench"
+
+#: Oracle spellings in the spec, PostgreSQL spellings in the DDL. The spec is
+#: kept in one dialect so the two databases get byte-for-byte the same shape.
+_PG_TYPES = {"NUMBER": "NUMERIC", "VARCHAR2": "VARCHAR", "DATE": "TIMESTAMP"}
+
+
+def _pg_type(typ: str) -> str:
+    head, _, tail = typ.partition("(")
+    mapped = _PG_TYPES.get(head, head)
+    return f"{mapped}({tail}" if tail else mapped
+
+
+def postgres_ddl(spec):
+    """(creates, comments), the twin of oracle_ddl. Identifiers unquoted:
+    they are lowercase snake_case already, which is what PostgreSQL folds to."""
+    creates, comments = [], []
+    by_name = {s[0]: s for s in spec}
+    for name, kind, description, cols in spec:
+        if kind == "VIEW":
+            continue
+        body = ", ".join(f"{c} {_pg_type(t)}" for c, t in cols)
+        creates.append(
+            f"CREATE TABLE {PG_SCHEMA}.{name} ({body}, "
+            f"CONSTRAINT pk_{name} PRIMARY KEY (id))")
+        safe = description.replace("'", "''")
+        comments.append(f"COMMENT ON TABLE {PG_SCHEMA}.{name} IS '{safe}'")
+    present = {n for n, k, _d, _c in spec if k == "TABLE"}
+    for child, (column, parent) in FOREIGN_KEYS.items():
+        if child in present and parent in present:
+            creates.append(
+                f"ALTER TABLE {PG_SCHEMA}.{child} ADD CONSTRAINT fk_{child} "
+                f"FOREIGN KEY ({column}) REFERENCES {PG_SCHEMA}.{parent} (id)")
+    tables = [s[0] for s in spec if s[1] == "TABLE"]
+    for name, kind, description, cols in spec:
+        if kind != "VIEW":
+            continue
+        src = tables[hash(name) % len(tables)]
+        picked = ", ".join(c for c, _ in by_name[src][3][:4])
+        creates.append(
+            f"CREATE VIEW {PG_SCHEMA}.{name} AS SELECT {picked} FROM {PG_SCHEMA}.{src}")
+        safe = description.replace("'", "''")
+        comments.append(f"COMMENT ON VIEW {PG_SCHEMA}.{name} IS '{safe}'")
+    return creates, comments
+
+
+def postgres_rows(spec, per_table=3):
+    """Twin of oracle_rows: parents first, values typed from the column name.
+    Only the date literal differs, so everything else delegates."""
+    def _depth(name):
+        seen, d = set(), 0
+        while name in FOREIGN_KEYS and name not in seen:
+            seen.add(name)
+            name = FOREIGN_KEYS[name][1]
+            d += 1
+        return d
+
+    def _val(col, typ, r):
+        if typ.startswith("DATE"):
+            return f"NOW() - INTERVAL '{r * 7} days'"
+        return _value_for(col, typ, r)
+
+    stmts = []
+    for name, kind, _desc, cols in sorted(spec, key=lambda s: _depth(s[0])):
+        if kind != "TABLE":
+            continue
+        for r in range(per_table):
+            vals = [_val(c, t, r) for c, t in cols]
+            stmts.append(
+                f"INSERT INTO {PG_SCHEMA}.{name} "
+                f"({', '.join(c for c, _ in cols)}) VALUES ({', '.join(vals)})")
+    return stmts
+
+
+#: A local container by default. The Xmagnet dev RDS is deliberately not the
+#: default: 1,200 tables is not something to put on a shared database without
+#: being asked, even in a schema of their own.
+PG_URL_DEFAULT = "postgresql://postgres:sgbench@127.0.0.1:5433/sgbench"
+
+
+def create_postgres(spec, per_table=3):
+    import time
+    import psycopg
+    url = os.environ.get("SGBENCH_PG_URL", PG_URL_DEFAULT)
+    conn = psycopg.connect(url, autocommit=True)
+    cur = conn.cursor()
+    print(f"dropping and recreating schema {PG_SCHEMA} ...", flush=True)
+    cur.execute(f"DROP SCHEMA IF EXISTS {PG_SCHEMA} CASCADE")
+    cur.execute(f"CREATE SCHEMA {PG_SCHEMA}")
+
+    def _run(statements, label):
+        # autocommit + per-statement try: one bad statement must not abandon
+        # the rest, and a fixture silently short of objects is worse than one
+        # that reports what failed -- the same rule _run_batched follows.
+        fails, t0 = [], time.time()
+        for i, s in enumerate(statements):
+            try:
+                cur.execute(s)
+            except Exception as e:                               # noqa: BLE001
+                fails.append(str(e).splitlines()[0][:120])
+        print(f"  {label}: {len(statements)} in {time.time() - t0:.0f}s", flush=True)
+        return fails
+
+    creates, comments = postgres_ddl(spec)
+    f1 = _run(creates, "objects")
+    f2 = _run(comments, "comments")
+    f3 = _run(postgres_rows(spec, per_table=per_table), "rows")
+
+    cur.execute("select count(*) from information_schema.tables "
+                "where table_schema=%s", (PG_SCHEMA,))
+    created = cur.fetchone()[0]
+    cur.execute("select count(*) from pg_description d join pg_class c on "
+                "c.oid=d.objoid join pg_namespace n on n.oid=c.relnamespace "
+                "where n.nspname=%s and d.objsubid=0", (PG_SCHEMA,))
+    commented = cur.fetchone()[0]
+    cur.execute(f"select count(*) from {PG_SCHEMA}.{WIDE_TABLE}")
+    wide_rows = cur.fetchone()[0]
+    conn.close()
+    print(f"\nobjects in {PG_SCHEMA} : {created}")
+    print(f"with a description  : {commented}")
+    print(f"rows in {WIDE_TABLE}: {wide_rows}")
+    for label, fails in (("create", f1), ("comment", f2), ("insert", f3)):
+        if fails:
+            print(f"{label} failures: {len(fails)}  e.g. {fails[0]}")
+    return created
+
+
+# --------------------------------------------------------------------------
 # the live database
 # --------------------------------------------------------------------------
 
@@ -559,8 +694,11 @@ def create_remote(spec, per_table=3):
 # the four acceptance checks
 # --------------------------------------------------------------------------
 
-def live_engine():
+def live_engine(target: str = "oracle"):
     import sqlalchemy as sa
+    if target == "postgres":
+        url = os.environ.get("SGBENCH_PG_URL", PG_URL_DEFAULT)
+        return sa.create_engine(url.replace("postgresql://", "postgresql+psycopg://", 1))
     _load_env()
     wallet = os.environ.get("SCHEMAGATE_WALLET") or str(
         (pathlib.Path.cwd() / "wallet").resolve())
@@ -589,13 +727,14 @@ def _flat_rank(cat, question, top_k):
     return [q for q, _ in pairs[:top_k]]
 
 
-def measure(top_k=6):
+def measure(top_k=6, target="oracle"):
     import math
     from schemagate import Catalog
 
     import pickle
     import time
-    cache = pathlib.Path(os.environ.get("SGBENCH_CACHE", ".sgbench_docs.pkl"))
+    default_cache = ".sgbench_docs.pkl" if target == "oracle" else f".sgbench_docs_{target}.pkl"
+    cache = pathlib.Path(os.environ.get("SGBENCH_CACHE", default_cache))
     cat = Catalog(name="sgbench")
     if cache.exists():
         cat.add_all(pickle.loads(cache.read_bytes()))
@@ -604,7 +743,8 @@ def measure(top_k=6):
         print(f"reflecting {SCHEMA} from the live Autonomous Database ...",
               flush=True)
         t0 = time.time()
-        cat.bootstrap(live_engine(), schemas=[SCHEMA])
+        cat.bootstrap(live_engine(target),
+                      schemas=[PG_SCHEMA if target == "postgres" else SCHEMA])
         print(f"reflected in {time.time() - t0:.0f}s")
         cache.write_bytes(pickle.dumps(list(cat._docs.values())))
     t0 = time.time()
@@ -788,16 +928,21 @@ def main() -> int:
     ap.add_argument("--create", action="store_true",
                     help="build the fixture on the live Oracle ADB")
     ap.add_argument("--rows", type=int, default=3)
+    ap.add_argument("--target", choices=("oracle", "postgres"), default="oracle",
+                    help="which database to build on / measure against")
     ap.add_argument("--measure", action="store_true",
                     help="reflect the live fixture and run the four checks")
     ap.add_argument("--top-k", type=int, default=6)
     args = ap.parse_args()
 
     if args.create:
-        create_remote(build_spec(), per_table=args.rows)
+        if args.target == "postgres":
+            create_postgres(build_spec(), per_table=args.rows)
+        else:
+            create_remote(build_spec(), per_table=args.rows)
         return 0
     if args.measure:
-        return measure(top_k=args.top_k)
+        return measure(top_k=args.top_k, target=args.target)
 
     spec = build_spec()
     if args.print_shape:
