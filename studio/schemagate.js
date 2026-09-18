@@ -68,9 +68,19 @@
   // two rank identically on the same fixtures, which is what caught this
   // file being left behind when the scoring changed.
   const BOOST_STOP = new Set("of by as at in on to for and or per the a an is are was".split(" "));
+  // Endings whose plural really takes "-es", so the "e" belongs to the suffix
+  // and not to the word: box -> boxes, match -> matches, dish -> dishes.
+  // Everywhere else the singular already ends in "e" and only the "s" goes:
+  // invoice -> invoices, note -> notes, employee -> employees. Stripping both
+  // letters unconditionally meant `invoices` stemmed to `invoic` while
+  // `invoice` stayed put, so the two never met on the lexical channel.
+  const ES_PLURAL = ["s", "x", "z", "ch", "sh"];
   function stemToken(t) {
     if (t.length > 4 && t.endsWith("ies")) return t.slice(0, -3) + "y";
-    if (t.length > 4 && t.endsWith("es") && !t.endsWith("ses")) return t.slice(0, -2);
+    if (t.length > 4 && t.endsWith("es") && !t.endsWith("ses")) {
+      const base = t.slice(0, -2);
+      return ES_PLURAL.some((e) => base.endsWith(e)) ? base : t.slice(0, -1);
+    }
     if (t.length > 3 && t.endsWith("s") && !t.endsWith("ss")) return t.slice(0, -1);
     return t;
   }

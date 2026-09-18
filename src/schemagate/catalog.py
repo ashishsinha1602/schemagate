@@ -116,12 +116,34 @@ _LAYER_PREFIXES = ("dim_", "fact_", "fct_", "f_", "d_", "v_", "vw_", "view_",
 _BOOST_STOP = frozenset("of by as at in on to for and or per the a an is are was".split())
 
 
+#: Endings whose plural really does take "-es", so the "e" belongs to the
+#: suffix and not to the word: box -> boxes, match -> matches, dish -> dishes.
+_ES_PLURAL = ("s", "x", "z", "ch", "sh")
+
+
 def _stem(t: str) -> str:
-    """Just enough to let a plural meet its singular. Not a stemmer."""
+    """Just enough to let a plural meet its singular. Not a stemmer.
+
+    The "-es" rule used to strip both letters unconditionally, which is right
+    for `boxes -> box` and wrong for every noun whose singular already ends in
+    "e". It turned `invoices` into `invoic` while `invoice` stayed `invoice`,
+    so the two never met -- and the same for employees, notes, prices,
+    packages, services. Six of eleven common plurals did not reach their
+    singular, and this function exists for exactly that.
+
+    It is not a small bug in a small helper. Both sides of the lexical index
+    are stemmed through here, so a question asking about "invoices" simply did
+    not match the `invoice` table on the lexical channel at all; it had to be
+    rescued by vectors. The coverage pass, which asks whether a question word
+    is informative enough to be worth a slot, missed them too.
+
+    The fix is to strip "es" only after a sibilant, where English actually
+    adds one, and otherwise to strip the "s" alone.
+    """
     if len(t) > 4 and t.endswith("ies"):
         return t[:-3] + "y"
     if len(t) > 4 and t.endswith("es") and not t.endswith("ses"):
-        return t[:-2]
+        return t[:-2] if t[:-2].endswith(_ES_PLURAL) else t[:-1]
     if len(t) > 3 and t.endswith("s") and not t.endswith("ss"):
         return t[:-1]
     return t
@@ -1030,7 +1052,14 @@ class Catalog:
             uncovered = []
             for t in q_tokens:
                 if (len(t) > 2 and t not in _BOOST_STOP
-                        and self._bm25_name.idf.get(t, 0.0) >= _COVERAGE_MIN_IDF
+                        # Stemmed, because the index is. Looking up the raw
+                        # token meant a plural scored 0.0 here and never
+                        # cleared the threshold, so coverage silently did
+                        # nothing for "contacts", "payments", "invoices" --
+                        # the ordinary way anyone phrases a question. The line
+                        # below already stems for the `covered` test.
+                        and self._bm25_name.idf.get(
+                            _stem(t), 0.0) >= _COVERAGE_MIN_IDF
                         and t not in covered and _stem(t) not in covered_stems
                         and t not in uncovered):
                     uncovered.append(t)

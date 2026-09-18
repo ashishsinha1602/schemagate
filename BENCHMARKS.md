@@ -405,6 +405,92 @@ The change is therefore recorded here as safe and unmeasured. It cannot
 regress the numbers above for the concrete reason that it does not alter a
 single prompt that produces them.
 
+## A stemming bug, and what it had been propping up
+
+`_stem` exists to let a plural meet its singular, and for the commonest
+plural in English it did not. The "-es" rule stripped both letters
+unconditionally -- right for `boxes -> box`, wrong for every noun whose
+singular already ends in "e":
+
+```
+employees -> employe     employee -> employee     never met
+invoices  -> invoic      invoice  -> invoice      never met
+notes     -> not         note     -> note         never met
+prices, packages, services                        never met
+```
+
+Six of eleven common plurals did not reach their singular. Both sides of the
+lexical index go through this function, so a question about "invoices" did
+not match the `invoice` table lexically at all; it was rescued, when it was
+rescued, by the vector channel. A second bug compounded it: the coverage
+pass looked up `idf.get(t)` with the raw token against an index that stores
+stems, so coverage silently never fired for `contacts`, `payments` or
+`invoices` -- the ordinary way anyone phrases a question.
+
+Both fixed. "-es" is stripped only after a sibilant, where English actually
+adds one; otherwise the "s" alone. Twelve of fourteen plurals now match; the
+two that do not (`addresses`, `statuses`) are the pre-existing "-ses" case,
+which no suffix rule separates from `houses -> house` without a dictionary,
+and were left alone rather than guessed at.
+
+**What it changed on the shipped schemas:** recall unchanged on all six;
+average prompt tokens 742 -> 764 (+3%), because coverage now fires for
+plurals and adds the table it should have added all along. The README cell
+was updated to match.
+
+**What it changed on the 1,200-object fixture is the part worth reading.**
+Correct stemming lifted the flat bag from 9/16 to 12/16 at k=6 and left
+fielded scoring at 12/16 -- so the fielded-versus-flat comparison recorded in
+PR #41 no longer reproduces at the operating point at all. A meaningful share
+of the advantage attributed to fielded scoring was an artifact of the flat
+bag being unable to match plurals. Foreign-key expansion on the same fixture
+went from worth 3 of 8 complex questions to 0 of 8, for the same reason:
+with plurals matching, ranking reaches those tables on its own.
+
+That is reported rather than absorbed. The claim that fielded scoring beats a
+flat bag on a saturated corpus is now narrower than this file has stated. On
+that fixture after the fix it wins at k=1, 3 and 5, ties at 6, loses at 10 and
+wins again at 20 -- a sign that flips with the budget is measuring the budget,
+and it is not stated as a result here.
+
+## The AI catalogue, measured where it is actually used
+
+`use_desc` in `tests/run_paraphrase_eval.py` was a parameter that existed and
+did nothing: it was accepted and never applied, so anyone measuring the
+catalogue through that harness got a catalog with no descriptions and would
+have concluded descriptions were worth nothing. Wired. With it wired, the
+same fixtures `test_business_language.py` uses give:
+
+```
+schema       identifiers  +AI catalogue
+commerce           50.0%       100.0%
+health             50.0%        90.0%
+warehouse          50.0%        80.0%
+finance            70.0%       100.0%
+telemetry          60.0%       100.0%
+OVERALL            55.8%        94.2%   n=52
+```
+
+**And on the metric that matters -- SQL that runs -- against the live Oracle
+1,200-object schema.** Eighteen objects described by a model, then the eight
+complex questions asked end to end (selection, model writes SQL from the
+fragment alone, Oracle executes it):
+
+```
+no catalogue                          6/8 executed
+shipped prompt, AI catalogue          7/8 executed
+a "better" prompt, AI catalogue       5/8 executed   (two runs, same failures)
+```
+
+The third row is a prompt this session wrote to remove framing words from
+descriptions, on the strength of a measurement that "answering" appeared in
+about half of every checked-in catalogue. It described the same eighteen
+objects and produced fewer runnable queries, twice, with identical failures
+both times. It was reverted. The shipped prompt is the better one, and the
+only reason that is known is that it was measured against the thing users
+actually get -- a query that runs -- rather than against the intermediate
+statistic the change was designed to improve.
+
 ## FK closure: what a selection carries beyond the budget
 
 A question from the dev.to thread: when you ask for `top_k=K`, how much do you

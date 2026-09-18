@@ -62,6 +62,17 @@ def build(name, use_hints=True, use_desc=False):
         for t, h in getattr(m, "HINTS", {}).items():
             try: cat.hint(t, h)
             except Exception: pass
+    if use_desc:
+        # This parameter existed and did nothing. Anyone who passed
+        # use_desc=True got a catalog with no descriptions on it and would
+        # have concluded the AI catalogue was not worth much -- the opposite
+        # of what tests/test_business_language.py measures with the same
+        # fixtures (56% on identifiers alone, 92% with descriptions).
+        path = os.path.join(HERE, "descriptions", f"{name}.json")
+        if os.path.exists(path):
+            import json
+            with open(path, encoding="utf-8") as fh:
+                cat.describe(json.load(fh), only_missing=False)
     cat.index()
     return cat
 

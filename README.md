@@ -414,7 +414,7 @@ they disagree, which is the point of showing both.
 | real table beats its backup/staging copy, 19 cases across schemas | 19/19 |
 | recall without foreign-key expansion | 93.8% |
 | prompt tokens, full schema every call | 2,812 |
-| prompt tokens, schemagate average | 742 (−73.6%) |
+| prompt tokens, schemagate average | 764 (−72.8%) |
 
 Measured with the **hashed embedder** — what `pip install schemagate` gives
 you, no extras. `schemagate[huggingface]` swaps in sentence-transformers and

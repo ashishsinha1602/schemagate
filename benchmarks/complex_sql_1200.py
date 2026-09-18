@@ -81,6 +81,10 @@ def main() -> int:
     ap.add_argument("--model", default="claude-sonnet-4-5")
     ap.add_argument("--top-k", type=int, default=8)
     ap.add_argument("--show-sql", action="store_true")
+    ap.add_argument("--describe", metavar="FILE",
+                    help="a JSON catalogue {qname: description} to apply "
+                         "before selecting, so the effect of the AI catalogue "
+                         "on SQL that actually runs can be measured")
     args = ap.parse_args()
 
     if not os.environ.get("ANTHROPIC_API_KEY"):
@@ -103,6 +107,12 @@ def main() -> int:
     else:
         cat.bootstrap(F.live_engine(), schemas=[F.SCHEMA])
         cache.write_bytes(pickle.dumps(list(cat._docs.values())))
+    if args.describe:
+        import json
+        with open(args.describe, encoding="utf-8") as fh:
+            applied = json.load(fh)
+        cat.describe(applied, only_missing=False)
+        print(f"applied {len(applied)} descriptions from {args.describe}")
     cat.index()
     print(f"catalog: {len(cat._docs)} objects\n")
 
