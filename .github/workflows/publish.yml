@@ -114,3 +114,73 @@ jobs:
       - name: say where it went
         run: |
           echo "pushed ghcr.io/${{ steps.owner.outputs.name }}/schemagate:${{ github.event.release.tag_name }}" >> "$GITHUB_STEP_SUMMARY"
+
+  # The MCP Registry (registry.modelcontextprotocol.io). server.json was a
+  # manifest with nothing publishing it, and it had drifted five schema
+  # versions behind -- a publish would have failed validation and nothing
+  # would have said so. This job runs it, after PyPI, because the registry
+  # proves we own the `schemagate` package by finding
+  # `mcp-name: io.github.ashishsinha1602/schemagate` in the README that PyPI
+  # serves -- so the release has to be on PyPI first, and visibly so.
+  #
+  # OIDC, not a stored token: the io.github.* namespace is authenticated by
+  # this repository's identity, which is the whole reason nobody has to mint
+  # or rotate anything.
+  mcp-registry:
+    needs: pypi
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: wait until PyPI serves this release
+        # The registry fetches the package README from pypi.org at publish
+        # time. Right after upload PyPI can lag by a minute; publishing into
+        # that window fails the ownership check with a message that looks
+        # like a wrong server name. So: poll, and fail loudly if it never
+        # appears, rather than let the registry step fail obliquely.
+        run: |
+          set -euo pipefail
+          want="${GITHUB_REF_NAME#v}"
+          for i in $(seq 1 24); do
+            have="$(curl -fsS https://pypi.org/pypi/schemagate/json | python3 -c 'import sys,json;print(json.load(sys.stdin)["info"]["version"])' 2>/dev/null || true)"
+            [ "$have" = "$want" ] && { echo "PyPI serves $have"; exit 0; }
+            sleep 5
+          done
+          echo "::error::PyPI never served $want (last saw '${have:-nothing}'); the registry cannot verify ownership"
+          exit 1
+
+      - name: the README PyPI serves carries the ownership marker
+        # Same check the registry makes, done here first so a missing marker
+        # is a clear failure and not a rejected publish.
+        run: |
+          set -euo pipefail
+          curl -fsS https://pypi.org/pypi/schemagate/json \
+            | python3 -c 'import sys,json; d=json.load(sys.stdin)["info"]["description"]; sys.exit(0 if "mcp-name: io.github.ashishsinha1602/schemagate" in d else 1)' \
+            || { echo "::error::the published README has no mcp-name marker; the registry will refuse ownership"; exit 1; }
+
+      - name: install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+          ./mcp-publisher --version
+
+      - name: server.json version matches the release
+        # tests/test_server_json.py pins it to pyproject; this is the same
+        # check against the tag actually being published.
+        run: |
+          set -euo pipefail
+          want="${GITHUB_REF_NAME#v}"
+          have="$(python3 -c 'import json;print(json.load(open("server.json"))["version"])')"
+          [ "$have" = "$want" ] || { echo "::error::server.json says $have, release is $want"; exit 1; }
+
+      - name: authenticate to the MCP Registry
+        run: ./mcp-publisher login github-oidc
+
+      - name: publish to the MCP Registry
+        run: ./mcp-publisher publish
+
+      - name: say where it went
+        run: |
+          echo "published io.github.ashishsinha1602/schemagate ${GITHUB_REF_NAME#v} to registry.modelcontextprotocol.io" >> "$GITHUB_STEP_SUMMARY"
