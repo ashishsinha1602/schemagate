@@ -2,12 +2,22 @@ name: publish
 on:
   release:
     types: [published]
+  # Re-attach the stack zip to an existing release when only that job
+  # failed (cosign's flags changed under v4.1.2 of the installer once).
+  # Only oci-stack runs on dispatch; nothing is re-published to PyPI.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'release tag to attach the OCI stack zip to, e.g. v0.1.58'
+        required: true
+        type: string
 # Least privilege by default: a job that needs to write says so itself.
 permissions:
   contents: read
 
 jobs:
   pypi:
+    if: github.event_name == 'release'
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
@@ -40,16 +50,29 @@ jobs:
       - name: sign the zip (keyless, Sigstore)
         # The PyPI wheels carry PEP 740 attestations; this gives the GitHub
         # release asset the same property. Anyone can check it:
-        #   cosign verify-blob --signature x.sig --certificate x.pem         #     --certificate-identity-regexp 'github.com/ashishsinha1602/schemagate'         #     --certificate-oidc-issuer https://token.actions.githubusercontent.com x
+        #   cosign verify-blob --bundle schemagate-oci-stack.zip.sigstore.json
+        #     --certificate-identity-regexp 'github.com/ashishsinha1602/schemagate'
+        #     --certificate-oidc-issuer https://token.actions.githubusercontent.com
+        #     schemagate-oci-stack.zip
         run: |
-          cosign sign-blob --yes             --output-signature schemagate-oci-stack.zip.sig             --output-certificate schemagate-oci-stack.zip.pem             schemagate-oci-stack.zip
+          # cosign 3 writes one Sigstore bundle (signature, certificate and
+          # transparency-log entry together); the split .sig/.pem flags are gone.
+          cosign sign-blob --yes \
+            --bundle schemagate-oci-stack.zip.sigstore.json \
+            schemagate-oci-stack.zip
+          cosign verify-blob --bundle schemagate-oci-stack.zip.sigstore.json \
+            --certificate-identity-regexp 'github.com/ashishsinha1602/schemagate' \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            schemagate-oci-stack.zip
       - name: attach it to the release, with its signature
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "${{ github.event.release.tag_name }}"             schemagate-oci-stack.zip schemagate-oci-stack.zip.sig schemagate-oci-stack.zip.pem --clobber
+          gh release upload "${{ github.event.release.tag_name || inputs.tag }}" \
+            schemagate-oci-stack.zip schemagate-oci-stack.zip.sigstore.json --clobber
 
   terraform-registry:
+    if: github.event_name == 'release'
     # The Registry module is a copy of oci/stack in a repo named the way the
     # Registry insists on (terraform-oci-<name>). It was synced by hand and
     # last at 0.1.45 while everything else moved on -- so the module people
@@ -90,6 +113,7 @@ jobs:
           echo "Registry mirror synced and tagged ${TAG}: https://registry.terraform.io/modules/ashishsinha1602/schemagate/oci" >> "$GITHUB_STEP_SUMMARY"
 
   docker:
+    if: github.event_name == 'release'
     # Published to GHCR rather than Docker Hub: no extra account, no rate
     # limit on pulls for anyone inside GitHub's network, and the token the
     # workflow already has is enough to push. `docker run ghcr.io/<owner>/
@@ -141,6 +165,7 @@ jobs:
   # this repository's identity, which is the whole reason nobody has to mint
   # or rotate anything.
   mcp-registry:
+    if: github.event_name == 'release'
     needs: pypi
     runs-on: ubuntu-latest
     permissions:
