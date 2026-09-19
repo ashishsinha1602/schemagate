@@ -25,7 +25,7 @@ from schemagate.ai import CallableProvider, SchemaDescriber  # noqa: E402
 
 @pytest.fixture(scope="module")
 def url():
-    path = tempfile.mktemp(suffix=".db")
+    path = os.path.join(tempfile.mkdtemp(), "warehouse.db")
     conn = sqlite3.connect(path)
     conn.executescript(DDL)
     conn.commit()

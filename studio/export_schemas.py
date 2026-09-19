@@ -8,7 +8,7 @@ import schema_fixture_health as H, schema_fixture_warehouse as W, schema_fixture
 import schema_fixture_finance as Fn, schema_fixture_telemetry as Tl
 
 def sqlite_url(ddl):
-    p = tempfile.mktemp(suffix=".db"); c = sqlite3.connect(p); c.executescript(ddl); c.commit(); c.close()
+    p = os.path.join(tempfile.mkdtemp(), "schema.db"); c = sqlite3.connect(p); c.executescript(ddl); c.commit(); c.close()
     return f"sqlite:///{p}"
 
 def complex_engine():

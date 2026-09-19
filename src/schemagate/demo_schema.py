@@ -16,6 +16,7 @@ Design goals -- every one of these is a way real selection breaks:
 """
 from __future__ import annotations
 
+import os
 import sqlite3
 import tempfile
 
@@ -28,7 +29,9 @@ def create_demo_db() -> str:
     runs the SQL a model writes, and a correct query against an empty
     database returns nothing, which looks exactly like a wrong one.
     """
-    path = tempfile.mktemp(suffix=".db")
+    # A private directory, not a guessed name: mktemp hands back a path
+    # anyone could create first.
+    path = os.path.join(tempfile.mkdtemp(prefix="schemagate-demo-"), "demo.db")
     conn = sqlite3.connect(path)
     conn.executescript(DDL)
     conn.executescript(SEED)

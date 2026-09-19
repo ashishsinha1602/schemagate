@@ -43,7 +43,7 @@ DESCRIPTIONS = {
 @pytest.fixture(scope="module", params=sorted(DOMAINS))
 def domain(request):
     mod = DOMAINS[request.param]
-    path = tempfile.mktemp(suffix=".db")
+    path = os.path.join(tempfile.mkdtemp(), "domain.db")
     conn = sqlite3.connect(path)
     conn.executescript(mod.DDL)
     conn.commit()

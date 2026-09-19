@@ -20,7 +20,7 @@ from schemagate import Catalog, Principal  # noqa: E402
 
 @pytest.fixture(scope="module")
 def health():
-    path = tempfile.mktemp(suffix=".db")
+    path = os.path.join(tempfile.mkdtemp(), "health.db")
     conn = sqlite3.connect(path)
     conn.executescript(DDL)
     conn.commit()
