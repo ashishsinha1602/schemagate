@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """SQL Server: what the Inspector cannot tell us.
 
 Same three hooks as the other two modules, and the same reasons.

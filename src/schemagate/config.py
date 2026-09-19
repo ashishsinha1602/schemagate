@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Catalog configuration that lives outside your code.
 
 A JSON file with up to three blocks; every block is optional::

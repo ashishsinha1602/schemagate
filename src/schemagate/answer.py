@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Turn a selection into an answer.
 
 Selection is the part this library is careful about; answering is the part

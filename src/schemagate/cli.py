@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Command line: try schemagate in thirty seconds without writing any code.
 
     schemagate demo                                  # bundled schema, no database

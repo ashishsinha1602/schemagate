@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Identity scoping.
 
 Every write and every read in schemagate carries a Principal. This is the whole

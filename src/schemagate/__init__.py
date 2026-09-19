@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """schemagate -- identity-scoped schema selection for NL2SQL.
 
     from schemagate import Catalog, Principal

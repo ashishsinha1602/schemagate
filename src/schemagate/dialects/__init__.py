@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Per-dialect refinements to reflection.
 
 ``schemagate.introspect`` is deliberately free of vendor SQL: the Inspector

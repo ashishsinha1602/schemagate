@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """AI-generated catalog descriptions.
 
 Retrieval quality is limited by how much meaning the schema text carries.

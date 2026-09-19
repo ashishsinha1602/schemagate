@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """The catalogue, without being asked for it.
 
 Descriptions are the single largest accuracy lever in the library -- 55.8% to

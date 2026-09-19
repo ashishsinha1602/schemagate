@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Persistent Store backed by Oracle Database 23ai native VECTOR.
 
 Why 23ai and not a BLOB of floats: ``VECTOR`` is a first-class type with

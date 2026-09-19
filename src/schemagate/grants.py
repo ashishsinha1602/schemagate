@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Derive object visibility from the database's own GRANTs.
 
 At forty tables a hand-written `restrict` map is fine. At four hundred it is a

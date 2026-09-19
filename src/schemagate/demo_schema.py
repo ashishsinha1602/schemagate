@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """The bundled demo schema. ``schemagate demo`` runs against this with no database.
 
 A deliberately nasty synthetic schema for testing selection quality.

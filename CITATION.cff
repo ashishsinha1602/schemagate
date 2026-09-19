@@ -1,11 +1,12 @@
 cff-version: 1.2.0
+type: software
 message: "If you use schemagate in research, please cite it."
 title: "schemagate: identity-scoped schema selection for text-to-SQL"
 authors:
   - family-names: Sinha
     given-names: Ashish
-version: 0.1.0
-date-released: 2026-09-07
+version: 0.1.57
+date-released: 2026-09-19
 license: Apache-2.0
 repository-code: "https://github.com/ashishsinha1602/schemagate"
 url: "https://ashishsinha1602.github.io/schemagate/"

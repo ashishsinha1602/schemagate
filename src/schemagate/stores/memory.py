@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """In-process Store. Zero dependencies; the reference implementation."""
 from __future__ import annotations
 from typing import Dict

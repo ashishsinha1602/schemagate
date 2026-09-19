@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Remember the last connection, so restarting the Studio is not retyping it.
 
 The Studio holds its connection in the server process and nowhere else. That
