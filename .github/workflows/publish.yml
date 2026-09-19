@@ -27,6 +27,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # keyless Sigstore signing: the OIDC token is the identity, no key stored
+      id-token: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: build the stack zip with the terraform at the root
@@ -34,10 +36,18 @@ jobs:
           cd oci/stack
           zip -r "$GITHUB_WORKSPACE/schemagate-oci-stack.zip" . -x '*.DS_Store'
           unzip -l "$GITHUB_WORKSPACE/schemagate-oci-stack.zip"
-      - name: attach it to the release
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: sign the zip (keyless, Sigstore)
+        # The PyPI wheels carry PEP 740 attestations; this gives the GitHub
+        # release asset the same property. Anyone can check it:
+        #   cosign verify-blob --signature x.sig --certificate x.pem         #     --certificate-identity-regexp 'github.com/ashishsinha1602/schemagate'         #     --certificate-oidc-issuer https://token.actions.githubusercontent.com x
+        run: |
+          cosign sign-blob --yes             --output-signature schemagate-oci-stack.zip.sig             --output-certificate schemagate-oci-stack.zip.pem             schemagate-oci-stack.zip
+      - name: attach it to the release, with its signature
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.event.release.tag_name }}" schemagate-oci-stack.zip --clobber
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}"             schemagate-oci-stack.zip schemagate-oci-stack.zip.sig schemagate-oci-stack.zip.pem --clobber
 
   terraform-registry:
     # The Registry module is a copy of oci/stack in a repo named the way the
