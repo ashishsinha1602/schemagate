@@ -693,7 +693,18 @@ def create_server(catalog: Optional[Catalog] = None):
             kwargs["host"] = host
         if port:
             kwargs["port"] = int(port)
-    app = cls("schemagate", **kwargs)
+    # The version a client sees in `initialize` -> serverInfo. Left alone, the
+    # SDK reports its *own* package version -- 1.27.0 -- or an empty string
+    # in an image where that metadata does not resolve; either way never
+    # schemagate's. 2.x takes it in the constructor; 1.x holds it on the
+    # low-level server underneath, which is None until set.
+    try:
+        app = cls("schemagate", version=__version__, **kwargs)
+    except TypeError:
+        app = cls("schemagate", **kwargs)
+        low = getattr(app, "_mcp_server", None)
+        if low is not None and hasattr(low, "version"):
+            low.version = __version__
     for tool in (select_schema, list_objects, describe_object,
                  run_query, answer, refresh_catalog, health):
         app.tool()(tool)
