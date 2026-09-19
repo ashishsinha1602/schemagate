@@ -40,5 +40,8 @@ async def test_a_real_client_sees_the_package_version_over_stdio():
     async with stdio_client(params) as (read, write):
         async with ClientSession(read, write) as session:
             init = await session.initialize()
-            assert init.serverInfo.name == "schemagate"
-            assert init.serverInfo.version == __version__, init.serverInfo
+            # 1.x spells it serverInfo, 2.x server_info; the server is the same.
+            info = getattr(init, "server_info", None) or getattr(init, "serverInfo", None)
+            assert info is not None, init
+            assert info.name == "schemagate"
+            assert info.version == __version__, info
