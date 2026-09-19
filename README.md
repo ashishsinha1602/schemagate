@@ -4,6 +4,7 @@
 [![Python](https://img.shields.io/pypi/pyversions/schemagate.svg)](https://pypi.org/project/schemagate/)
 [![CI](https://github.com/ashishsinha1602/schemagate/actions/workflows/ci.yml/badge.svg)](https://github.com/ashishsinha1602/schemagate/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/ashishsinha1602/schemagate/badge)](https://scorecard.dev/viewer/?uri=github.com/ashishsinha1602/schemagate)
 [![Try it in the browser](https://img.shields.io/badge/demo-in%20your%20browser-0F7B6C)](https://ashishsinha1602.github.io/schemagate/)
 
 Your text-to-SQL agent picks which tables to show the model before anyone checks what the caller is allowed to read. schemagate does the check first: it filters the schema by the caller's grants, so restricted tables are absent from the prompt rather than ranked low. Works with LangChain, MCP, or any SQL agent, on Postgres, Oracle, MySQL, SQL Server and SQLite.
@@ -186,6 +187,12 @@ first time you use it. It is deliberately kept out of `schemagate[all]`.
 [docs/local-models.md](docs/local-models.md) has the whole story — the
 downloads, the load you wait through once, what it is good at and where it is worse
 than a hosted model.
+
+**Every release is signed.** The wheels carry [PEP 740](https://peps.python.org/pep-0740/)
+attestations — a signature from GitHub naming the workflow, repository and
+commit that built that exact file. Nothing is uploaded by hand and there is no
+API token to steal. Check one yourself with
+`gh attestation verify <wheel> --repo ashishsinha1602/schemagate`.
 
 ## Quick start
 

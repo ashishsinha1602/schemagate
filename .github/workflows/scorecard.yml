@@ -1,0 +1,57 @@
+# OpenSSF Scorecard: an outside audit of this repository's supply chain.
+#
+# A library whose pitch is "the model never sees a table the caller may not
+# read" is asking to be trusted with an access-control decision. That is a
+# claim about the code *and* about how the code reaches you -- who can push
+# to it, whether releases are built from what is in the repository, whether
+# a dependency can be swapped underneath it.
+#
+# Scorecard checks the second half, from outside, on a schedule, and publishes
+# the result whether it is flattering or not. It is the same discipline as
+# BENCHMARKS.md: a number somebody else computes is worth more than one I do.
+name: scorecard
+on:
+  # A change to branch protection can move the score without a commit.
+  branch_protection_rule:
+  schedule:
+    - cron: "20 7 * * 1"
+  push:
+    branches: [main]
+
+permissions: read-all
+
+jobs:
+  analysis:
+    name: scorecard analysis
+    runs-on: ubuntu-latest
+    permissions:
+      # upload the result to code scanning
+      security-events: write
+      # publish to the OpenSSF API, which is what makes the badge work
+      id-token: write
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Scorecard reads the repository, it does not need to write to it;
+          # a checkout that keeps credentials is itself a finding.
+          persist-credentials: false
+
+      - uses: ossf/scorecard-action@v2.4.0
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          # Public, so the badge and the detail behind it are readable by
+          # anyone deciding whether to install this.
+          publish_results: true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scorecard-results
+          path: results.sarif
+          retention-days: 5
+
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
