@@ -4,6 +4,12 @@
 
 ## 0.1.58
 
+- **Fixed: the version a client is told in `initialize` is schemagate's, not
+  the SDK's.** FastMCP 1.x built its low-level server with no version, and
+  the SDK filled in its own package version -- `''` in the published image,
+  `1.27.0` in-process. Both SDK majors now report `schemagate/<version>`,
+  and a test asks a real stdio client to check.
+
 - **Added: where a caller's roles come from.** `restrict_from_grants` read
   which roles may see an object from the database; the roles the caller
   *held* were still whatever the caller said, which on a hosted MCP server
