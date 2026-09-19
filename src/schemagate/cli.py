@@ -76,6 +76,16 @@ def _reranker(args):
     return _provider(args)
 
 
+def _memory(args, cat):
+    """The memory for this run, from --memory or SCHEMAGATE_MEMORY; memory-only
+    when neither is set, which then does nothing across runs -- stated, not
+    hidden: a CLI invocation has nowhere to keep it without being asked."""
+    from .learn import Memory
+    flag = getattr(args, "memory", None)
+    env = {"SCHEMAGATE_MEMORY": flag} if flag else None
+    return Memory.from_env(cat.embedder, cat.name or "cli", env)
+
+
 def _answer(cat, sel, question, args, url) -> None:
     """Selection is the library's job; this is the step after it.
 
@@ -96,15 +106,18 @@ def _answer(cat, sel, question, args, url) -> None:
     fragment = sel.prompt_fragment()
     dialect = engine.dialect.name
 
+    memory = _memory(args, cat)
+    examples = memory.examples_for(question, visible=sel.table_names)
+
     if args.provider in (None, "none"):
         print("\n-- no --provider given; paste this into any chat, then run the")
         print("-- SQL it gives you with:  schemagate ... --sql \"SELECT ...\"\n")
-        print(sql_prompt(question, fragment, dialect))
+        print(sql_prompt(question, fragment, dialect, examples=examples))
         return
 
     try:
         provider = _provider(args)
-        sql = generate_sql(provider, question, fragment, dialect)
+        sql = generate_sql(provider, question, fragment, dialect, examples=examples)
     except UnsafeSQL as e:
         sys.exit(f"schemagate: refused the generated SQL -- {e}")
     except Exception as e:
@@ -122,6 +135,9 @@ def _answer(cat, sel, question, args, url) -> None:
     except UnsafeSQL as e:
         sys.exit(f"schemagate: refused the generated SQL -- {e}")
     print(format_rows(cols, rows))
+    # It ran. Keep the question and the query -- never the rows -- so the
+    # next similar question starts from this one.
+    memory.remember(question, sql, source="cli")
 
 
 def _run_sql_only(args, url) -> int:
@@ -205,7 +221,10 @@ def cmd_select(args) -> int:
         return _run_sql_only(args, args.url)
     cat = _open(args)
     sel = cat.select(args.question, top_k=args.top_k, principal=_principal(args),
-                     expand_fks=not args.no_fk, reranker=_reranker(args))
+                     expand_fks=not args.no_fk, reranker=_reranker(args),
+                     # tables that answered similar questions before; select()
+                     # applies this caller's visibility to them like any pin
+                     pin=_memory(args, cat).pins_for(args.question))
     _print_selection(sel, args.prompt, args.explain)
     if args.answer:
         _answer(cat, sel, args.question, args, args.url)
@@ -379,6 +398,9 @@ def build_parser() -> argparse.ArgumentParser:
                         help="disable foreign-key expansion")
     select.add_argument("--config", metavar="JSON",
                         help="restrict / hint / describe blocks (see schemagate.config)")
+    select.add_argument("--memory", metavar="PATH|1",
+                        help="remember question -> SQL pairs that ran, and use them: "
+                             "a file path, or 1 for ~/.schemagate/memory/. Off by default")
     common(select)
     select.set_defaults(func=cmd_select)
 

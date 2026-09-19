@@ -268,6 +268,7 @@ schemagate select --url postgresql+psycopg://user:pw@host/db "unpaid invoices"
 |---|---|
 | `--top-k N` | how many objects to select (default 6) |
 | `--principal SOURCE:ID` | who is asking, e.g. `okta:jdoe`, `db:APPUSER`. Must be namespaced |
+| `--memory PATH\|1` | remember question → SQL pairs that ran and use them next time (pins + worked examples). `1` for `~/.schemagate/memory/`. Off by default |
 | `--role ROLE` | a role the caller holds; repeatable |
 | `--prompt` | print the prompt instead of the selection |
 | `--explain` | show why each object was picked, and what was withheld |
@@ -852,6 +853,21 @@ unless `SCHEMAGATE_AUDIT_LOG=<path>` — or `=1` for `~/.schemagate/audit.jsonl`
 start writing files on its own. The log is for the operator, from the file;
 it is deliberately not a tool, because "recent decisions" handed to any
 client is every caller's questions handed to every other caller.
+
+**It learns from SQL that ran.** When `answer` produces a query that
+executes, the question and the query are remembered -- never the rows. The
+next similar question gets the tables that query read pinned into its
+selection, and the pair shown to the model as a worked example between the
+DDL and the question. Neither can widen what a caller sees: a pin goes
+through the same visibility gate as any pin, and an example is shown only
+when every table it names is visible to that caller. Every stored query is
+re-checked read-only on the way in and the way out. Memory-only unless
+`SCHEMAGATE_MEMORY=<path>` (or `=1` for `~/.schemagate/memory/<db>.jsonl`);
+with nothing remembered the prompt is byte-identical to the one before this
+existed. The CLI has `--memory`, the Studio uses it at connect. Similarity is
+the catalog's own embedder -- deterministic, offline, and a weak notion of
+"similar": it matches wording, not meaning, which is acceptable because the
+examples are advisory and the pins are gated.
 `SCHEMAGATE_DATABASE_URL=demo` serves the bundled schema.
 
 To host it for a team rather than one desktop:

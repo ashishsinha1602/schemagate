@@ -75,6 +75,7 @@ from typing import Any, Dict, List, Optional
 from . import __version__
 from .catalog import Catalog
 from .audit import AUDITED, AuditLog, summarize
+from .learn import Memory
 from .identity import IdentityError, Principal
 
 log = logging.getLogger("schemagate.mcp")
@@ -90,6 +91,10 @@ _ENGINE: Any = None
 #: names a file. Built in build_catalog; a module-level default so the tool
 #: functions can be called in tests before any catalog exists.
 _AUDIT: Any = None
+#: Question -> SQL pairs that answered correctly, consulted for pins and
+#: worked examples. Memory-only unless SCHEMAGATE_MEMORY names a file.
+#: Built once the catalog exists, because it uses the catalog's embedder.
+_MEMORY: Any = None
 _LOCK = threading.Lock()
 _STATE: Dict[str, Any] = {
     "started_at": None, "url": None, "config": None,
@@ -156,12 +161,13 @@ def build_catalog(url: Optional[str] = None, config_path: Optional[str] = None,
     Tests pass ``catalog=`` directly; the CLI path reads
     ``SCHEMAGATE_DATABASE_URL`` and the optional ``SCHEMAGATE_CATALOG_CONFIG``.
     """
-    global _CATALOG, _AUDIT
+    global _CATALOG, _AUDIT, _MEMORY
     with _LOCK:
         _STATE["started_at"] = _STATE["started_at"] or time.time()
         _AUDIT = AuditLog.from_env()
         if catalog is not None:
             _CATALOG = catalog
+            _MEMORY = Memory.from_env(catalog.embedder, catalog.name)
             _STATE.update(url="<provided>", last_refresh_at=time.time(),
                           last_refresh_ok=True, last_error=None)
             return catalog
@@ -174,12 +180,31 @@ def build_catalog(url: Optional[str] = None, config_path: Optional[str] = None,
         config_path = config_path or os.environ.get("SCHEMAGATE_CATALOG_CONFIG")
         cat = _reflect(url, config_path)
         _CATALOG = cat
+        _MEMORY = Memory.from_env(cat.embedder, _memory_label(url))
         globals()["_URL"] = cat._demo_url if url == "demo" else url
         globals()["_ENGINE"] = None
         _STATE.update(url=_redact(url), config=config_path,
                       last_refresh_at=time.time(), last_refresh_ok=True,
                       last_error=None)
         return cat
+
+
+def _memory_label(url: str) -> str:
+    """A stable, password-free name for this database's memory file."""
+    try:
+        from sqlalchemy.engine import make_url
+        u = make_url(url)
+        return "%s-%s-%s" % (u.get_backend_name(), u.host or "local", u.database or "db")
+    except Exception:                                    # noqa: BLE001
+        return "default"
+
+
+def _memory():
+    global _MEMORY
+    if _MEMORY is None:
+        cat = _CATALOG
+        _MEMORY = Memory(cat.embedder) if cat is not None else Memory(__import__("schemagate.catalog", fromlist=["default_embedder"]).default_embedder())
+    return _MEMORY
 
 
 def _redact(url: str) -> str:
@@ -372,7 +397,8 @@ def select_schema(question: str, principal: Optional[str] = None,
     who = _principal(principal, roles)
     cat = _catalog()
     sel = cat.select(question, top_k=top_k, principal=who,
-                     expand_fks=bool(expand_foreign_keys))
+                     expand_fks=bool(expand_foreign_keys),
+                     pin=_memory().pins_for(question))
     visible = sum(1 for d in cat.objects() if cat._visible(d, who))
     withheld_cols = sum(len(h.doc.columns) - len(h.doc.visible_columns(who))
                         for h in sel.hits)
@@ -551,13 +577,19 @@ def answer(question: str, principal: Optional[str] = None,
     # stayed that way.
     try:
         sql = generate_sql(cls(model=model), question, picked["ddl"],
-                           dialect=_dialect_name())
+                           dialect=_dialect_name(),
+                           # only pairs whose every table this caller may see
+                           examples=_memory().examples_for(
+                               question, visible=picked["objects"]))
     except UnsafeSQL as e:
         return dict(picked, sql=None, rows=None, refused=str(e))
 
     out = run_query(sql, principal=principal, roles=roles, max_rows=max_rows)
     if "error" in out:
         return dict(picked, sql=sql, rows=None, error=out["error"])
+    # It ran and returned: that is the evidence worth keeping. The row data
+    # is not kept -- remember() stores the question and the query only.
+    _memory().remember(question, sql, source="answer")
     return dict(picked, **out)
 
 
@@ -608,6 +640,8 @@ def health() -> Dict[str, Any]:
         "errors": _STATE["errors"],
         # what the log holds, never what is in it
         "audit": _audit().describe(),
+        # how much has been learned, never what
+        "memory": _memory().describe(),
     }
 
 
