@@ -64,6 +64,7 @@ or a person what state the server is in.
 from __future__ import annotations
 
 import functools
+import inspect
 import logging
 import os
 import re
@@ -73,6 +74,7 @@ from typing import Any, Dict, List, Optional
 
 from . import __version__
 from .catalog import Catalog
+from .audit import AUDITED, AuditLog, summarize
 from .identity import IdentityError, Principal
 
 log = logging.getLogger("schemagate.mcp")
@@ -84,6 +86,10 @@ _CATALOG: Optional[Catalog] = None
 #: lazily, and only if someone actually runs a query.
 _URL: Optional[str] = None
 _ENGINE: Any = None
+#: Every identity decision, recorded. Memory-only unless SCHEMAGATE_AUDIT_LOG
+#: names a file. Built in build_catalog; a module-level default so the tool
+#: functions can be called in tests before any catalog exists.
+_AUDIT: Any = None
 _LOCK = threading.Lock()
 _STATE: Dict[str, Any] = {
     "started_at": None, "url": None, "config": None,
@@ -150,9 +156,10 @@ def build_catalog(url: Optional[str] = None, config_path: Optional[str] = None,
     Tests pass ``catalog=`` directly; the CLI path reads
     ``SCHEMAGATE_DATABASE_URL`` and the optional ``SCHEMAGATE_CATALOG_CONFIG``.
     """
-    global _CATALOG
+    global _CATALOG, _AUDIT
     with _LOCK:
         _STATE["started_at"] = _STATE["started_at"] or time.time()
+        _AUDIT = AuditLog.from_env()
         if catalog is not None:
             _CATALOG = catalog
             _STATE.update(url="<provided>", last_refresh_at=time.time(),
@@ -183,6 +190,18 @@ def _redact(url: str) -> str:
         user = creds.split(":", 1)[0]
         return f"{scheme}://{user}:***@{host}"
     return url
+
+
+def _dialect_name() -> str:
+    """The dialect the SQL will run on, from the URL alone -- no connection.
+    Empty when the catalog was supplied directly and there is no URL."""
+    if not _URL:
+        return ""
+    try:
+        from sqlalchemy.engine import make_url
+        return make_url(_URL).get_dialect().name
+    except Exception:                                    # noqa: BLE001
+        return ""
 
 
 def _engine():
@@ -273,21 +292,57 @@ def _guard(fn):
     the traceback server-side. Nothing propagates to the transport, so a
     single bad request cannot end the session for every other client.
     """
+    sig = inspect.signature(fn)
+
     @functools.wraps(fn)
     def wrapped(*args, **kwargs):
         _STATE["calls"] += 1
         try:
-            return fn(*args, **kwargs)
+            result = fn(*args, **kwargs)
         except IdentityError as e:
             _STATE["errors"] += 1
-            return {"error": str(e)}
+            result = {"error": str(e)}
         except Exception as e:                       # noqa: BLE001
             _STATE["errors"] += 1
             _STATE["last_error"] = f"{type(e).__name__}: {e}"
             log.exception("tool %s failed", fn.__name__)
-            return {"error": f"{fn.__name__} failed: {type(e).__name__}",
-                    "hint": "see server log; the catalog is still serving"}
+            result = {"error": f"{fn.__name__} failed: {type(e).__name__}",
+                      "hint": "see server log; the catalog is still serving"}
+        return _audited(fn.__name__, sig, args, kwargs, result)
     return wrapped
+
+
+def _audited(tool: str, sig, args, kwargs, result: Dict[str, Any]) -> Dict[str, Any]:
+    """Record the call, then hand back the result with the server-side hints
+    removed.
+
+    Tools attach `_`-prefixed keys (`_visible_objects`, `_denied_reason`,
+    `_tables`, ...) that the audit record wants and the caller must not get:
+    `describe_object` answers "missing" and "restricted" with the same words
+    on purpose, and the log may know which while the client may not. The
+    hints are stripped here, in the one place every tool passes through, so
+    a tool cannot forget.
+    """
+    if tool in AUDITED and isinstance(result, dict):
+        try:
+            bound = sig.bind_partial(*args, **kwargs)
+            named = dict(bound.arguments)
+        except Exception:                            # noqa: BLE001
+            named = dict(kwargs)                     # audit still happens
+        try:
+            _audit().record(summarize(tool, named, result))
+        except Exception:                            # noqa: BLE001
+            log.exception("audit record failed")    # never the caller's problem
+    if isinstance(result, dict):
+        return {k: v for k, v in result.items() if not k.startswith("_")}
+    return result
+
+
+def _audit():
+    global _AUDIT
+    if _AUDIT is None:
+        _AUDIT = AuditLog.from_env()
+    return _AUDIT
 
 
 # --- tool implementations, importable without the mcp package ------------
@@ -315,8 +370,12 @@ def select_schema(question: str, principal: Optional[str] = None,
     except (TypeError, ValueError):
         top_k = 6
     who = _principal(principal, roles)
-    sel = _catalog().select(question, top_k=top_k, principal=who,
-                            expand_fks=bool(expand_foreign_keys))
+    cat = _catalog()
+    sel = cat.select(question, top_k=top_k, principal=who,
+                     expand_fks=bool(expand_foreign_keys))
+    visible = sum(1 for d in cat.objects() if cat._visible(d, who))
+    withheld_cols = sum(len(h.doc.columns) - len(h.doc.visible_columns(who))
+                        for h in sel.hits)
     return {
         "question": question,
         "selected": len(sel),
@@ -325,6 +384,9 @@ def select_schema(question: str, principal: Optional[str] = None,
         "ddl": sel.prompt_fragment(),
         "explain": [{"object": h.doc.qname, "score": round(h.score, 4),
                      "reason": h.reason} for h in sel.hits],
+        # for the audit record only; stripped before the caller sees this
+        "_visible_objects": visible,
+        "_columns_withheld": withheld_cols,
     }
 
 
@@ -356,15 +418,18 @@ def describe_object(name: str, principal: Optional[str] = None,
     who = _principal(principal, roles)
     cat = _catalog()
     name = str(name or "")
+    reason = "missing"
     for qname, doc in cat._docs.items():
         if qname == name or doc.name == name:
             if not cat._visible(doc, who):
+                reason = "restricted"
                 break
             return {"name": doc.qname, "kind": doc.kind, "ddl": doc.render_ddl(),
                     "foreign_keys": [{"columns": fk.columns, "references": fk.ref_table}
                                      for fk in doc.foreign_keys]}
-    # same message whether it is missing or restricted: no existence leak
-    return {"error": f"no visible object named {name!r}"}
+    # same message whether it is missing or restricted: no existence leak.
+    # The audit record gets the distinction; `_guard` strips it from the reply.
+    return {"error": f"no visible object named {name!r}", "_denied_reason": reason}
 
 
 @_guard
@@ -401,12 +466,13 @@ def run_query(sql: str, principal: Optional[str] = None,
     try:
         sql = check_read_only(sql)
     except UnsafeSQL as e:
-        return {"error": f"refused: {e}"}
+        return {"error": f"refused: {e}", "sql": sql, "_refused_reason": "not-read-only"}
 
     cat = _catalog()
     denied = _check_scope(cat, sql, who)
     if denied:
-        return {"error": denied}
+        return {"error": denied, "sql": sql, "_refused_reason": "out-of-scope",
+                "_tables": _referenced_tables(sql)}
 
     # One extra row, so "there are more" is a fact rather than a guess at the
     # boundary -- asking for 50 and getting 50 says nothing on its own.
@@ -432,6 +498,7 @@ def run_query(sql: str, principal: Optional[str] = None,
         "row_count": len(rows),
         "truncated": truncated,
         "principal": who.subject if who else None,
+        "_tables": _referenced_tables(sql),
     }
 
 
@@ -477,10 +544,14 @@ def answer(question: str, principal: Optional[str] = None,
     cls = classes.get(name.lower())
     if cls is None:
         return dict(picked, error=f"unknown provider {name!r}")
+    # `select_schema` returns the DDL under "ddl". This used to read
+    # "prompt_fragment", a key nothing sets, so the model was handed an
+    # empty table list and every answer was INSUFFICIENT or invented. The
+    # only test of this tool covered the no-model path, which is how it
+    # stayed that way.
     try:
-        sql = generate_sql(cls(model=model), question,
-                           picked.get("prompt_fragment", ""),
-                           dialect=picked.get("dialect", ""))
+        sql = generate_sql(cls(model=model), question, picked["ddl"],
+                           dialect=_dialect_name())
     except UnsafeSQL as e:
         return dict(picked, sql=None, rows=None, refused=str(e))
 
@@ -535,6 +606,8 @@ def health() -> Dict[str, Any]:
         "last_error": _STATE["last_error"],
         "calls": _STATE["calls"],
         "errors": _STATE["errors"],
+        # what the log holds, never what is in it
+        "audit": _audit().describe(),
     }
 
 

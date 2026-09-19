@@ -840,6 +840,18 @@ Three tools: `select_schema` (the DDL for a question, scoped to the caller),
 DDL). All three take `principal` and `roles`. If the client leaves them out,
 the caller is anonymous and sees only unrestricted objects. A restricted
 object and a missing one return the same error, so existence doesn't leak.
+
+**Every decision is recorded.** Each call to those tools, and to `run_query`
+and `answer`, writes one line: when, which principal with which roles, what
+they asked, what they were shown, how many objects and columns were held
+back, what SQL ran and how many rows came back, and whether the call was
+refused and why. Never row data, never the names of what was withheld, never
+the database URL. It stays in memory (the last 500, counted in `health`)
+unless `SCHEMAGATE_AUDIT_LOG=<path>` — or `=1` for `~/.schemagate/audit.jsonl`
+— turns the file on; a tool whose pitch is that it stores nothing does not
+start writing files on its own. The log is for the operator, from the file;
+it is deliberately not a tool, because "recent decisions" handed to any
+client is every caller's questions handed to every other caller.
 `SCHEMAGATE_DATABASE_URL=demo` serves the bundled schema.
 
 To host it for a team rather than one desktop:
