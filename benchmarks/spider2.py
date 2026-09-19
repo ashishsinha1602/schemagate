@@ -118,9 +118,16 @@ def main():
         cat = Catalog()
         for d in docs:
             cat.add(d)
+        # What `Catalog.bootstrap()` does for every real user, and what this
+        # script used to skip: a table written one file per day is one table.
+        # Spider 2.0's ga4 is 92 `events_2020xxxx` and ga360 is 366, and held
+        # apart they differ only by a date -- so they crowd out everything
+        # else and none of them can be told from the others. Measuring
+        # without this measured a schemagate nobody runs.
+        cat.collapse_partitions()
         cat.index()
         cats[db] = cat
-        kn[db] = {d.name.lower() for d in docs}
+        kn[db] = {bare(d.name) for d in cat.objects()}
 
     prepared = []
     for c in cases:
@@ -133,7 +140,7 @@ def main():
     for k in (5, 10, 20):
         full = part = 0
         for db, q, gold in prepared:
-            picked = {n.split(".")[-1].lower()
+            picked = {bare(n.split(".")[-1])
                       for n in cats[db].select(q, top_k=k).table_names}
             full += (gold <= picked)
             part += len(gold & picked) / len(gold)

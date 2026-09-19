@@ -374,8 +374,8 @@ top_k=10.
 
 And **Spider 2.0-lite**, the benchmark built for real warehouses — 162
 databases, 8,255 tables, a median of 16 per database and a maximum of 785:
-**66.4% at top_k=10** over all 247 usable questions, none excluded (77.4% on
-the 212 whose gold tables resolve), no pooling needed because the databases
+**79.8% at top_k=10** over all 247 usable questions, none excluded (84.5% on
+the 233 whose gold tables resolve), no pooling needed because the databases
 are already big. An earlier version of this page said 82.9%; that number was
 measured while Windows had silently made thousands of the schema files
 unreadable, and a second re-run was owed after the loader was found to be
