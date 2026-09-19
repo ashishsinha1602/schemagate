@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Store protocol. Implement these five methods for any new backend."""
 from __future__ import annotations
 from typing import Any, Dict, List, Optional, Protocol, Sequence, runtime_checkable

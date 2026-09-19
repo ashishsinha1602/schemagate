@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Optional AI features. schemagate works fully without importing this package.
 
 Nothing here is required. The default catalog uses an offline, deterministic

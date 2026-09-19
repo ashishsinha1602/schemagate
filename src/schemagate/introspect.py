@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Dialect-agnostic schema reflection via SQLAlchemy.
 
 Works on anything with a SQLAlchemy dialect -- postgres, oracle, mysql,

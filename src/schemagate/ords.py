@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Reflect an Autonomous Database over ORDS, on HTTPS.
 
 Why this exists: SQL*Net wants port 1522, and a great many corporate networks

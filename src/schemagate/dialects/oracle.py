@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Oracle: what the Inspector cannot tell us, found live on 26ai.
 
 * An Autonomous Database exposes ~1,500 objects to ADMIN, of which the

@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Turn what people actually have into something SQLAlchemy can open.
 
 The Connect box asks for a SQLAlchemy URL, and most people do not have one.

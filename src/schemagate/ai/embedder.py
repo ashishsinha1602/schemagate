@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Embeddings from a hosted model.
 
 The offline ``HashingEmbedder`` matches subwords, which is strong on

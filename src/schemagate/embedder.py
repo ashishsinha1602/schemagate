@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Embedder protocol and the zero-dependency default.
 
 HashingEmbedder is not a placeholder. Schema selection matches questions

@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Certify schemagate against a real database, whatever the dialect.
 
 Lives in the package rather than in `scripts/` because it did not work

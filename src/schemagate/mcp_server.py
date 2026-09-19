@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """MCP server: let an agent ask schemagate which tables it needs.
 
 Any MCP-capable client -- Cursor, Windsurf, Zed, an agent you

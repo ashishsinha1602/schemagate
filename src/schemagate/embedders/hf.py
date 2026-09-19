@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Sentence-transformers embedder.
 
 Not exercised in CI (no model download in the sandbox). Install with

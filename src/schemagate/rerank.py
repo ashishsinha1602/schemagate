@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Let a model make the final choice, after the maths has narrowed the field.
 
 Selection on identifiers is strong when the question shares vocabulary with

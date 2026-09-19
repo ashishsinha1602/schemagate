@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """LangChain retriever over an schemagate catalog.
 
 Drop-in for any LangChain chain that takes a retriever. Each selected object

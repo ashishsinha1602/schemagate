@@ -1,3 +1,4 @@
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Adapters for hosted AI models. All optional; none is ever required.
 
 schemagate works with no AI provider at all -- the default embedder is offline and
