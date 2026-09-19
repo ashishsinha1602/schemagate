@@ -58,3 +58,25 @@ engine and version you ran against. These are enough:
 
 One change per PR, tests included, CHANGELOG line added. Keep the README in
 the voice it has; no marketing adjectives.
+
+## Sign your commits
+
+Add a `Signed-off-by` line to every commit:
+
+    git commit -s -m "your message"
+
+which appends
+
+    Signed-off-by: Your Name <your@email>
+
+That is the [Developer Certificate of Origin](https://developercertificate.org/)
+1.1 -- the same one the kernel and Docker use. It says you wrote the patch, or
+have the right to submit it, and that you are happy for it to ship under the
+Apache-2.0 licence in `LICENSE`.
+
+There is no CLA, and you keep the copyright in what you write. The sign-off is
+asked for because without it nobody can tell later whether a contribution was
+actually the contributor's to give -- and that question is much harder to
+answer years after the fact than at the moment of the commit.
+
+The project's name is not covered by the licence; see `TRADEMARK.md`.
