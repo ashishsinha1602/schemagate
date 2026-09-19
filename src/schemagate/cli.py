@@ -216,11 +216,26 @@ def _open(args) -> Catalog:
     return cat
 
 
+def _resolved_principal(args) -> Optional[Principal]:
+    """``--principal`` with no ``--role``, and a ``groups`` block in
+    ``--config``: ask the directory. Explicit ``--role`` wins on the command
+    line, because the operator typing it is the one doing the checking."""
+    who = _principal(args)
+    if who is None or args.role or not getattr(args, "config", None):
+        return who
+    from . import config as _config
+    try:
+        groups = _config.groups_from(_config.load(args.config), default_url=args.url)
+        return groups.resolve(who) if groups is not None else who
+    except IdentityError as e:
+        sys.exit(f"schemagate: {e}")
+
+
 def cmd_select(args) -> int:
     if getattr(args, "sql", None):
         return _run_sql_only(args, args.url)
     cat = _open(args)
-    sel = cat.select(args.question, top_k=args.top_k, principal=_principal(args),
+    sel = cat.select(args.question, top_k=args.top_k, principal=_resolved_principal(args),
                      expand_fks=not args.no_fk, reranker=_reranker(args),
                      # tables that answered similar questions before; select()
                      # applies this caller's visibility to them like any pin

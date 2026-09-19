@@ -91,6 +91,10 @@ _ENGINE: Any = None
 #: names a file. Built in build_catalog; a module-level default so the tool
 #: functions can be called in tests before any catalog exists.
 _AUDIT: Any = None
+#: Where a caller's roles come from, when the catalog config has a
+#: ``groups`` block. None means the roles the client supplies are used --
+#: the behaviour the warning in the module docstring is about.
+_GROUPS: Any = None
 #: Question -> SQL pairs that answered correctly, consulted for pins and
 #: worked examples. Memory-only unless SCHEMAGATE_MEMORY names a file.
 #: Built once the catalog exists, because it uses the catalog's embedder.
@@ -120,6 +124,20 @@ def _apply_config(cat: Catalog, config_path: Optional[str]) -> None:
         return
     from . import config as _config
     _config.apply(cat, _config.load(config_path))
+
+
+def _groups_from(config_path: Optional[str], url: Optional[str]):
+    """The resolver named by the config's ``groups`` block, or None.
+
+    Built at startup so a bad block -- a ``${SECRET}`` that is not set, an
+    unknown source type -- stops the server before it answers anyone with
+    the client's own roles, rather than at the first request.
+    """
+    if not config_path:
+        return None
+    from . import config as _config
+    return _config.groups_from(_config.load(config_path),
+                               default_url=None if url == "demo" else url)
 
 
 def _reflect(url: str, config_path: Optional[str]) -> Catalog:
@@ -155,18 +173,19 @@ def _reflect(url: str, config_path: Optional[str]) -> Catalog:
 
 
 def build_catalog(url: Optional[str] = None, config_path: Optional[str] = None,
-                  catalog: Optional[Catalog] = None) -> Catalog:
+                  catalog: Optional[Catalog] = None, groups: Any = None) -> Catalog:
     """Build (or accept) the catalog the server will answer from.
 
     Tests pass ``catalog=`` directly; the CLI path reads
     ``SCHEMAGATE_DATABASE_URL`` and the optional ``SCHEMAGATE_CATALOG_CONFIG``.
     """
-    global _CATALOG, _AUDIT, _MEMORY
+    global _CATALOG, _AUDIT, _MEMORY, _GROUPS
     with _LOCK:
         _STATE["started_at"] = _STATE["started_at"] or time.time()
         _AUDIT = AuditLog.from_env()
         if catalog is not None:
             _CATALOG = catalog
+            _GROUPS = groups
             _MEMORY = Memory.from_env(catalog.embedder, catalog.name)
             _STATE.update(url="<provided>", last_refresh_at=time.time(),
                           last_refresh_ok=True, last_error=None)
@@ -180,6 +199,7 @@ def build_catalog(url: Optional[str] = None, config_path: Optional[str] = None,
         config_path = config_path or os.environ.get("SCHEMAGATE_CATALOG_CONFIG")
         cat = _reflect(url, config_path)
         _CATALOG = cat
+        _GROUPS = _groups_from(config_path, url)
         _MEMORY = Memory.from_env(cat.embedder, _memory_label(url))
         globals()["_URL"] = cat._demo_url if url == "demo" else url
         globals()["_ENGINE"] = None
@@ -305,6 +325,15 @@ def _principal(subject: Optional[str], roles: Optional[List[str]]) -> Optional[P
         return None
     if roles is not None and len(roles) > MAX_ROLES:
         raise IdentityError(f"too many roles ({len(roles)}); max {MAX_ROLES}")
+    if _GROUPS is not None:
+        # The directory's answer, not the client's. Roles the client sent
+        # are dropped, not merged: a merge would let anyone add `payroll`
+        # to whatever the directory said, which is the hole this closes.
+        # A source that cannot answer raises, and _guard turns that into an
+        # error reply -- never into an anonymous selection.
+        if roles:
+            log.debug("client-supplied roles ignored; groups resolver is configured")
+        return _GROUPS.principal(str(subject))
     return Principal(str(subject),
                      roles=frozenset(str(r) for r in (roles or [])))
 
@@ -618,6 +647,8 @@ def refresh_catalog() -> Dict[str, Any]:
         _CATALOG = cat
         _STATE.update(last_refresh_at=time.time(), last_refresh_ok=True,
                       last_error=None)
+        if _GROUPS is not None:
+            _GROUPS.forget()        # a refresh is also "re-ask the directory"
     return {"ok": True, "objects": len(cat._docs),
             "seconds": round(time.time() - started, 2)}
 
@@ -642,6 +673,8 @@ def health() -> Dict[str, Any]:
         "audit": _audit().describe(),
         # how much has been learned, never what
         "memory": _memory().describe(),
+        # Counts and source kinds only -- no group names, no subjects.
+        "groups": _GROUPS.describe() if _GROUPS is not None else None,
     }
 
 

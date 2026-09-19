@@ -145,6 +145,31 @@ restricted object and a missing one return the same error. The shadow
 penalty is only applied while the shadowed object is visible to the caller,
 so scoping can never make a copy vanish for a reason the caller can't see.
 
+**Where the roles come from.** The `groups` resolver (`schemagate.groups`)
+is tested at three levels. Against fakes: every source — scripted Microsoft
+Graph replies for the token, `getMemberGroups` and `getByIds` calls; a
+sqlite membership table; a fake role graph with a cycle in it; `${ENV}`
+expansion and the refusal to start on an unset variable; the cache's ttl,
+bound and `forget`. In front of the MCP server: every identity tool
+consults the directory and ignores the roles in the request; every tool
+fails closed when the directory is down while the anonymous path keeps
+serving; sixteen threads on one resolver; a real MCP client over stdio with
+a `groups` block in `SCHEMAGATE_CATALOG_CONFIG`; a bad block stopping the
+server before it answers anyone. Live: `native` on PostgreSQL 16 and MySQL
+8.4 (`tests/test_groups_live.py`, in CI on every push) — two levels of role
+inheritance, the grants-restricted catalog and the resolver agreeing with
+`has_table_privilege` / an actual `SELECT` — and the same on Oracle
+Autonomous Database 26ai as a script, as ADMIN (full `DBA_ROLE_PRIVS` graph)
+and as the application user (the `USER_ROLE_PRIVS` fallback, which sees
+direct roles only and so under-grants, never over). Groups defined in a
+table were run end to end with no demo catalog anywhere: a membership table
+on the live server, `python -m schemagate.mcp_server` started against that
+same database, a real MCP client — a claimed `payroll` refused, the table's
+member admitted and handed real rows — on PostgreSQL 16 and MySQL 8.4 in
+CI, and on Oracle Autonomous Database 26ai by script. Entra was exercised
+against scripted responses only; a live tenant run is owed before that
+source is called certified.
+
 ## The AI layer
 
 Everything runs offline against fake providers; no key, no network, no

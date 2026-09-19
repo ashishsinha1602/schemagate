@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **Added: where a caller's roles come from.** `restrict_from_grants` read
+  which roles may see an object from the database; the roles the caller
+  *held* were still whatever the caller said, which on a hosted MCP server
+  is not a check. A `groups` block in the catalog config now resolves them
+  from a directory (Microsoft Entra ID through Graph, transitive), the
+  database's own role graph (`native`, the same views the grant reader
+  uses, walked upward from the user), a membership table (`sql`), any HTTP
+  endpoint, or a static map — and the roles in a request are ignored once
+  it is configured. Fails closed: a directory that cannot answer is an error
+  to that caller, never an anonymous selection. Verified live on PostgreSQL
+  16, MySQL 8.4 and Oracle Autonomous Database 26ai. `docs/groups.md`.
+
 - **Added: it learns from SQL that ran.** A question answered correctly once
   is the best evidence about how to answer it next time -- not a guess about
   the schema, a query that executed against it. When `answer` (MCP), `--answer`
@@ -790,7 +802,6 @@ things in the repo that were quietly lying.
   the page clears the URL box on success for the same reason.
 
   `schemagate studio` also takes `--restrict-from-grants` and `--values`.
-
 
 - **Added: `schemagate.connect`.** The Connect box asked for a SQLAlchemy URL
   and most people do not have one -- an Oracle team has a wallet zip and a TNS

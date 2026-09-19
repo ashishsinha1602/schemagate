@@ -7,6 +7,7 @@
     sel.prompt_fragment()
 """
 from .identity import Principal, IdentityError
+from .groups import Groups, GroupError
 from .models import Column, ForeignKey, ObjectDoc, Selection, Scored
 from .embedder import HashingEmbedder, cosine_distance, tokenize
 from .stores.memory import MemoryStore
@@ -25,7 +26,7 @@ try:
         __version__ = "0.0.0.dev0"
 except ImportError:                                  # pragma: no cover
     __version__ = "0.0.0.dev0"
-__all__ = ["Catalog", "Principal", "IdentityError", "ObjectDoc", "Column",
+__all__ = ["Catalog", "Principal", "IdentityError", "Groups", "GroupError", "ObjectDoc", "Column",
            "ForeignKey", "Selection", "Scored", "HashingEmbedder",
            "MemoryStore", "cosine_distance", "tokenize"]
 
