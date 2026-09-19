@@ -401,7 +401,6 @@ nothing here has been submitted.
 Everything below is measured on schemas I invented, which is worth less and
 is why the public numbers come first.
 
-
 Six test schemas ship with the library. Run `python tests/bench.py` and you
 get all of this printed back. `TESTING.md` is the full record of what was
 tested, what broke, and what was found to be the database rather than schemagate.
@@ -762,6 +761,39 @@ enforces the policy -- but the prompt names a table that caller cannot get a
 row out of. [docs/row-level-security.md](docs/row-level-security.md) has the
 measurement, what to do about it today, and the fix.
 
+### Where the caller's roles come from
+
+Grants answer which roles may see an object. The other half — which roles
+*this caller* holds — used to be whatever the caller said, which is fine for
+a desktop client on its own database and no check at all for a hosted
+server. A `groups` block in the catalog config reads it from where it is
+already kept, and the roles a client sends are then **ignored**:
+
+```json
+{"groups": {"sources": [
+   {"type": "entra", "tenant": "contoso.onmicrosoft.com",
+    "client_id": "…", "client_secret": "${ENTRA_CLIENT_SECRET}"},
+   {"type": "native"}],
+  "map": {"Payroll Team": "payroll"}}}
+```
+
+Five sources: **`entra`** (Microsoft Entra ID through Graph, transitive
+group membership, ids and display names both), **`native`** (the database's
+own role graph — the same views `restrict_from_grants` reads, walked upward
+from the user, so a two-level `GRANT` chain resolves), **`sql`** (a
+membership table, one bound `:subject`), **`http`** (any endpoint returning
+groups as JSON), **`static`** (a mapping in the file). Each answers only for
+the subject namespaces it serves; results are a union; a `map` turns group
+ids into role names. Answers are cached for `ttl` seconds.
+
+A source that cannot answer is an error to that caller, not an anonymous
+selection: "no groups" and "could not ask" are different answers and only
+one is safe to act on. Verified live on PostgreSQL 16, MySQL 8.4 and Oracle
+Autonomous Database 26ai: the resolver and the grants-restricted catalog
+agree with `has_table_privilege` and with an actual `SELECT`.
+[docs/groups.md](docs/groups.md) has the block, every source, and what was
+tested.
+
 ## Databases
 
 Reflection uses only SQLAlchemy's dialect-agnostic Inspector. There's no
@@ -812,8 +844,11 @@ pytest tests/test_dialects.py -v
 > that role may read, and since `run_query` returns rows, that is data, not
 > just schema. Run it over stdio (the caller is your own desktop client), or
 > over HTTP behind something that authenticates the user and sets the
-> principal for them. It is a scoping mechanism, not a lock.
-
+> principal for them. It is a scoping mechanism, not a lock. With a
+> `groups` block in `SCHEMAGATE_CATALOG_CONFIG` the *roles* stop being the
+> client's to claim — they come from the directory or the database and the
+> ones in the request are ignored ([docs/groups.md](docs/groups.md)); the
+> subject is still whatever the transport hands over.
 
 If you already have an agent that writes SQL, the fastest way in is to let it
 call schemagate as a tool rather than wiring the library into your code.

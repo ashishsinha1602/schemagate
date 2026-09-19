@@ -1,0 +1,85 @@
+# PostgreSQL, against a real one, on every push.
+#
+# The `native` groups source walks pg_auth_members upward from a user, and
+# the direction of that graph is the whole correctness of the feature -- it
+# was backwards once, and a live PostgreSQL is what caught it. A unit test
+# with a fake graph cannot catch it again. So: a real PostgreSQL 16, two
+# levels of GRANT ... TO ..., and the resolver plus the grants-restricted
+# catalog checked against has_table_privilege.
+name: postgres
+on:
+  # push only, for the same reason as mssql.yml and mysql.yml: on a PR branch
+  # pull_request would stand up a second server for the same commit.
+  push:
+  workflow_dispatch:
+
+# Least privilege by default: a job that needs to write says so itself.
+permissions:
+  contents: read
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          # Throwaway. Lives for one job on the runner's loopback and is
+          # destroyed with it. Not a credential; never reuse it anywhere.
+          POSTGRES_PASSWORD: "Sg_CI_throwaway_2026!"
+          POSTGRES_DB: app
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      SCHEMAGATE_PG_URL: "postgresql+psycopg://postgres:Sg_CI_throwaway_2026!@127.0.0.1:5432/app"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev,postgres,mcp]"
+
+      - name: wait for the server to accept connections
+        run: |
+          python - <<'PY'
+          import os, sys, time
+          import sqlalchemy as sa
+          url = os.environ["SCHEMAGATE_PG_URL"]
+          last = None
+          for _ in range(60):
+              try:
+                  with sa.create_engine(url).connect() as c:
+                      print(c.exec_driver_sql("SELECT version()").scalar())
+                  sys.exit(0)
+              except Exception as e:          # noqa: BLE001
+                  last = e
+                  time.sleep(2)
+          print(f"never came up: {type(last).__name__}: {last}", file=sys.stderr)
+          sys.exit(1)
+          PY
+
+      - name: groups resolver against the live server
+        run: pytest tests/test_groups_live.py tests/test_groups_live_server.py -v
+
+      - name: the tests must not have skipped
+        # A skip reads as a pass in the checks list. The module skips itself
+        # when SCHEMAGATE_PG_URL is unset, which is exactly the false green
+        # this job exists to rule out. The MySQL half of the file is expected
+        # to skip here; the PostgreSQL half must not.
+        run: |
+          set -euo pipefail
+          pytest tests/test_groups_live.py tests/test_groups_live_server.py -q -k "pg_" | tee /tmp/out.txt
+          grep -qE "[0-9]+ passed" /tmp/out.txt
+          if grep -qE "[0-9]+ skipped" /tmp/out.txt; then
+            echo "::error::the live PostgreSQL tests skipped -- nothing was verified"
+            exit 1
+          fi
+
+      - name: schemagate certify
+        # The same command the README hands a user, on the same server.
+        run: python scripts/certify_dialect.py "$SCHEMAGATE_PG_URL"
