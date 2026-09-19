@@ -151,6 +151,10 @@ class StudioState:
         #: page never names the database it is showing -- and a person with
         #: two Studios open cannot tell them apart.
         self.connection_label: str = ""
+        #: Question -> SQL pairs that answered correctly on this connection.
+        #: Built at connect, from the catalog's own embedder; memory-only
+        #: unless SCHEMAGATE_MEMORY names a file.
+        self.memory = None
         #: (provider, model, has_key) -> the built provider. See _provider().
         self._provider_cache = None
         #: True while the warm-up thread is building one.
@@ -324,12 +328,14 @@ class StudioState:
 
         provider = self._provider()
         if provider is None:
-            picked["paste_prompt"] = sql_prompt(question, fragment, dialect)
+            picked["paste_prompt"] = sql_prompt(question, fragment, dialect,
+                                                examples=self._examples(question, picked))
             if self.provider_error:
                 picked["answer_error"] = self.provider_error
             return picked
         try:
-            picked["sql"] = generate_sql(provider, question, fragment, dialect)
+            picked["sql"] = generate_sql(provider, question, fragment, dialect,
+                                         examples=self._examples(question, picked))
         except UnsafeSQL as e:
             # "The selected tables cannot answer this" is nearly always
             # selection, not the model: the right table was ninth and top_k
@@ -353,7 +359,8 @@ class StudioState:
                 wider = self.select(dict(body, top_k=max(15, 2 * k)))
                 if "error" not in wider:
                     try:
-                        wider["sql"] = generate_sql(provider, question, wider["ddl"], dialect)
+                        wider["sql"] = generate_sql(provider, question, wider["ddl"], dialect,
+                                                    examples=self._examples(question, wider))
                         wider["widened_to"] = max(15, 2 * k)
                         # Say so. An answer that only appeared once the model
                         # was shown three times as many tables is not the same
@@ -391,7 +398,20 @@ class StudioState:
             return picked
         picked["columns"] = list(cols)
         picked["rows"] = [[None if v is None else str(v) for v in r] for r in rows]
+        # It ran: keep the question and the query, never the rows.
+        if self.memory is not None:
+            self.memory.remember(question, picked["sql"], source="studio")
         return picked
+
+    def _examples(self, question: str, picked: Dict[str, Any]):
+        """Remembered pairs this caller may be shown: every table the SQL
+        names must be among the objects the selection already returned."""
+        if self.memory is None:
+            return ()
+        # select() returns objects as dicts; the filter wants their names.
+        visible = [o["name"] if isinstance(o, dict) else o
+                   for o in (picked.get("objects") or [])]
+        return self.memory.examples_for(question, visible=visible)
 
     def _description_cache(self) -> Optional[str]:
         """Where generated descriptions are kept between runs.
@@ -899,6 +919,8 @@ class StudioState:
         # this sits after the bootstrap rather than beside the form handler.
         self.last_connect = dict(body)
         self.connection_label = _describe_connection(url, body, engine.dialect.name)
+        from .learn import Memory
+        self.memory = Memory.from_env(cat.embedder, self.connection_label)
         # The catalogue, without the Describe button. The label above is what
         # keys the cache file, so this has to come after it. A provider from
         # the page's settings is preferred; with none, whatever key is in

@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **Added: it learns from SQL that ran.** A question answered correctly once
+  is the best evidence about how to answer it next time -- not a guess about
+  the schema, a query that executed against it. When `answer` (MCP), `--answer`
+  (CLI) or the Studio produces a SELECT that runs, the question and the query
+  are remembered, never the rows. A later similar question gets that query's
+  tables pinned into its selection and the pair shown as a worked example.
+  Neither widens what a caller sees: pins pass the same visibility gate as any
+  pin, and an example is shown only when every table it names is visible to
+  that caller; every stored query is re-checked read-only on the way in and
+  out, and a tampered file is refused on load. Memory-only unless
+  `SCHEMAGATE_MEMORY` names a file. With nothing remembered the prompt is
+  byte-identical to before -- the bench gate did not move. `learn_from_audit`
+  turns an audit log into a training set.
+
 - **Added: an audit log of every identity decision.** Each call to
   `select_schema`, `list_objects`, `describe_object`, `run_query` and `answer`
   now writes one JSON record -- principal, roles, question, what was shown,

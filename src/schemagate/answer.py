@@ -150,14 +150,25 @@ def check_read_only(sql: str) -> str:
     return s
 
 
-def sql_prompt(question: str, fragment: str, dialect: str = "") -> str:
+def _prompt_body(question: str, fragment: str,
+                 examples: Sequence[Tuple[str, str]] = ()) -> str:
+    """DDL, then any remembered (question, SQL) pairs, then the question.
+
+    With no examples this is byte-for-byte the prompt from before memory
+    existed, which is what keeps the bench gate honest: memory can only add
+    text, never change what an un-taught catalogue sends.
+    """
+    from .learn import format_examples
+    block = format_examples(examples)
+    return "Tables you may use:\n\n%s\n%sQuestion: %s\n" % (
+        fragment, (block + "\n") if block else "", question)
+
+
+def sql_prompt(question: str, fragment: str, dialect: str = "",
+               examples: Sequence[Tuple[str, str]] = ()) -> str:
     """The prompt to paste into any chat window when there is no API key."""
     flavour = f" Target dialect: {dialect}." if dialect else ""
-    return (
-        f"{SYSTEM}{flavour}\n\n"
-        f"Tables you may use:\n\n{fragment}\n"
-        f"Question: {question}\n"
-    )
+    return f"{SYSTEM}{flavour}\n\n" + _prompt_body(question, fragment, examples)
 
 
 #: How many times to ask before believing "these tables cannot answer this".
@@ -189,7 +200,8 @@ _SQL_TOKENS = 2000
 
 def generate_sql(provider, question: str, fragment: str,
                  dialect: str = "", max_tokens: int = _SQL_TOKENS,
-                 attempts: int = _ASK_ATTEMPTS) -> str:
+                 attempts: int = _ASK_ATTEMPTS,
+                 examples: Sequence[Tuple[str, str]] = ()) -> str:
     """Ask a provider for one SELECT. Raises ``UnsafeSQL`` if it is not one.
 
     A model that answers INSUFFICIENT is asked again, up to `attempts` times.
@@ -198,7 +210,7 @@ def generate_sql(provider, question: str, fragment: str,
     would be asking a model repeatedly until it gets past a safety check.
     """
     flavour = f" Target dialect: {dialect}." if dialect else ""
-    prompt = "Tables you may use:\n\n%s\nQuestion: %s\n" % (fragment, question)
+    prompt = _prompt_body(question, fragment, examples)
     tries = max(1, attempts)
     for _ in range(tries):
         reply = provider.complete(SYSTEM + flavour, prompt, max_tokens=max_tokens)

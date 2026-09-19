@@ -175,6 +175,17 @@ object from a missing one is stripped before the caller's reply, checked
 across all five tools; eight threads writing at once lose nothing; a write
 to an unwritable path is counted and the call still returns.
 
+Memory is tested for the one thing it must never do -- widen what a caller
+sees -- and for the loop working at all. A query remembered by a caller with
+the `payroll` role is pinned for that caller and never for one without it;
+the same query is shown as a worked example only to a caller who can see
+every table it names, checked through the MCP server, the CLI paste prompt
+and the Studio's filter; a query that failed is not remembered; a write
+statement is refused on the way in, and a stored entry edited into one is
+refused on the way out; a file survives a restart and a tampered line in it
+is dropped; eight threads remembering at once lose nothing; and with nothing
+remembered the prompt is byte-identical to the one before memory existed.
+
 ## The Studio
 
 The in-browser selector is a JavaScript port. 1,789 cases across all six
