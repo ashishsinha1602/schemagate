@@ -373,13 +373,15 @@ BIRD dev, 1,534 questions: 96.5% per-database at top_k=5, 91.1% pooled at
 top_k=10.
 
 And **Spider 2.0-lite**, the benchmark built for real warehouses — 162
-databases, 7,892 tables, a median of 14 per database and a maximum of 785:
-**64.0% at top_k=10** over all 247 usable questions, none excluded (77.8% on
-the 203 whose gold tables resolve), no pooling needed because the databases
+databases, 8,255 tables, a median of 16 per database and a maximum of 785:
+**79.8% at top_k=10** over all 247 usable questions, none excluded (84.5% on
+the 233 whose gold tables resolve), no pooling needed because the databases
 are already big. An earlier version of this page said 82.9%; that number was
-measured while Windows had silently made 2,868 of the 7,892 schema files
-unreadable, and [BENCHMARKS.md](BENCHMARKS.md) keeps the correction rather
-than deleting it.
+measured while Windows had silently made thousands of the schema files
+unreadable, and a second re-run was owed after the loader was found to be
+reading the benchmark's per-column descriptions as one table description.
+Both re-runs are done and [BENCHMARKS.md](BENCHMARKS.md) keeps the
+corrections rather than deleting them.
 
 **End to end, on the metric those boards actually score:** schemagate plus
 claude-opus-5 gets **68.0% execution accuracy on BIRD dev** (102/150, seeded

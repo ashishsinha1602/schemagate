@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased
+
+- **Fixed: a column comment was indexed three times, and wide tables became
+  magnets.** `_prose_text` fed the prose channel and `embed_text()` fed both
+  the body channel and the vectors, so a table carrying a description per
+  column matched on three of four channels for any question sharing a word
+  with any one of its columns. Measured on Spider 2.0-lite, whose tables are
+  documented that way: deleting every description *beat* keeping them, 13
+  questions to 1 at top_k=10 (p=0.0018) -- which a design premised on prose
+  helping should never lose. Column comments now stay out of the body and
+  prose channels; `embed_text()` is untouched, so the vectors are
+  byte-identical and no stored index is invalidated. The penalty is gone:
+  the same paired comparison is now 2 to 2, p=1.000. Retrieval over all 247
+  usable Spider 2.0 questions goes 66.8% to 71.7% at top_k=10, and nothing
+  moves on the six shipped schemas, the live 1,200-object schema, or the
+  token reduction.
+
+- **Fixed: `benchmarks/spider2.py` was measuring a schemagate nobody runs.**
+  It built its catalog with `add()` and `index()` instead of `bootstrap()`,
+  so `collapse_partitions()` never ran and Spider 2.0's 92-day and 366-day
+  table families were left as hundreds of near-identical objects competing
+  for the same slots. Every Spider 2.0 number this project has published was
+  measured that way. With it on -- which is what a real user gets -- recall
+  over all 247 goes to 80.6% at top_k=10, and the gold SQL resolves for 233
+  questions instead of 212. A measurement fix, not a retrieval one.
+
 ## 0.1.41
 
 - **Added: the joins a schema implies but never declared.** Application

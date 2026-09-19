@@ -90,30 +90,53 @@ POOLED, question + evidence
 
 Spider 1.0 databases have a median of three tables, which is why the pooled
 setting had to be invented to say anything at all. Spider 2.0 needs no such
-invention: 162 databases and 7,892 tables taken from real BigQuery and
-Snowflake warehouses, a median of 14 tables per database and a maximum of
-785. (The 103 databases the usable questions actually touch run slightly
-larger, median 15 -- which is where the other figure in this file came from.) Retrieval is the acknowledged bottleneck there rather than a formality.
+invention: 162 databases and 8,255 tables taken from real BigQuery,
+Snowflake and SQLite warehouses (5,497 / 2,326 / 432), a median of 16 tables
+per database and a maximum of 785. (The 103 databases the usable questions
+actually touch run slightly larger, median 17.) Retrieval is the acknowledged
+bottleneck there rather than a formality.
+
+Counted on a complete checkout: `resource/databases` rooted at 43 characters,
+`core.longpaths` set, all 8,255 files present. An earlier count in this file
+said 7,892 -- 363 fewer -- and was taken on a different checkout; the figures
+below were all re-measured against the complete one.
 
 Only the questions whose gold SQL is public are usable -- the rest is held
 out -- which leaves 247 across 103 databases.
 
 Of those 247, the gold SQL names at least one table this loader can resolve
-for 203, across 95 databases. The other 44 name nothing resolvable, and they
-are where the ablation below is measured *from* rather than *on*: a paired
-comparison needs both arms scored over the same questions, so it uses the 203,
-while any figure meant to be read as recall uses 247 and counts an unresolved
-question as a miss. Both denominators are printed against every number here,
-because the first is a comparison set and the second is the result.
+for **233**. The other 14 name nothing resolvable, and they are where the
+ablation below is measured *from* rather than *on*: a paired comparison needs
+both arms scored over the same questions, so it uses the 212, while any figure
+meant to be read as recall uses 247 and counts an unresolved question as a
+miss. Both denominators are printed against every number here, because the
+first is a comparison set and the second is the result.
+
+It was 203 before two fixes. Spider 2.0's `description` key is a per-column
+list aligned to `nested_column_names`, not a table description, and columns
+were being built from the top-level list alone -- so a table with nested
+fields arrived without the columns its gold SQL reads. That took it to 212.
+Then the harness started calling `collapse_partitions()`, as `bootstrap()`
+does for every user, and the wildcard form the gold SQL itself uses began to
+exist as an object: 233.
+
+The 14 that remain break down as a BigQuery function read as a table --
+`FROM UNNEST(...)` matches the FROM/JOIN regex -- a handful genuinely absent
+from the schema directory, and two whose every reference is a CTE defined
+inside the query. They are counted as misses in the 247 figure, not
+excluded.
 
 ```
-247 questions, none excluded     all gold present     per-table recall
-  top_k=5                             53.0%
-  top_k=10                            64.0%
-  top_k=20                            67.2%
+247 questions, none excluded        MiniLM      hashed
+  top_k=5                           69.6%       66.8%
+  top_k=10                          79.8%       80.6%
+  top_k=20                          84.2%       85.0%
 
-for comparison, scoring only the 203 whose gold tables resolve:
-  top_k=5    64.5%      top_k=10   77.8%      top_k=20   81.8%
+for comparison, scoring only the 233 whose gold tables resolve:
+  top_k=5     73.8% / 70.8%    top_k=10  84.5% / 85.4%    top_k=20  89.3% / 90.1%
+                                         (MiniLM / hashed)
+
+per-table recall at k=10: 90.9% MiniLM, 91.3% hashed
 ```
 
 **Report the first block.** The second is the same run with 44 questions
@@ -129,13 +152,21 @@ way:
 ```
   v0.1.48  86.1% @20   schema files silently unreadable (long paths)
   later    83.3% @20   files fixed, but 44 unresolved questions still dropped
-  now      67.2% @20   166/247, every usable question counted
+  then     67.2% @20   166/247, every usable question counted
+  then     71.3% @20   176/247, loader reading per-column descriptions correctly
+  then     76.9% @20   190/247, column comments no longer indexed three times
+  now      84.2% @20   208/247, harness calling collapse_partitions() as
+                       bootstrap() does -- a measurement fix, not a retrieval one
 ```
 
-Re-measured after the long-path fix reached `benchmarks/cap_sweep.py` and
-`benchmarks/prose_coverage.py`: **67.2% is unchanged**, 166 of 247 at k=20 with
-the MiniLM embedder and descriptions left alone. All 7,892 schema files are
-readable now; none are skipped.
+The last line is the only one that moved the number *up*, and it is worth
+being precise about why, because "our number went up" is the claim most worth
+distrusting. The loader fix did not make retrieval better at anything it was
+already doing: it made nine more questions resolvable and answered six of
+them. On the 212-question comparison set the k=10 figure actually **fell**,
+77.8% to 77.4% with MiniLM, because the nine questions that joined the set
+are harder than the average of the 203. The recall figure over 247 rises
+because the numerator grew and the denominator did not.
 
 The "39%" in the first line has been removed rather than corrected, because it
 is not a property of the benchmark. Windows refuses a path over 260 characters,
@@ -160,11 +191,43 @@ shape. They differ by a date, which no embedder can reason about, so a
 question about January selected twelve tables from November -- measured -- and
 the model correctly refused a question it had been handed the wrong month for.
 
-Collapsing a family of date-suffixed siblings into one entry named with a
-wildcard took the end-to-end run from 0 of 3 questions producing SQL to 3 of
-3 executing. That is implemented in `benchmarks/spider2_e2e.py` and **not yet
-in the library**, which is where it belongs: warehouses are full of dated
-partitions and schemagate currently treats every day as its own table.
+**The library has folded these since `9c68ec6`, and this benchmark was not
+using it.** `Catalog.collapse_partitions()` turns a family of date-suffixed
+siblings into one entry named with a wildcard -- `events_*` -- which is also
+what the SQL should say, because BigQuery reads a wildcard table directly and
+the gold SQL for these questions does exactly that. `Catalog.bootstrap()`
+calls it, so every user reflecting a real database already gets it.
+
+`benchmarks/spider2.py` did not call it. It builds its catalog with `add()`
+and `index()` rather than `bootstrap()`, so the one thing that makes a
+partitioned warehouse tractable was switched off for the whole benchmark.
+Every Spider 2.0 figure this file has ever published was measured against a
+schemagate nobody runs.
+
+Turning it on -- one line, plus passing the catalog's own names through the
+same `bare()` normalisation the gold references already go through, so a
+collapsed `events_*` can match a gold `events_*` at all:
+
+```
+                          k=5      k=10     k=20
+  without collapsing     57.9%    72.1%    76.9%     (what this file reported)
+  with collapsing        66.8%    80.6%    85.0%     (what the library does)
+```
+
+and the gold SQL resolves for 233 of 247 questions instead of 212, because
+the wildcard form the benchmark's own SQL uses now exists as an object.
+
+That is a measurement fix, not a retrieval improvement, and it is worth being
+blunt about the difference: nothing about the product got better here. The
+harness was told to measure a configuration the product does not ship. The
+normalisation half is measured separately and is worth exactly one question
+on its own, so the movement is the collapsing.
+
+An earlier version of this paragraph said the collapsing was "implemented in
+`benchmarks/spider2_e2e.py` and **not yet in the library**". Both halves were
+wrong: that file has no such code, and the library has had it since
+`9c68ec6`. Recorded rather than deleted, because a file that keeps its own
+corrections should keep this one.
 
 ## The embedder, on data I did not write
 
@@ -184,15 +247,15 @@ Consistent, and larger than my own benchmarks suggested. Then Spider 2.0 said
 something different:
 
 ```
-203-question comparison set     hashed      MiniLM
-  top_k=5                     64.0%   →   64.5%
-  top_k=10                    78.3%   →   77.8%
-  top_k=20                    83.3%   →   81.8%
+233-question comparison set     hashed      MiniLM
+  top_k=5                     70.8%   →   73.8%
+  top_k=10                    85.4%   →   84.5%
+  top_k=20                    90.1%   →   89.3%
 
 over all 247 usable questions   hashed      MiniLM
-  top_k=5                     52.6%   →   53.0%
-  top_k=10                    64.4%   →   64.0%
-  top_k=20                    68.4%   →   67.2%
+  top_k=5                     66.8%   →   69.6%
+  top_k=10                    80.6%   →   79.8%
+  top_k=20                    85.0%   →   84.2%
 ```
 
 Nothing, and fractionally worse at the wider cuts. So "install the extra and
@@ -206,21 +269,25 @@ here it is tested inside one of them -- same questions, same databases, same
 columns and types, with only the `description` field suppressed.
 
 ```
-Spider 2.0-lite, n=203 in every cell, all gold tables resolvable
+Spider 2.0-lite, n=212, BEFORE the fix this table led to (see below)
 (percentages over all 247 usable questions in brackets)
+McNemar exact on the discordant pairs: b = removing prose fixed the question,
+c = removing prose broke it
 
-  k    embedder      with prose            prose removed          delta
-  5    hashed       130/203 64.0% (52.6%)  131/203 64.5% (53.0%)   +1 q
-  5    MiniLM       131/203 64.5% (53.0%)  137/203 67.5% (55.5%)   +6 q
-  10   hashed       159/203 78.3% (64.4%)  165/203 81.3% (66.8%)   +6 q
-  10   MiniLM       158/203 77.8% (64.0%)  163/203 80.3% (66.0%)   +5 q
-  20   hashed       169/203 83.3% (68.4%)  174/203 85.7% (70.4%)   +5 q
-  20   MiniLM       166/203 81.8% (67.2%)  180/203 88.7% (72.9%)  +14 q
+  k    embedder   with prose            prose removed          b   c     p
+  5    hashed    136/212 64.2% (55.1%)  143/212 67.5% (57.9%)  16   9  0.2295
+  5    MiniLM    140/212 66.0% (56.7%)  154/212 72.6% (62.3%)  19   5  0.0066
+  10   hashed    165/212 77.8% (66.8%)  177/212 83.5% (71.7%)  15   3  0.0075
+  10   MiniLM    164/212 77.4% (66.4%)  176/212 83.0% (71.3%)  13   1  0.0018
+  20   hashed    178/212 84.0% (72.1%)  187/212 88.2% (75.7%)  12   3  0.0352
+  20   MiniLM    176/212 83.0% (71.3%)  189/212 89.2% (76.5%)  15   2  0.0023
 ```
 
-Run one cap per process (`benchmarks/cap_sweep.py` holds five sets of 95
-catalogues otherwise, and died partway through twice on this machine, silently,
-with the shell reporting success because the exit code came from the pipe).
+Both arms are built from one read of each schema, one database at a time, so
+the only difference between them is whether the per-column descriptions are
+present. One embedder instance is shared across every catalog: constructing
+one per database loads the sentence model 206 times and the process dies with
+SIGSEGV, which is how the first attempt at this table failed.
 
 **The hypothesis is wrong.** MiniLM's advantage over the hashed embedder,
 counted in questions, goes from +1/-1/-1 with prose to +2/+2/-1 without it.
@@ -266,17 +333,53 @@ embedder. It is also one cell of twenty-four, where a Bonferroni threshold is
 0.002 -- p=0.001 squeaks under, which is not the kind of margin that should
 change anybody's mind on its own.
 
-So **"long descriptions hurt retrieval" remains a signal worth chasing, not a
-result.** What the re-run adds is a sharper version of the thing to chase:
-whatever prose is doing, it interacts with the vectoriser, and it shows up at
-the widest cut. It is recorded here because the earlier draft of this file
-asserted it, and a claim withdrawn should be visible rather than deleted.
+**That table was a bug report, and the bug is fixed.** Read on its own it
+says "delete your descriptions": removing them won at every cut on both
+embedders, five of six cells significant, thirteen questions fixed against
+one broken at k=10 with MiniLM. A design whose whole premise is that prose
+helps should not lose to deleting the prose, so the question was not whether
+to believe the table but what it was pointing at.
 
-The sweep also removes the obvious fix. Truncating descriptions at 200 or
-1,000 words is indistinguishable from leaving them alone -- one to four
-discordant pairs, p=1.000. Only deleting them entirely moves anything, and
-that is the p=0.001 cell above -- which, as that paragraph says, does not
-carry the claim either. There is no cap worth setting, so none is set.
+It was pointing at the same text being counted three times. A column comment
+went into `_prose_text` for the prose channel, and into `embed_text()` --
+which feeds the body channel *and* the vectors. A Spider 2.0 table carrying a
+description per column therefore looked like a match on three of four
+channels for any question sharing a word with any one of its columns, and the
+widest tables became magnets. Decomposed on the same 212 questions: removing
+the comments from the prose channel alone recovered 4 questions at k=10 and
+from `embed_text()` alone recovered 11, which is where the damage was.
+
+The fix takes column comments out of the body channel and the prose channel
+and leaves `embed_text()` alone, so the vectors -- a published, pinned
+guarantee -- are byte-identical and no stored index is invalidated. Re-run
+paired on the same 212 questions with the fix in place:
+
+```
+  k    with prose        without prose      b   c     p
+  5    143/212 67.5%     143/212 67.5%      6   6   1.0000
+  10   177/212 83.5%     177/212 83.5%      2   2   1.0000
+  20   188/212 88.7%     187/212 88.2%      2   3   1.0000
+```
+
+**The penalty is gone.** Thirteen-to-one became two-to-two. Descriptions no
+longer cost anything on this benchmark -- they neither help nor hurt it,
+which is the floor the fielded design was supposed to guarantee and did not.
+The shipped numbers above are the with-prose column, because that is what a
+described catalogue now costs: nothing.
+
+Two things this does not say. It does not say descriptions are useless --
+see the live measurement below, where a generated catalogue takes end-to-end
+SQL from 6/8 to 8/8. And it does not vindicate the withdrawn claim: "long
+descriptions hurt retrieval" was true of this implementation, not of prose,
+and the right response to a true measurement was to fix the thing it
+measured rather than publish it.
+
+The cap sweep below was measured with the old loader and has **not** been
+re-run. Truncating descriptions at 200 or 1,000 words was indistinguishable
+from leaving them alone -- one to four discordant pairs, p=1.000 -- and only
+deleting them entirely moved anything. That conclusion is consistent with the
+re-run, but the cap cells themselves are stale and are kept only as the record
+of what was done.
 
 For comparison, prose in the other two benchmarks:
 
@@ -288,20 +391,26 @@ BIRD            0 of  75
 Both are bare names and columns, which is why the ablation could only be run
 on Spider 2.0.
 
-**What the ablation was actually removing.** Every number in this section was
-measured with a loader that read `description` as a table description --
-joined into one paragraph and indexed as prose. Sampling the raw files for
-the long-path report showed the key is nothing of the kind: it is a
-per-column list, aligned by index to `nested_column_names` when the table has
-nested fields (31 of 31 sampled) and to `column_names` otherwise (9 of 9),
-entries sometimes null, never a string (150 of 150). The loader also built
-columns from `column_names` alone, so a nested table -- gnomAD's
-`v3_genomes__chr7`, 61 top-level and 181 flattened -- was missing the very
-columns its gold SQL reads. `benchmarks/spider2.py` now attaches each entry
-to its column and uses the flattened list; `tests/test_spider2_loader.py`
-holds it there. The figures above are what the joined-paragraph loader
-produced and are left as measured; the re-run with column-aligned prose is
-owed and will replace them, not sit beside them, once it exists.
+**What the ablation was removing, and the re-run that fixed it.** Until
+recently every number in this section was measured with a loader that read
+`description` as a table description -- joined into one paragraph and indexed
+as prose. Sampling the raw files for the long-path report showed the key is
+nothing of the kind: it is a per-column list, aligned by index to
+`nested_column_names` when the table has nested fields (31 of 31 sampled) and
+to `column_names` otherwise (9 of 9), entries sometimes null, never a string
+(150 of 150). The loader also built columns from `column_names` alone, so a
+nested table -- gnomAD's `v3_genomes__chr7`, 61 top-level and 181 flattened --
+was missing the very columns its gold SQL reads. `benchmarks/spider2.py` now
+attaches each entry to its column and uses the flattened list;
+`tests/test_spider2_loader.py` holds it there.
+
+**That re-run is what the numbers above are.** It was done against a complete
+checkout of the benchmark -- `resource/databases` at a 43-character root with
+`core.longpaths` set, all 8,255 files readable -- with the shipped 0.1.56
+library, and the paired arms were scored by a script written twice
+independently, in-memory and streaming, agreeing cell for cell before either
+was believed. The numbers this replaced are in the history block above rather
+than deleted.
 
 Indexing 876 tables takes 0.8s hashed and 9.3s with the sentence model.
 
