@@ -10,7 +10,6 @@ from __future__ import annotations
 import io
 import json
 import sqlite3
-import tempfile
 import urllib.request
 
 import pytest
@@ -194,8 +193,8 @@ def test_describe_has_counts_and_no_names():
 # --- sql --------------------------------------------------------------------
 
 @pytest.fixture
-def membership_engine():
-    p = tempfile.mktemp(suffix=".db")
+def membership_engine(tmp_path):
+    p = tmp_path / "membership.db"
     c = sqlite3.connect(p)
     c.executescript("""
         CREATE TABLE app_membership (subject TEXT, role TEXT);
