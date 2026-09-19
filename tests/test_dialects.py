@@ -18,6 +18,7 @@ To certify a dialect against your own database::
 
 or run ``python scripts/certify_dialect.py <url>`` for a standalone report.
 """
+import tempfile
 import os
 
 import pytest
@@ -75,7 +76,7 @@ def _engine_for(name):
     if not url:
         pytest.skip(f"set {DIALECT_ENV[name]} to certify {name}")
     if name == "sqlite":
-        url = "sqlite:///" + str(pytest.importorskip("tempfile").mktemp(suffix=".db"))
+        url = "sqlite:///" + os.path.join(tempfile.mkdtemp(), "dialect.db")
     from schemagate.introspect import engine_from_url
     return engine_from_url(url)      # SCHEMAGATE_CONNECT_ARGS: wallets, TLS
 

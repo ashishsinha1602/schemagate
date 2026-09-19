@@ -155,7 +155,7 @@ def test_real_embeddings_on_the_full_business_language_set(provider):
         cat = Catalog(embedder=APIEmbedder(provider, dim=dim, cache_path=f"/tmp/sg_emb_{provider.name.replace(':','_')}.json"))
         m = __import__("run_paraphrase_eval").MODS[name]
         import sqlite3, tempfile
-        path = tempfile.mktemp(suffix=".db")
+        path = os.path.join(tempfile.mkdtemp(), "eval.db")
         con = sqlite3.connect(path); con.executescript(m.DDL); con.commit(); con.close()
         cat.bootstrap(f"sqlite:///{path}")
         cat.describe(desc, only_missing=False); cat.index()

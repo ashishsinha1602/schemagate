@@ -42,7 +42,7 @@ def _make_counter():
 count_tokens, TOKEN_METHOD = _make_counter()
 
 def build(hints=True, ddl=DDL, hint_map=HINTS, name="default"):
-    p = tempfile.mktemp(suffix=".db")
+    p = os.path.join(tempfile.mkdtemp(), "bench.db")
     c = sqlite3.connect(p); c.executescript(ddl); c.commit(); c.close()
     cat = Catalog(name=name).bootstrap(f"sqlite:///{p}")
     if hints:

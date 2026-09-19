@@ -20,7 +20,7 @@ from schemagate import Catalog
 
 @pytest.fixture(scope="session")
 def db_url():
-    p = tempfile.mktemp(suffix=".db")
+    p = os.path.join(tempfile.mkdtemp(), "fixture.db")
     c = sqlite3.connect(p); c.executescript(DDL); c.commit(); c.close()
     return f"sqlite:///{p}"
 
