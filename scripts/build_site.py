@@ -55,7 +55,7 @@ input{font:inherit;padding:4px 8px;width:7em;border:1px solid var(--line);border
 NAV = ('<nav><a href="/schemagate/">Demo</a><a href="/schemagate/install/">Install</a>'
        '<a href="/schemagate/benchmarks/">Benchmarks</a>'
        '<a href="/schemagate/local-models/">Local models</a>'
-       '<a href="/schemagate/cost/">Cost</a>'
+       '<a href="/schemagate/row-level-security/">Row-level security</a><a href="/schemagate/cost/">Cost</a>'
        '<a href="/schemagate/vanna-alternative/">Coming from Vanna</a>'
        f'<a href="{REPO}">GitHub</a><a href="https://pypi.org/project/schemagate/">PyPI</a></nav>')
 
