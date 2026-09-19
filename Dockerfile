@@ -9,7 +9,8 @@
 #
 # Two stages so the runtime image does not carry pip's build machinery or the
 # wheels it downloaded.
-FROM python:3.12-slim AS build
+# python:3.12-slim, pinned by digest so the base cannot change under a rebuild
+FROM python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9 AS build
 
 WORKDIR /w
 COPY pyproject.toml README.md ./
@@ -21,7 +22,7 @@ COPY src ./src
 RUN pip install --no-cache-dir --prefix=/install ".[databases,ai,mcp]"
 
 
-FROM python:3.12-slim
+FROM python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9
 
 # curl for HEALTHCHECK; libaio1 is what oracledb thick mode looks for if
 # anyone switches to it. Thin mode, the default, needs neither.
