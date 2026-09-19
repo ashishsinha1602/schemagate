@@ -167,6 +167,14 @@ MCP SDK 1.x and 2.x. HTTP transport verified on both. The database was
 stopped underneath a running server and it kept answering from the last
 good index. Passwords are redacted from every output.
 
+The audit log is tested for what it must record and what it must not: every
+identity tool writes a record on success and on refusal; a canary value
+inserted into the database comes back to the caller and never appears in the
+record; the server-side hint that lets the log distinguish a restricted
+object from a missing one is stripped before the caller's reply, checked
+across all five tools; eight threads writing at once lose nothing; a write
+to an unwritable path is counted and the call still returns.
+
 ## The Studio
 
 The in-browser selector is a JavaScript port. 1,789 cases across all six
