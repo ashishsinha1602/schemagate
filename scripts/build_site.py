@@ -131,7 +131,7 @@ def build_index() -> None:
              '<h1>schemagate: identity-scoped schema selection for text-to-SQL</h1>'
              f'<p>{html.escape(DESC)}</p></div>')
     html_ = (head(TITLE, DESC, "/", "<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>")
-             + "<body>" + intro + studio + "</body></html>")
+             + "<body>" + intro + studio + NAV + "</body></html>")
     (SITE / "index.html").write_text(html_, "utf-8")
 
 
