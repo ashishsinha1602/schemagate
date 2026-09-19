@@ -38,7 +38,11 @@ jobs:
           # a checkout that keeps credentials is itself a finding.
           persist-credentials: false
 
-      - uses: ossf/scorecard-action@v2.4.0
+      # v2.4.0 and earlier pull from gcr.io, which now answers
+      # "This API method requires billing to be enabled" on OpenSSF's own
+      # project -- the first run of this workflow died on it. v2.4.3 moved
+      # the image to ghcr.io.
+      - uses: ossf/scorecard-action@v2.4.4
         with:
           results_file: results.sarif
           results_format: sarif
