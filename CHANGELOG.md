@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **Added: an audit log of every identity decision.** Each call to
+  `select_schema`, `list_objects`, `describe_object`, `run_query` and `answer`
+  now writes one JSON record -- principal, roles, question, what was shown,
+  how much was withheld, the SQL and its row count, and any refusal with its
+  reason. Three things it never holds: row data, the names of withheld
+  columns, the database URL. Memory-only (last 500, counted in `health`)
+  unless `SCHEMAGATE_AUDIT_LOG` names a file, which then rotates at 50 MB. A
+  failed write is counted and never surfaces to the caller. Not exposed as a
+  tool, on purpose. The record for a refused `describe_object` says whether
+  the object was restricted or missing; the reply to the caller still does
+  not, and a test pins both halves.
+
 - **Fixed: a column comment was indexed three times, and wide tables became
   magnets.** `_prose_text` fed the prose channel and `embed_text()` fed both
   the body channel and the vectors, so a table carrying a description per
