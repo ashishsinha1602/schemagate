@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.58
+
 - **Added: where a caller's roles come from.** `restrict_from_grants` read
   which roles may see an object from the database; the roles the caller
   *held* were still whatever the caller said, which on a hosted MCP server
@@ -39,6 +41,8 @@
   tool, on purpose. The record for a refused `describe_object` says whether
   the object was restricted or missing; the reply to the caller still does
   not, and a test pins both halves.
+
+## 0.1.57
 
 - **Fixed: a column comment was indexed three times, and wide tables became
   magnets.** `_prose_text` fed the prose channel and `embed_text()` fed both
