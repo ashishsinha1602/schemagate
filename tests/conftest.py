@@ -30,3 +30,25 @@ def cat(db_url):
     for t, h in HINTS.items():
         c.hint(t, h)
     return c.index()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _hermetic_schemagate_home(tmp_path_factory):
+    """Tests never read or write the developer's own ~/.schemagate.
+
+    The Studio replays the remembered connection and model at start-up, on a
+    thread. With a real store on the machine every test that starts a Studio
+    reconnected to that database and loaded that model -- a local
+    transformers pipeline, once per test, concurrently -- which is how a
+    green suite turned into an access violation on one laptop and never in
+    CI. A test that wants a particular store still sets SCHEMAGATE_HOME
+    itself; this only supplies the empty one when nothing did.
+    """
+    if os.environ.get("SCHEMAGATE_HOME"):
+        yield
+        return
+    os.environ["SCHEMAGATE_HOME"] = str(tmp_path_factory.mktemp("schemagate-home"))
+    try:
+        yield
+    finally:
+        os.environ.pop("SCHEMAGATE_HOME", None)
