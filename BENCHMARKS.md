@@ -374,10 +374,11 @@ paired on the same 212 questions with the fix in place, hashed embedder:
   20   188/212 88.7%     187/212 88.2%      2   3   1.0000
 ```
 
-One check that the table is the artifact it claims to be: its `without
-prose` column -- 143, 177, 187 -- is byte-identical to the hashed rows of the
-table above, as it must be, because deleting every description is untouched
-by a change to which channel carries them.
+One check that the table is the artifact it claims to be, and the check is
+*across the fix*, not across embedders: the prose-removed arm is 143, 177,
+187 both before and after, hashed throughout, because deleting every
+description cannot care which channel would have carried them. Only the
+with-prose arm was ever going to move, and it is the arm that moved.
 
 Read the b and c columns, not the p column. With d = b + c discordant pairs
 of 12, 4 and 5, the smallest two-sided exact p attainable is 2^(1-d): 0.125
@@ -385,11 +386,30 @@ at k=10 and 0.0625 at k=20, so those two cells could not have reached
 p < 0.05 at any split of b and c. What the rows support is that b and c
 converged -- the penalty is gone -- not anything about significance.
 
-**The penalty is gone.** Thirteen-to-one became two-to-two. Descriptions no
-longer cost anything on this benchmark -- they neither help nor hurt it,
-which is the floor the fielded design was supposed to guarantee and did not.
-The shipped numbers above are the with-prose column, because that is what a
-described catalogue now costs: nothing.
+**The penalty is gone.** Same embedder on both sides, hashed, before and
+after the fix:
+
+```
+  k    b/c before   b/c after    d
+  5    16/9         6/6          25 -> 12
+  10   15/3         2/2          18 ->  4
+  20   12/3         2/3          15 ->  5
+```
+
+The stronger statement is in the levels, not the discordance: hashed with
+prose goes 136 -> 143 at k=5, 165 -> 177 at k=10 and 178 -> 188 at k=20. At
+k=5 and k=10 the with-prose arm lands exactly on the prose-removed arm; at
+k=20 it passes it. Descriptions no longer cost anything on this benchmark --
+they neither help nor hurt it, which is the floor the fielded design was
+supposed to guarantee and did not. The shipped numbers above are the
+with-prose column, because that is what a described catalogue now costs:
+nothing.
+
+An earlier version of this paragraph said "thirteen-to-one became
+two-to-two". That paired the MiniLM cell of the before-table at k=10 (13/1)
+with the hashed after-table (2/2), crossing the embedder axis -- the exact
+error the paragraph above warns against. The hashed before-cell at k=10 is
+15/3. Caught by howcani on dev.to.
 
 Two things this does not say. It does not say descriptions are useless --
 see the live measurement below, where a generated catalogue takes end-to-end
