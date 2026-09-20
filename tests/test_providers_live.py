@@ -77,7 +77,14 @@ def test_model_writes_one_business_sentence(provider):
     from schemagate.ai.describe import _SYSTEM
     text = provider.complete(_SYSTEM, TABLE, max_tokens=120).strip()
     assert text, f"{provider.name} returned nothing"
-    assert len(text.split()) <= 40, f"{provider.name} did not keep it to one sentence: {text!r}"
+    # The reply is "one sentence | alias, alias, ...": up to 25 words, a pipe,
+    # then 12 to 16 everyday words. Counting the whole reply against a
+    # one-sentence budget failed a model for doing exactly what it was asked
+    # (41 words in total, 24 of them the sentence). Count the sentence.
+    assert "|" in text, f"{provider.name}: no everyday-words tail in {text!r}"
+    sentence, aliases = (part.strip() for part in text.split("|", 1))
+    assert len(sentence.split()) <= 40, f"{provider.name} did not keep it to one sentence: {sentence!r}"
+    assert len(aliases.replace(",", " ").split()) >= 6, f"{provider.name}: too few everyday words in {aliases!r}"
     assert "billing_credit_note" not in text.lower(), "must not repeat the object name"
     low = text.lower()
     assert any(w in low for w in ("credit", "refund", "invoice", "return")), text
