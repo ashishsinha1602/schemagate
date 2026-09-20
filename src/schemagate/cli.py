@@ -200,8 +200,14 @@ def _open(args) -> Catalog:
     if getattr(args, "restrict_from_grants", False):
         from .grants import restrict_from_grants
         from sqlalchemy import create_engine
-        rep = restrict_from_grants(cat, create_engine(args.url), report=True)
+        engine = create_engine(args.url)
+        rep = restrict_from_grants(cat, engine, report=True)
         print(rep, file=sys.stderr)
+        # Then the half the grants cannot see: objects under a row-level
+        # policy are flagged, probed per role where the server allows it, and
+        # the views that bypass the policy are named.
+        from .rls import restrict_from_policies
+        print(restrict_from_policies(cat, engine, report=True), file=sys.stderr)
     # The catalogue, without being asked for it. Last, so a hint from
     # --config or a comment from the database is never overwritten, and
     # after grants so nothing a caller may not see is ever described. With

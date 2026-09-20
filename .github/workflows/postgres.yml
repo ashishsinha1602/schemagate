@@ -64,7 +64,7 @@ jobs:
           PY
 
       - name: groups resolver against the live server
-        run: pytest tests/test_groups_live.py tests/test_groups_live_server.py -v
+        run: pytest tests/test_groups_live.py tests/test_groups_live_server.py tests/test_rls_live.py -v
 
       - name: the tests must not have skipped
         # A skip reads as a pass in the checks list. The module skips itself
@@ -73,7 +73,7 @@ jobs:
         # to skip here; the PostgreSQL half must not.
         run: |
           set -euo pipefail
-          pytest tests/test_groups_live.py tests/test_groups_live_server.py -q -k "pg_" | tee /tmp/out.txt
+          pytest tests/test_groups_live.py tests/test_groups_live_server.py tests/test_rls_live.py -q -k "pg_" | tee /tmp/out.txt
           grep -qE "[0-9]+ passed" /tmp/out.txt
           if grep -qE "[0-9]+ skipped" /tmp/out.txt; then
             echo "::error::the live PostgreSQL tests skipped -- nothing was verified"

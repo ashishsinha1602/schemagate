@@ -742,6 +742,11 @@ schemagate select "what do we pay our doctors" \
 ```python
 from schemagate.grants import restrict_from_grants
 report = restrict_from_grants(cat, engine, report=True)
+# then the half grants cannot see: objects under a row-level policy are
+# flagged in the prompt, probed per role on PostgreSQL, and the views that
+# bypass the policy are named -- docs/row-level-security.md
+from schemagate.rls import restrict_from_policies
+print(restrict_from_policies(cat, engine, report=True))
 print(report)
 # postgresql: 629 object(s) seen, 218 restricted, 1 public, 0 unmatched, 1 role(s) expanded
 ```
