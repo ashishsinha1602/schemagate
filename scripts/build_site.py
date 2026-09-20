@@ -184,10 +184,10 @@ def build_rls() -> None:
              '<a class="cta" href="/schemagate/">Try the demo</a></p>')
     (SITE / "row-level-security").mkdir(parents=True, exist_ok=True)
     (SITE / "row-level-security" / "index.html").write_text(page(
-        "Row-level security and schema selection — schemagate",
-        "Measured on Oracle 26ai: a caller whose VPD policy admits no rows still holds "
-        "SELECT in the data dictionary, so a grant-based catalogue still shows the model "
-        "the table. What to do about it, and the fix.",
+        "Text-to-SQL and row-level security — schemagate",
+        "Text-to-SQL and row-level security, measured on Oracle 26ai: a caller whose VPD "
+        "policy admits no rows still holds SELECT in the data dictionary, so a grant-based "
+        "catalogue still shows the model the table. What to do about it, and the fix.",
         "/row-level-security/", body), "utf-8")
 
 

@@ -1,4 +1,4 @@
-# Row-level security, and what schemagate does not yet see
+# Text-to-SQL and row-level security: what schemagate does not yet see
 
 schemagate's claim is that the model is never shown a table the caller may not
 read. `restrict_from_grants()` makes that true by asking the database who may
