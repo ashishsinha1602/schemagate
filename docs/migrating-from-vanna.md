@@ -1,9 +1,53 @@
-# Coming from Vanna
+# Vanna is archived. What to use instead
 
-Vanna's repository was archived on 29 March 2026 and is read-only. If you
-built on it, this page is about one specific thing it never did, and how to
-add that thing to whatever you migrate to — including keeping your Vanna
-code as-is.
+Vanna's repository was archived on 29 March 2026
+(https://github.com/vanna-ai/vanna) and is read-only. It had 23.8k stars
+and an MIT licence when it stopped.
+
+This page is written by the author of one of the tools mentioned on it, so
+here is the conflict of interest up front: **schemagate is not a Vanna
+replacement, and if you are looking for one, two of the three projects
+below are a better place to start than this one.** Vanna was end to end —
+train, ask, generate SQL, run it, draw a chart. schemagate is one step of
+that pipeline. What follows is the honest version of where each thing fits.
+
+## First: do you actually need to migrate?
+
+Archived does not mean broken. The licence is MIT and the code is still
+there, so the options that cost nothing are real ones:
+
+- **Keep running it.** Pin the version you have. Nothing stops working
+  because a repository went read-only. What you lose is security patches
+  and new model support, which matters on the LLM-client side and hardly
+  at all in the schema-handling code.
+- **Fork it.** MIT lets you. If you have local patches already, this is
+  less work than a migration.
+
+Migrate when you need something Vanna did not do, not because the badge on
+the repo changed.
+
+## The actual replacements
+
+Stars and status as of September 2026, from each project's own repository:
+
+| | what it is | stars | licence |
+|---|---|---|---|
+| [WrenAI](https://github.com/Canner/WrenAI) | Closest to end-to-end Vanna: a GenBI platform with a semantic layer over your warehouse. The heaviest of the three, and the one with a modelling layer. | 17.7k | see repo |
+| [DB-GPT](https://github.com/eosphoros-ai/DB-GPT) | Agentic data assistant — connects to databases and files, writes and runs SQL, builds reports. Broader than text-to-SQL. | 20.0k | MIT |
+| [DataLine](https://github.com/RamiAwar/dataline) | Self-hosted chat-with-your-data with charts. Much smaller and much simpler; the quickest to stand up. | 1.6k | GPL-3.0 |
+
+If you want one recommendation: **WrenAI** if you have a warehouse and want
+a semantic layer, **DB-GPT** if you want an agent, **DataLine** if you want
+the short path to something running.
+
+## Where schemagate fits, and where it does not
+
+schemagate does not generate SQL, does not run it, does not chat, and is
+not an agent. It decides *which tables go in the prompt*, per caller. You
+add it to whichever of the above you pick — or to a forked Vanna, or to a
+hand-rolled loop — and keep everything else.
+
+The reason to bother is one thing none of them do, including Vanna.
 
 ## What Vanna did with identity, and what it didn't
 
@@ -24,7 +68,7 @@ schemagate works one step earlier. It decides which tables the model is shown,
 per caller, before any SQL exists. A restricted table is not de-ranked; it is
 absent from the prompt.
 
-## The mapping
+## If you are keeping Vanna's shape: the mapping
 
 | Vanna | schemagate |
 |---|---|
