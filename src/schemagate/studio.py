@@ -898,12 +898,18 @@ class StudioState:
             from .grants import restrict_from_grants
             try:
                 rep = restrict_from_grants(cat, engine, report=True)
+                from .rls import restrict_from_policies
+                prep = restrict_from_policies(cat, engine, report=True)
                 report = {"dialect": rep.dialect, "seen": rep.objects_seen,
                           "restricted": rep.objects_restricted,
                           "public": rep.objects_public,
                           "unmatched": len(rep.objects_unmatched),
                           "roles_expanded": rep.roles_expanded,
-                          "warnings": rep.warnings}
+                          "warnings": rep.warnings + prep.warnings,
+                          # counts and names of objects, never rows
+                          "policies": {"policied": len(prep.policied),
+                                       "withheld": prep.withheld,
+                                       "bypassing_views": prep.bypassing_views}}
             except NotImplementedError as e:
                 report = {"error": str(e)}
             except Exception as e:                        # noqa: BLE001
@@ -1212,7 +1218,9 @@ def main(url: Optional[str] = None, host: str = "127.0.0.1", port: int = 8770,
                                                sample_values=sample_values)
         if restrict_from_grants:
             from .grants import restrict_from_grants as _rfg
+            from .rls import restrict_from_policies as _rfp
             print(_rfg(cat, engine, report=True), file=sys.stderr)
+            print(_rfp(cat, engine, report=True), file=sys.stderr)
         if config:
             from . import config as _config
             _config.apply(cat, _config.load(config))

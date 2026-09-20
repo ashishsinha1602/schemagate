@@ -150,6 +150,12 @@ class ForeignKey:
     inferred: bool = False
 
 
+#: The line a policied object's DDL carries (set by `schemagate.rls`). One
+#: sentence, because it is in every prompt that shows the object.
+POLICY_NOTE = ("rows are filtered per caller by a row-level policy; "
+               "an empty result may be the filter, not an absence")
+
+
 @dataclass
 class ObjectDoc:
     """One catalog entry: a table, view, or API endpoint."""
@@ -284,6 +290,10 @@ class ObjectDoc:
         head = f"{self.kind} {self.qname}"
         note = _one_line(self.hint or _sentence(self.description))
         lines = [f"-- {note}" if note else "", head + " ("]
+        if self.extra.get("row_policy"):
+            # A model told nothing reports an empty result as "there are no
+            # such rows"; told this, it can say the filter may be the reason.
+            lines.insert(1, f"-- {POLICY_NOTE}")
         visible = self.visible_columns(principal)
         cols = self.choose_columns(visible, max_columns, question)
         for c in cols:

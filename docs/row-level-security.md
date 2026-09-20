@@ -109,8 +109,10 @@ escapes VPD nor restores access.
 ## What to do about it today
 
 `restrict_from_grants()` is still right for table-level permissions and should
-keep being used. Where RLS or VPD is in play, add the restriction yourself,
-because you know the policy and the catalogue does not:
+keep being used, and `restrict_from_policies()` (below) now runs after it on
+every path that reads grants. Where the policy cannot be probed -- Oracle VPD,
+or a PostgreSQL connection that may not `SET ROLE` -- add the restriction
+yourself, because you know the policy and the catalogue does not:
 
 ```python
 cat.restrict("employee_salary", ["payroll"])       # roles that VPD actually admits
@@ -122,33 +124,46 @@ any predicate view over a policied table `WITH (security_invoker = true)`, or
 revoke it from the roles the policy binds -- that one is a leak, not a
 usability problem, and it is fixed in the database, not in a prompt.
 
-## The fix, and why it is reachable
+## The fix: `restrict_from_policies()`
 
 The last row of each table is the useful one: **the reader can see the policy**.
 `pg_policies` and `ALL_POLICIES` are readable by a user who holds the grant, so a catalogue built
-as that user can find out that a policy exists on an object, which function
-implements it, and which statement types it covers.
+as that user can find out that a policy exists on an object. `schemagate.rls`
+does three things with that, and `--restrict-from-grants` (CLI, Studio) runs
+them right after the grants:
 
-That is enough to do better than today in two steps, neither of which requires
-privileges the caller does not already have:
+1. **Flag it.** An object under a row-level policy is marked, and its DDL in
+   the prompt carries one line -- *rows are filtered per caller by a row-level
+   policy; an empty result may be the filter, not an absence* -- so the model
+   does not report an empty result as a fact about the world.
+2. **Probe it** (PostgreSQL). For each role the grant reader left on a
+   policied object, the connection does `SET ROLE` and asks for one row. A
+   role that gets nothing loses the object, exactly as a missing grant would:
+   on the fixture above, `sgrls_r2` no longer sees `employee_salary` and
+   `sgrls_r1` still does. One round trip per (object, role) at bootstrap, not
+   per question. The connection must be allowed to `SET ROLE` -- a superuser
+   or a member of the role; when it is not, the role is *kept* and the report
+   names it, because "could not check" must never read as "checked and
+   denied".
+3. **Name the views that bypass the policy** (PostgreSQL). A view over a
+   policied table that was not created `WITH (security_invoker = true)` is
+   flagged and listed in the report; `hide_bypassing_views=True` removes it
+   from the catalogue. It is not removed by default, because a predicate view is
+   also the ordinary way to expose a subset on purpose -- the report tells
+   you which it is.
 
-1. **Flag it.** An object under a `SELECT` policy is marked as row-restricted,
-   and the prompt fragment says so, so the model knows the table it is being
-   shown is filtered and does not report an empty result as an absence of
-   facts.
-2. **Test it.** `SELECT 1 FROM <object> WHERE ROWNUM = 1` as the calling user
-   answers the only question that matters — does this caller get anything at
-   all — and an object that yields nothing can be withheld exactly as a
-   missing grant is today.
+```python
+from schemagate.grants import restrict_from_grants
+from schemagate.rls import restrict_from_policies
+restrict_from_grants(cat, engine)
+print(restrict_from_policies(cat, engine, report=True))
+```
 
-Step 2 costs one round trip per policied object at bootstrap, not per question,
-and it turns the claim from "the caller may read this table" into "the caller
-can get rows out of this table", which is what a person asking a question
-actually means.
-
-Not implemented yet. Filed here rather than in a commit message because the
-measurement is the part worth keeping: the mechanism most enterprise Oracle
-deployments use is invisible to the mechanism this library reads.
+Oracle gets step 1 only: `ALL_POLICIES` says which objects VPD covers, and
+there is no `SET ROLE` that changes what VPD sees from one connection, so
+nothing is probed and the report says so. The turn from "the caller may read
+this table" into "the caller can get rows out of this table" is complete on
+PostgreSQL and half done on Oracle, and that is stated rather than implied.
 
 ## Reproducing it
 

@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- **Added: row-level policies are read, probed, and named.** `restrict_from_grants`
+  answered who holds `SELECT`; a row-level policy can answer "no rows" for a
+  caller who holds it, and every dictionary answer is identical for a reader
+  who gets rows and one who gets none (measured on PostgreSQL 16 and Oracle
+  26ai, `docs/row-level-security.md`). `schemagate.rls.restrict_from_policies`
+  now runs after the grants on every path that reads them: a policied object
+  is flagged and its DDL says rows are filtered per caller; on PostgreSQL each
+  role the grants left is `SET ROLE`d and asked for one row, and a role that
+  gets nothing loses the object as a missing grant would; and a view over a
+  policied table that is not `security_invoker` -- which hands the caller the
+  owner's rows -- is named in the report, with `hide_bypassing_views=True` to
+  drop it from the catalogue. A role the connection cannot become is kept and reported,
+  never silently denied. Nothing changes in a prompt for an object without a
+  policy.
+
 ## 0.1.58
 
 - **Fixed: the version a client is told in `initialize` is schemagate's, not
