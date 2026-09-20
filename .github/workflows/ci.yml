@@ -28,3 +28,30 @@ jobs:
       - name: benchmark gate
         # fails if recall drops on either schema, or token savings regress
         run: python tests/bench.py
+
+  live-models:
+    # The provider tests against a real model. They skip without a key, so
+    # the matrix above never runs them; this job does, on main only, with the
+    # key held in the `live-models` environment (protected branches only, so
+    # a pull request from a fork never sees it). A few dozen short calls.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    environment: live-models
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev,ai]"
+      - name: provider tests against a real model
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SCHEMAGATE_HOME: ${{ runner.temp }}/schemagate-home
+        run: |
+          set -euo pipefail
+          pytest tests/test_providers_live.py -q -m live -rs | tee live.txt
+          if ! grep -qE "[0-9]+ passed" live.txt; then
+            echo "::error::no live provider test ran -- is ANTHROPIC_API_KEY set in the live-models environment?"
+            exit 1
+          fi
