@@ -22,6 +22,9 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        # full history: <lastmod> is the last commit touching each page's
+        # sources, and a depth-1 checkout reaches none of them
+        with: {fetch-depth: 0}
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with: {python-version: "3.12"}
       - name: assemble site
@@ -33,3 +36,14 @@ jobs:
         with: {path: site}
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+      - name: tell IndexNow which pages changed
+        # After deploy, not before: the engine fetches the key file from the
+        # live site to verify the submission. Best effort -- a search-engine
+        # hiccup must not fail a deploy that already happened.
+        continue-on-error: true
+        run: |
+          n=$(python3 -c 'import json; print(len(json.load(open("site/indexnow.json"))["urlList"]))')
+          if [ "$n" = "0" ]; then echo "no page content changed in this commit; nothing to submit"; exit 0; fi
+          curl -fsS -X POST https://api.indexnow.org/indexnow \
+            -H 'Content-Type: application/json; charset=utf-8' \
+            --data-binary @site/indexnow.json -w 'IndexNow HTTP %{http_code}\n'

@@ -148,3 +148,70 @@ def test_no_relative_markdown_link_survived_into_the_html(site: Path):
         for href in re.findall(r'href="([^"]+)"', f.read_text("utf-8")):
             assert href.startswith(("http://", "https://", "/", "#", "mailto:")), (
                 f"{path} has an unresolved relative link: {href}")
+
+
+# --- honest <lastmod>, and IndexNow ------------------------------------------
+
+def _build_site_module():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("build_site", BUILD)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _git_date(paths) -> str:
+    dates = []
+    for rel in paths:
+        out = subprocess.run(["git", "log", "-1", "--format=%cs", "--", rel],
+                             cwd=ROOT, capture_output=True, text=True)
+        if out.returncode == 0 and out.stdout.strip():
+            dates.append(out.stdout.strip())
+    return max(dates) if dates else ""
+
+
+def test_sitemap_lastmod_is_the_last_commit_touching_each_page(site: Path):
+    """A dependency bump used to announce that all seven pages changed today.
+    Google discounts a lastmod it can see is unreliable, so each date is the
+    newest commit that touched the page's sources, and nothing else."""
+    inside = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"], cwd=ROOT,
+                            capture_output=True, text=True)
+    if inside.returncode != 0 or inside.stdout.strip() != "true":
+        pytest.skip("not a git work tree; lastmod falls back to today by design")
+    mod = _build_site_module()
+    sitemap = (site / "sitemap.xml").read_text("utf-8")
+    for path, sources in mod.PAGES.items():
+        want = _git_date(sources)
+        if not want:
+            pytest.skip(f"git has no history for {sources} (shallow clone?)")
+        m = re.search(rf"<loc>{re.escape(mod.BASE + path)}</loc><lastmod>([0-9-]+)</lastmod>", sitemap)
+        assert m, f"{path} missing from sitemap.xml"
+        assert m.group(1) == want, f"{path}: sitemap says {m.group(1)}, git says {want} for {sources}"
+
+
+def test_pages_map_matches_what_is_built_and_names_real_sources(site: Path):
+    mod = _build_site_module()
+    assert sorted(mod.PAGES) == sorted(PAGES), "build_site.PAGES and the pages built disagree"
+    for path, sources in mod.PAGES.items():
+        assert sources, f"{path} names no source"
+        for rel in sources:
+            assert (ROOT / rel).is_file(), f"{path}: source {rel} does not exist"
+
+
+def test_indexnow_key_file_and_payload_agree(site: Path):
+    """IndexNow verifies a submission by fetching {keyLocation}, whose body
+    must equal the key, and rejects any URL that is not under the key file's
+    directory. Get either wrong and every submission is silently dropped."""
+    import json
+    mod = _build_site_module()
+    key_file = site / f"{mod.INDEXNOW_KEY}.txt"
+    assert key_file.is_file(), "IndexNow key file not built"
+    assert key_file.read_text("utf-8").strip() == key_file.stem
+    payload = json.loads((site / "indexnow.json").read_text("utf-8"))
+    assert payload["key"] == mod.INDEXNOW_KEY
+    assert payload["keyLocation"] == f"{mod.BASE}/{mod.INDEXNOW_KEY}.txt"
+    assert payload["host"] == mod.BASE.split("//", 1)[1].split("/", 1)[0]
+    prefix = payload["keyLocation"].rsplit("/", 1)[0] + "/"
+    for url in payload["urlList"]:
+        assert url.startswith(prefix), f"{url} is outside {prefix}; IndexNow would reject it"
+        assert url[len(mod.BASE):] in mod.PAGES
