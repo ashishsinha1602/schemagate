@@ -148,9 +148,10 @@ def build_vanna() -> None:
              '<a class="cta" href="/schemagate/">Try the demo</a></p>')
     (SITE / "vanna-alternative").mkdir(parents=True, exist_ok=True)
     (SITE / "vanna-alternative" / "index.html").write_text(page(
-        "Vanna alternative for schema selection with access control — schemagate",
-        "Vanna was archived in March 2026 and applied identity at execution, after the model saw "
-        "the whole schema. schemagate applies it at schema selection. Migration notes.",
+        "Vanna AI alternatives after the archive — schemagate",
+        "Vanna was archived 29 March 2026. What to move to (WrenAI, DB-GPT, DataLine), why "
+        "keeping your MIT-licensed fork is a real option, and the one thing none of them do: "
+        "apply identity at schema selection rather than at execution.",
         "/vanna-alternative/", body), "utf-8")
 
 
