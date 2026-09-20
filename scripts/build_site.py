@@ -24,9 +24,11 @@ from __future__ import annotations
 
 import datetime as dt
 import html
+import json
 import pathlib
 import re
 import shutil
+import subprocess
 
 import markdown
 
@@ -34,6 +36,9 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 SITE = ROOT / "site"
 BASE = "https://ashishsinha1602.github.io/schemagate"
 REPO = "https://github.com/ashishsinha1602/schemagate"
+# IndexNow (Bing, Yandex, Naver, Seznam): the key is public by design -- the
+# engine fetches {BASE}/{key}.txt to check the submitter controls the host.
+INDEXNOW_KEY = "6d4ff72eaaf814bda9afbed0eccac1b5"
 TITLE = "schemagate — identity-scoped schema selection for text-to-SQL"
 DESC = ("Shows the model only the tables this caller may read, before any SQL exists, "
         "and cuts prompt tokens 65–97%. Any SQLAlchemy database. pip install schemagate.")
@@ -96,7 +101,6 @@ def head(title: str, desc: str, path: str, extra: str = "") -> str:
         "author": {"@type": "Person", "name": "Ashish Sinha"}, "description": DESC,
         "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
     }
-    import json
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -302,6 +306,41 @@ for(const i of ["tf","ts","q","p"])document.getElementById(i).oninput=r;r();
         "/cost/", body), "utf-8")
 
 
+#: Each URL and the repo-relative source file(s) its content is rendered from.
+#: <lastmod> in the sitemap is the newest commit touching those sources, so a
+#: dependency bump no longer announces that every page changed. Google
+#: discounts lastmod it can see is unreliable; a date that only moves when
+#: the content moves is one it can use.
+PAGES = {
+    "/":                    ["src/schemagate/studio.html", "scripts/build_site.py"],
+    "/install/":            ["scripts/build_site.py"],
+    "/benchmarks/":         ["BENCHMARKS.md"],
+    "/local-models/":       ["docs/local-models.md"],
+    "/row-level-security/": ["docs/row-level-security.md"],
+    "/cost/":               ["scripts/build_site.py"],
+    "/vanna-alternative/":  ["docs/migrating-from-vanna.md"],
+}
+
+
+def last_changed(paths) -> str:
+    """The date (YYYY-MM-DD) of the newest commit touching any of `paths`.
+
+    Falls back to today when git cannot answer -- a source tarball, or a
+    checkout too shallow to reach the commit -- so a history-less build is
+    no worse than the old behaviour, never wrong in a new way.
+    """
+    dates = []
+    for rel in paths:
+        try:
+            out = subprocess.run(["git", "log", "-1", "--format=%cs", "--", rel],
+                                 cwd=ROOT, capture_output=True, text=True, timeout=30)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if out.returncode == 0 and out.stdout.strip():
+            dates.append(out.stdout.strip())
+    return max(dates) if dates else dt.date.today().isoformat()
+
+
 def build_misc() -> None:
     """Explicit "utf-8" on every write: the default is the platform's, which on
     Windows is cp1252, and llms.txt has an en dash in it. The CI runner is Linux,
@@ -311,11 +350,22 @@ def build_misc() -> None:
     (SITE / "google7c61fe50e3637040.html").write_text(
         "google-site-verification: google7c61fe50e3637040.html\n", "utf-8")
     today = dt.date.today().isoformat()
-    urls = "".join(f"<url><loc>{BASE}{p}</loc><lastmod>{today}</lastmod></url>"
-                   for p in ["/", "/install/", "/benchmarks/", "/local-models/",
-                             "/row-level-security/", "/cost/", "/vanna-alternative/"])
+    changed = {path: last_changed(src) for path, src in PAGES.items()}
+    urls = "".join(f"<url><loc>{BASE}{p}</loc><lastmod>{changed[p]}</lastmod></url>"
+                   for p in PAGES)
     (SITE / "sitemap.xml").write_text(
         f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>', "utf-8")
+    # IndexNow: the key file the engine fetches, and the payload the workflow
+    # POSTs after deploy -- only the pages whose content changed in this
+    # commit, which is what the protocol is for. Empty list, no submission.
+    (SITE / f"{INDEXNOW_KEY}.txt").write_text(INDEXNOW_KEY, "utf-8")
+    host = BASE.split("//", 1)[1].split("/", 1)[0]
+    (SITE / "indexnow.json").write_text(json.dumps({
+        "host": host,
+        "key": INDEXNOW_KEY,
+        "keyLocation": f"{BASE}/{INDEXNOW_KEY}.txt",
+        "urlList": [f"{BASE}{p}" for p in PAGES if changed[p] == today],
+    }, indent=2) + "\n", "utf-8")
     (SITE / "llms.txt").write_text(f"""# schemagate
 
 > {DESC}
