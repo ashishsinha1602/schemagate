@@ -347,12 +347,25 @@ description per column therefore looked like a match on three of four
 channels for any question sharing a word with any one of its columns, and the
 widest tables became magnets. Decomposed on the same 212 questions: removing
 the comments from the prose channel alone recovered 4 questions at k=10 and
-from `embed_text()` alone recovered 11, which is where the damage was.
+from the body channel alone recovered 11, which is where the damage was.
+
+Naming the channel matters. `embed_text()` has two consumers: the vectors,
+and `_body_text` (`catalog.py`), which builds the body channel's BM25
+document from it. `_body_text` is what changed -- it now drops the per-column
+comments -- and `embed_text()` itself is unchanged and still carries them
+(`models.py`). An earlier version of this paragraph attributed the 11 to
+"`embed_text()` alone", which contradicted the next sentence: a fix that
+leaves the vectors byte-identical could not have produced a recovery that
+came from the vectors.
+
+The two arms are not additive: 4 and 11 sum to 15 against a whole of 13,
+because each arm is measured against the same unmodified baseline, and some
+questions are recovered by either change on its own.
 
 The fix takes column comments out of the body channel and the prose channel
 and leaves `embed_text()` alone, so the vectors -- a published, pinned
 guarantee -- are byte-identical and no stored index is invalidated. Re-run
-paired on the same 212 questions with the fix in place:
+paired on the same 212 questions with the fix in place, hashed embedder:
 
 ```
   k    with prose        without prose      b   c     p
@@ -360,6 +373,17 @@ paired on the same 212 questions with the fix in place:
   10   177/212 83.5%     177/212 83.5%      2   2   1.0000
   20   188/212 88.7%     187/212 88.2%      2   3   1.0000
 ```
+
+One check that the table is the artifact it claims to be: its `without
+prose` column -- 143, 177, 187 -- is byte-identical to the hashed rows of the
+table above, as it must be, because deleting every description is untouched
+by a change to which channel carries them.
+
+Read the b and c columns, not the p column. With d = b + c discordant pairs
+of 12, 4 and 5, the smallest two-sided exact p attainable is 2^(1-d): 0.125
+at k=10 and 0.0625 at k=20, so those two cells could not have reached
+p < 0.05 at any split of b and c. What the rows support is that b and c
+converged -- the penalty is gone -- not anything about significance.
 
 **The penalty is gone.** Thirteen-to-one became two-to-two. Descriptions no
 longer cost anything on this benchmark -- they neither help nor hurt it,
