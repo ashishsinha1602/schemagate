@@ -215,3 +215,22 @@ def test_indexnow_key_file_and_payload_agree(site: Path):
     for url in payload["urlList"]:
         assert url.startswith(prefix), f"{url} is outside {prefix}; IndexNow would reject it"
         assert url[len(mod.BASE):] in mod.PAGES
+
+
+def test_indexnow_lists_the_pages_whose_newest_commit_is_head(site: Path, monkeypatch):
+    """Without SITE_SINCE the rule is "changed in HEAD": the pages whose
+    newest source commit is HEAD, and only those. A calendar-date rule was
+    wrong near midnight, because a squash-merge carries the merging user's
+    timezone and the runner's clock is UTC."""
+    import json
+    inside = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"], cwd=ROOT,
+                            capture_output=True, text=True)
+    if inside.returncode != 0 or inside.stdout.strip() != "true":
+        pytest.skip("not a git work tree")
+    monkeypatch.delenv("SITE_SINCE", raising=False)
+    mod = _build_site_module()
+    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT,
+                          capture_output=True, text=True).stdout.strip()
+    want = {f"{mod.BASE}{p}" for p, src in mod.PAGES.items() if mod.newest_commit(src) == head}
+    got = set(json.loads((site / "indexnow.json").read_text("utf-8"))["urlList"])
+    assert got == want

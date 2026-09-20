@@ -25,6 +25,7 @@ from __future__ import annotations
 import datetime as dt
 import html
 import json
+import os
 import pathlib
 import re
 import shutil
@@ -341,6 +342,48 @@ def last_changed(paths) -> str:
     return max(dates) if dates else dt.date.today().isoformat()
 
 
+def _git(*args) -> str:
+    try:
+        out = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return out.stdout.strip() if out.returncode == 0 else ""
+
+
+def newest_commit(paths) -> str:
+    """The hash of the newest commit touching any of `paths`, or ""."""
+    best = (0, "")
+    for rel in paths:
+        line = _git("log", "-1", "--format=%ct %H", "--", rel)
+        if line:
+            ts, sha = line.split(" ", 1)
+            if int(ts) > best[0]:
+                best = (int(ts), sha)
+    return best[1]
+
+
+def changed_in_this_deploy(paths) -> bool:
+    """Whether a page's content moved in the commits this build publishes.
+
+    Not "was the date today": GitHub stamps a squash-merge with the merging
+    user's timezone, the runner's clock is UTC, and near midnight the two
+    disagree -- the first deploy of this feature submitted nothing for four
+    pages that had just changed. With SITE_SINCE (the push's previous head,
+    from the workflow) a page changed if its newest commit is not already an
+    ancestor of that head; without it, if its newest commit is HEAD.
+    """
+    newest = newest_commit(paths)
+    if not newest:
+        return False
+    since = os.environ.get("SITE_SINCE", "").strip()
+    # all zeros is what a push event carries for a brand-new branch
+    if since and set(since) != {"0"} and _git("rev-parse", "--verify", "--quiet", f"{since}^{{commit}}"):
+        rc = subprocess.run(["git", "merge-base", "--is-ancestor", newest, since],
+                            cwd=ROOT, capture_output=True, text=True, timeout=30).returncode
+        return rc != 0
+    return newest == _git("rev-parse", "HEAD")
+
+
 def build_misc() -> None:
     """Explicit "utf-8" on every write: the default is the platform's, which on
     Windows is cp1252, and llms.txt has an en dash in it. The CI runner is Linux,
@@ -349,22 +392,22 @@ def build_misc() -> None:
     (SITE / "robots.txt").write_text(f"User-agent: *\nAllow: /\nSitemap: {BASE}/sitemap.xml\n", "utf-8")
     (SITE / "google7c61fe50e3637040.html").write_text(
         "google-site-verification: google7c61fe50e3637040.html\n", "utf-8")
-    today = dt.date.today().isoformat()
     changed = {path: last_changed(src) for path, src in PAGES.items()}
     urls = "".join(f"<url><loc>{BASE}{p}</loc><lastmod>{changed[p]}</lastmod></url>"
                    for p in PAGES)
     (SITE / "sitemap.xml").write_text(
         f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>', "utf-8")
     # IndexNow: the key file the engine fetches, and the payload the workflow
-    # POSTs after deploy -- only the pages whose content changed in this
-    # commit, which is what the protocol is for. Empty list, no submission.
+    # POSTs after deploy -- only the pages whose content changed in the
+    # commits being published, which is what the protocol is for. Empty
+    # list, no submission.
     (SITE / f"{INDEXNOW_KEY}.txt").write_text(INDEXNOW_KEY, "utf-8")
     host = BASE.split("//", 1)[1].split("/", 1)[0]
     (SITE / "indexnow.json").write_text(json.dumps({
         "host": host,
         "key": INDEXNOW_KEY,
         "keyLocation": f"{BASE}/{INDEXNOW_KEY}.txt",
-        "urlList": [f"{BASE}{p}" for p in PAGES if changed[p] == today],
+        "urlList": [f"{BASE}{p}" for p, src in PAGES.items() if changed_in_this_deploy(src)],
     }, indent=2) + "\n", "utf-8")
     (SITE / "llms.txt").write_text(f"""# schemagate
 
