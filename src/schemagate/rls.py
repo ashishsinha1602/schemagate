@@ -29,15 +29,27 @@ Three things, in the order that page proposed them:
    the same thing ``exclude=`` at bootstrap does. (An empty role list would
    not do: no roles means everyone, by the one visibility rule in `models`.)
 
-Oracle: policied objects are read from ``ALL_POLICIES`` and flagged. There is
-no ``SET ROLE`` equivalent that changes what VPD sees, so nothing is probed
-and the report says so.
+Oracle (VPD) is probed two ways, because a policy function can key on
+either of two things:
+
+- **Client identifier.** ``DBMS_SESSION.SET_IDENTIFIER(role)`` on the
+  existing connection, then one row. No privilege needed. A policy that reads
+  ``SYS_CONTEXT('USERENV','CLIENT_IDENTIFIER')`` -- the pattern Oracle
+  documents for connection-pooled applications -- reacts; one that keys on
+  the session user does not. So this probe can only *withhold*: it withholds
+  when the identifier turned a table that had rows into one with none, which
+  is a policy demonstrably reacting to it. Rows prove nothing on their own.
+- **Proxy authentication.** Connect as ``app[role]``: the session user *is*
+  the role, so a policy keyed on ``SESSION_USER`` fires for it. This is the
+  ``SET ROLE`` analogue and its answer is final. It needs one statement from
+  a DBA per user -- ``ALTER USER role GRANT CONNECT THROUGH app`` -- and when
+  that is missing the role is kept and the report says which statement.
 """
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from .models import POLICY_NOTE
 
@@ -65,7 +77,7 @@ class PolicyReport:
     probed: int = 0
     #: "object <- role": the role held the grant and got no rows
     withheld: List[str] = field(default_factory=list)
-    #: roles the connection could not SET ROLE to; kept, not withheld
+    #: roles the connection could not act as (SET ROLE, proxy); kept, not withheld
     unprobed_roles: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
 
@@ -78,7 +90,7 @@ class PolicyReport:
         for v in self.bypassing_views:
             out += f"\n  bypasses the policy: {v}"
         if self.unprobed_roles:
-            out += ("\n  not probed (connection cannot SET ROLE): "
+            out += ("\n  not probed (connection cannot act as them): "
                     + ", ".join(sorted(set(self.unprobed_roles))))
         for w in self.warnings:
             out += f"\n  warning: {w}"
@@ -86,7 +98,9 @@ class PolicyReport:
 
 
 class CannotSetRole(Exception):
-    """The connection is neither a superuser nor a member of the role."""
+    """The connection cannot act as the role: on PostgreSQL neither a
+    superuser nor a member of it; on Oracle not authorised to proxy for it.
+    The message says what would fix it."""
 
 
 # --------------------------------------------------------------------------
@@ -181,11 +195,95 @@ def _ora_policied(engine) -> Set[Key]:
         return {(s, o) for s, o in conn.exec_driver_sql(_ORA_POLICIED).fetchall()}
 
 
+def _ora_one(conn, target: str) -> bool:
+    return conn.exec_driver_sql(
+        f"SELECT 1 FROM {target} FETCH FIRST 1 ROW ONLY").fetchone() is not None
+
+
+class _OracleProber:
+    """Client identifier first, proxy authentication for the final word.
+
+    One proxied engine per role, reused across every policied object and
+    disposed by ``close()``; the app connection is never left with an
+    identifier set, even when the probe raises.
+    """
+
+    def __init__(self, engine, connect_args: Optional[Dict[str, Any]] = None):
+        self.engine = engine
+        self.connect_args = dict(connect_args or {})
+        self._proxied: Dict[str, Any] = {}
+
+    def _target(self, schema: Optional[str], name: str) -> str:
+        d = self.engine.dialect
+        q = d.identifier_preparer.quote
+        # reflection normalises Oracle's upper-case names to lower; put them back
+        name = d.denormalize_name(name)
+        schema = d.denormalize_name(schema) if schema else None
+        return f"{q(schema)}.{q(name)}" if schema else q(name)
+
+    def __call__(self, role: str, schema: Optional[str], name: str) -> bool:
+        target = self._target(schema, name)
+        with self.engine.connect() as conn:
+            if _ora_one(conn, target):
+                conn.exec_driver_sql(
+                    "BEGIN DBMS_SESSION.SET_IDENTIFIER(:1); END;", (role,))
+                try:
+                    reacted_to_nothing = not _ora_one(conn, target)
+                finally:
+                    conn.exec_driver_sql("BEGIN DBMS_SESSION.CLEAR_IDENTIFIER; END;")
+                if reacted_to_nothing:
+                    # rows without the identifier, none with it: the policy
+                    # keys on the identifier and admits this role nothing
+                    return False
+        return self._proxy(role, target)
+
+    def _proxy(self, role: str, target: str) -> bool:
+        eng = self._proxied.get(role)
+        if eng is None:
+            from .introspect import engine_from_url
+            app = self.engine.url.username or ""
+            url = self.engine.url.set(username=f"{app}[{role}]")
+            try:
+                eng = engine_from_url(url, connect_args=self.connect_args,
+                                      pool_pre_ping=True)
+                with eng.connect() as conn:
+                    conn.exec_driver_sql("SELECT 1 FROM dual").fetchone()
+            except Exception as e:                    # noqa: BLE001
+                first = str(e).splitlines()[0][:120]
+                raise CannotSetRole(
+                    f"cannot proxy for {role} ({first}); a DBA can allow it with "
+                    f"ALTER USER {role} GRANT CONNECT THROUGH {app}") from e
+            self._proxied[role] = eng
+        with eng.connect() as conn:
+            return _ora_one(conn, target)
+
+    def close(self) -> None:
+        for eng in self._proxied.values():
+            try:
+                eng.dispose()
+            except Exception:                         # noqa: BLE001
+                pass
+        self._proxied.clear()
+
+
+class _PostgresProber:
+    def __init__(self, engine, connect_args=None):
+        self.engine = engine
+
+    def __call__(self, role, schema, name):
+        return _pg_probe(self.engine, role, schema, name)
+
+    def close(self) -> None:
+        pass
+
+
 POLICY_READERS["postgresql"] = _pg_policied
 POLICY_READERS["oracle"] = _ora_policied
 
-#: Only PostgreSQL can be asked "what does this role get" from one connection.
-_PROBERS: Dict[str, Callable] = {"postgresql": _pg_probe}
+#: dialect -> prober factory(engine, connect_args); the prober is called with
+#: (role, schema, name) and closed when the run is over.
+_PROBERS: Dict[str, Callable] = {"postgresql": _PostgresProber,
+                                 "oracle": _OracleProber}
 _BYPASS_READERS: Dict[str, Callable] = {"postgresql": _pg_bypassing_views}
 
 
@@ -220,6 +318,7 @@ def apply_policies(catalog, policied: Set[Key], bypassing: Set[Key], *,
     rep = report or PolicyReport()
     fp, fb = _fold(policied), _fold(bypassing)
     cannot: Set[str] = set()
+    why: Dict[str, str] = {}
 
     for key, doc in list(catalog._docs.items()):
         if _match(doc, fp):
@@ -234,8 +333,9 @@ def apply_policies(catalog, policied: Set[Key], bypassing: Set[Key], *,
                     try:
                         rep.probed += 1
                         got = probe(role, doc.schema, doc.name)
-                    except CannotSetRole:
+                    except CannotSetRole as e:
                         cannot.add(role)
+                        why.setdefault(role, str(e))
                         kept.append(role)
                         continue
                     if got:
@@ -256,20 +356,29 @@ def apply_policies(catalog, policied: Set[Key], bypassing: Set[Key], *,
     rep.unprobed_roles.extend(sorted(cannot))
     if cannot:
         rep.warnings.append(
-            "the connection could not SET ROLE to "
+            "the connection could not act as "
             + ", ".join(sorted(cannot))
             + "; those roles keep every policied object they hold a grant on")
+        for role in sorted(cannot):
+            if why.get(role):
+                rep.warnings.append(why[role])
     catalog._stale = True
     return rep
 
 
 def restrict_from_policies(catalog, engine, *, probe: bool = True,
                            hide_bypassing_views: bool = False,
+                           connect_args: Optional[Dict[str, Any]] = None,
                            report: bool = False):
     """Flag policied objects, withhold them from roles that get no rows, and
     name the views that bypass the policy. Run it *after*
     `restrict_from_grants`, because probing walks the roles that left on
     each object.
+
+    ``connect_args`` is what the engine was built with -- a wallet directory
+    and password, say -- so that an Oracle proxy session can be opened the
+    same way; the environment's ``SCHEMAGATE_CONNECT_ARGS`` is merged in
+    regardless.
 
     Returns the catalog, or a ``PolicyReport`` when ``report=True``.
     """
@@ -297,13 +406,17 @@ def restrict_from_policies(catalog, engine, *, probe: bool = True,
                 f"could not read view definitions ({type(e).__name__}: {e}); "
                 "policy-bypassing views were not identified")
 
-    prober = _PROBERS.get(name) if probe else None
-    if probe and prober is None and policied:
+    factory = _PROBERS.get(name) if probe else None
+    if probe and factory is None and policied:
         rep.warnings.append(
             f"{name} cannot be asked what a role gets from one connection; "
             "policied objects are flagged, not probed")
 
-    fn = (lambda role, schema, obj: prober(engine, role, schema, obj)) if prober else None
-    apply_policies(catalog, policied, bypassing, probe=fn,
-                   hide_bypassing_views=hide_bypassing_views, report=rep)
+    prober = factory(engine, connect_args) if factory else None
+    try:
+        apply_policies(catalog, policied, bypassing, probe=prober,
+                       hide_bypassing_views=hide_bypassing_views, report=rep)
+    finally:
+        if prober is not None:
+            prober.close()
     return rep if report else catalog

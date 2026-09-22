@@ -899,7 +899,8 @@ class StudioState:
             try:
                 rep = restrict_from_grants(cat, engine, report=True)
                 from .rls import restrict_from_policies
-                prep = restrict_from_policies(cat, engine, report=True)
+                prep = restrict_from_policies(cat, engine, report=True,
+                                              connect_args=connect_args)
                 report = {"dialect": rep.dialect, "seen": rep.objects_seen,
                           "restricted": rep.objects_restricted,
                           "public": rep.objects_public,
