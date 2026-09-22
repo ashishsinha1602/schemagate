@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Changed: bare `schemagate` opens the demo.** It opened the Studio on
+  nothing -- a blank page waiting for a URL -- so every fresh install landed
+  on an empty screen. It now opens on the bundled 42-object demo, unless a
+  connection has been remembered with `--remember`, which still wins.
+  `schemagate studio` with no flags is unchanged and still starts empty.
+
 - **Added: row-level policies are read, probed, and named.** `restrict_from_grants`
   answered who holds `SELECT`; a row-level policy can answer "no rows" for a
   caller who holds it, and every dictionary answer is identical for a reader

@@ -140,6 +140,22 @@ def test_demo_is_a_documented_flag_not_a_hidden_one():
     assert "demo" in inspect.signature(main).parameters
 
 
+def test_bare_schemagate_opens_the_demo_unless_a_connection_is_remembered(tmp_path, monkeypatch):
+    """Every fresh install used to land on a blank Studio waiting for a URL.
+    Bare `schemagate` now means the demo -- unless the person has remembered
+    a connection, in which case they are not a first-timer and get that."""
+    from schemagate import remember
+    from schemagate.cli import build_parser, default_argv
+
+    monkeypatch.setenv("SCHEMAGATE_HOME", str(tmp_path))
+    assert default_argv() == ["studio", "--demo"]
+    args = build_parser().parse_args(default_argv())
+    assert args.demo is True and args.url is None
+    remember.save_connection("dev", {"kind": "url", "url": "sqlite:///x.db"})
+    assert default_argv() == ["studio"]
+    assert build_parser().parse_args(default_argv()).demo is False
+
+
 def test_the_page_does_not_hardcode_the_connected_header():
     """The header said "connected to your database" for anything served by the
     backend, demo included. The string must be reachable only through the
