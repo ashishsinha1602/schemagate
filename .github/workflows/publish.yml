@@ -2,6 +2,21 @@ name: publish
 on:
   release:
     types: [published]
+  # A pushed v* tag cuts the release by itself: the `release` job below
+  # creates it and the rest of this workflow runs in the same run.
+  #
+  # It has to be the same run. A release created with GITHUB_TOKEN does not
+  # trigger workflows -- that is GitHub's recursion guard -- so a separate
+  # "tag -> create release" workflow would create the release and publish
+  # nothing, silently. Hence one workflow with two entry points.
+  #
+  # The two entry points cannot both fire for one release: a tag created
+  # through the Releases UI arrives as `create`, not `push`, so the UI route
+  # is a `release` event only, and a `git push --tags` route is a `push`
+  # event only. Checked against this repository's own history -- 52 tags and
+  # ci.yml on a bare `push`, and not one ci run on a tag ref.
+  push:
+    tags: ['v*']
   # Re-attach the stack zip to an existing release when only that job
   # failed (cosign's flags changed under v4.1.2 of the installer once).
   # Only oci-stack runs on dispatch; nothing is re-published to PyPI.
@@ -16,8 +31,80 @@ permissions:
   contents: read
 
 jobs:
+  # Runs on every entry point, so `needs: release` below reads normally and
+  # no other job has to carry an `always()` condition to survive it being
+  # skipped. Two responsibilities: name the tag once for everyone, and on a
+  # tag push, create the release the other jobs publish into.
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.name.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: name the tag
+        id: name
+        # release event and tag push both put the tag in github.ref_name;
+        # only a dispatch does not, and it passes one in.
+        run: |
+          set -euo pipefail
+          tag="${{ inputs.tag || github.ref_name }}"
+          [ -n "$tag" ] || { echo "::error::no tag to publish"; exit 1; }
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "publishing $tag" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: the tag matches the version the tree declares
+        # Before PyPI, not after: a wheel cannot be unpublished, so a tag that
+        # disagrees with pyproject has to stop the run while stopping is still
+        # free. The five version-agreement tests keep the other five pins in
+        # step with pyproject; this is the same check against the tag.
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          want="${{ steps.name.outputs.tag }}"; want="${want#v}"
+          have="$(python3 -c 'import re,pathlib; print(re.search(r"^version = \"([^\"]+)\"", pathlib.Path("pyproject.toml").read_text("utf-8"), re.M).group(1))')"
+          [ "$have" = "$want" ] || {
+            echo "::error::tag says $want, pyproject says $have -- tag the commit that carries the version"; exit 1; }
+
+      - name: the release notes are this version's changelog section
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          python3 - "${{ steps.name.outputs.tag }}" <<'PY' > release-notes.md
+          import pathlib, re, sys
+          version = sys.argv[1].lstrip("v")
+          text = pathlib.Path("CHANGELOG.md").read_text("utf-8")
+          m = re.search(r"^## %s\s*$(.*?)(?=^## |\Z)" % re.escape(version),
+                        text, re.M | re.S)
+          if not m:
+              sys.exit("CHANGELOG.md has no '## %s' section" % version)
+          body = m.group(1).strip()
+          if not body:
+              sys.exit("the '## %s' section in CHANGELOG.md is empty" % version)
+          print(body)
+          PY
+          echo "--- release notes ---"; cat release-notes.md
+
+      - name: create the release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${{ steps.name.outputs.tag }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "::error::a release for $tag already exists; refusing to publish over it"
+            exit 1
+          fi
+          gh release create "$tag" --verify-tag \
+            --title "$tag" --notes-file release-notes.md
+          echo "created release $tag" >> "$GITHUB_STEP_SUMMARY"
+
   pypi:
-    if: github.event_name == 'release'
+    needs: release
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
@@ -30,6 +117,7 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
 
   oci-stack:
+    needs: release
     # The "Deploy to Oracle Cloud" button hands Resource Manager a zip URL, and
     # RM expects the .tf files at the ZIP ROOT -- a repo source archive nests
     # everything under a folder, so build a dedicated one and attach it to the
@@ -68,11 +156,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "${{ github.event.release.tag_name || inputs.tag }}" \
+          gh release upload "${{ needs.release.outputs.tag }}" \
             schemagate-oci-stack.zip schemagate-oci-stack.zip.sigstore.json --clobber
 
   terraform-registry:
-    if: github.event_name == 'release'
+    needs: release
+    if: github.event_name != 'workflow_dispatch'
     # The Registry module is a copy of oci/stack in a repo named the way the
     # Registry insists on (terraform-oci-<name>). It was synced by hand and
     # last at 0.1.45 while everything else moved on -- so the module people
@@ -88,7 +177,7 @@ jobs:
       - name: sync the stack into the Registry mirror and tag it
         env:
           TOKEN: ${{ secrets.TF_MIRROR_TOKEN }}
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ needs.release.outputs.tag }}
           MIRROR: ashishsinha1602/terraform-oci-schemagate-mcp
         run: |
           if [ -z "$TOKEN" ]; then
@@ -113,7 +202,8 @@ jobs:
           echo "Registry mirror synced and tagged ${TAG}: https://registry.terraform.io/modules/ashishsinha1602/schemagate/oci" >> "$GITHUB_STEP_SUMMARY"
 
   docker:
-    if: github.event_name == 'release'
+    needs: release
+    if: github.event_name != 'workflow_dispatch'
     # Published to GHCR rather than Docker Hub: no extra account, no rate
     # limit on pulls for anyone inside GitHub's network, and the token the
     # workflow already has is enough to push. `docker run ghcr.io/<owner>/
@@ -145,13 +235,13 @@ jobs:
           # under emulation slowly enough to look broken.
           platforms: linux/amd64,linux/arm64
           tags: |
-            ghcr.io/${{ steps.owner.outputs.name }}/schemagate:${{ github.event.release.tag_name }}
+            ghcr.io/${{ steps.owner.outputs.name }}/schemagate:${{ needs.release.outputs.tag }}
             ghcr.io/${{ steps.owner.outputs.name }}/schemagate:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: say where it went
         run: |
-          echo "pushed ghcr.io/${{ steps.owner.outputs.name }}/schemagate:${{ github.event.release.tag_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "pushed ghcr.io/${{ steps.owner.outputs.name }}/schemagate:${{ needs.release.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"
 
   # The MCP Registry (registry.modelcontextprotocol.io). server.json was a
   # manifest with nothing publishing it, and it had drifted five schema
@@ -165,8 +255,8 @@ jobs:
   # this repository's identity, which is the whole reason nobody has to mint
   # or rotate anything.
   mcp-registry:
-    if: github.event_name == 'release'
-    needs: pypi
+    needs: [release, pypi]
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -175,6 +265,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: wait until PyPI serves this release
+        env:
+          TAG: ${{ needs.release.outputs.tag }}
         # The registry fetches the package README from pypi.org at publish
         # time. Right after upload PyPI can lag by a minute; publishing into
         # that window fails the ownership check with a message that looks
@@ -182,7 +274,7 @@ jobs:
         # appears, rather than let the registry step fail obliquely.
         run: |
           set -euo pipefail
-          want="${GITHUB_REF_NAME#v}"
+          want="${TAG#v}"
           for i in $(seq 1 24); do
             have="$(curl -fsS https://pypi.org/pypi/schemagate/json | python3 -c 'import sys,json;print(json.load(sys.stdin)["info"]["version"])' 2>/dev/null || true)"
             [ "$have" = "$want" ] && { echo "PyPI serves $have"; exit 0; }
@@ -213,11 +305,13 @@ jobs:
           ./mcp-publisher --version
 
       - name: server.json version matches the release
+        env:
+          TAG: ${{ needs.release.outputs.tag }}
         # tests/test_server_json.py pins it to pyproject; this is the same
         # check against the tag actually being published.
         run: |
           set -euo pipefail
-          want="${GITHUB_REF_NAME#v}"
+          want="${TAG#v}"
           have="$(python3 -c 'import json;print(json.load(open("server.json"))["version"])')"
           [ "$have" = "$want" ] || { echo "::error::server.json says $have, release is $want"; exit 1; }
 
@@ -228,5 +322,7 @@ jobs:
         run: ./mcp-publisher publish
 
       - name: say where it went
+        env:
+          TAG: ${{ needs.release.outputs.tag }}
         run: |
-          echo "published io.github.ashishsinha1602/schemagate ${GITHUB_REF_NAME#v} to registry.modelcontextprotocol.io" >> "$GITHUB_STEP_SUMMARY"
+          echo "published io.github.ashishsinha1602/schemagate ${TAG#v} to registry.modelcontextprotocol.io" >> "$GITHUB_STEP_SUMMARY"
