@@ -142,13 +142,8 @@ def _groups_from(config_path: Optional[str], url: Optional[str]):
 
 def _reflect(url: str, config_path: Optional[str]) -> Catalog:
     if url == "demo":
-        from .demo_schema import HINTS, create_demo_db
-        demo_url = create_demo_db()
-        cat = Catalog(name="demo").bootstrap(demo_url)
-        cat._demo_url = demo_url                 # so run_query has a target
-        for table, text in HINTS.items():
-            cat.hint(table, text)
-        cat.restrict("hr_compensation", ["payroll"])
+        from .demo_schema import demo_catalog
+        cat = demo_catalog(name="demo")          # cat._demo_url: run_query's target
     else:
         from .introspect import engine_from_url
         # pool_pre_ping: a connection that died while idle is replaced

@@ -93,6 +93,13 @@ def test_select_never_raises_and_respects_top_k(docs, q, top_k):
     cat.add_all(docs)
     sel = cat.select(q, top_k=top_k, expand_fks=False)
     assert len(sel) <= max(top_k, 0)
+    # and the other side: the upper bound passes happily on a selector that
+    # returns nothing. Every object this caller may see is a candidate, so
+    # the selection is as long as it can be. Visible, not all: the generator
+    # puts roles on some objects and this select is anonymous, and an object
+    # withheld for that reason is the library working, not under-retrieval.
+    visible = sum(1 for d in cat._docs.values() if cat._visible(d, None))
+    assert len(sel) >= min(max(top_k, 0), visible), "under-retrieved"
     assert len(set(sel.table_names)) == len(sel.table_names), "duplicate hit"
     assert sel.total_objects == len(cat._docs)
 

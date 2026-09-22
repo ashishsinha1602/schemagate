@@ -154,13 +154,10 @@ def _run_sql_only(args, url) -> int:
 
 
 def cmd_demo(args) -> int:
-    from .demo_schema import HINTS, create_demo_db
+    from .demo_schema import demo_catalog
 
-    url = create_demo_db()
-    cat = Catalog().bootstrap(url)
-    for table, text in HINTS.items():
-        cat.hint(table, text)
-    cat.restrict("hr_compensation", ["payroll"])
+    cat = demo_catalog()
+    url = cat._demo_url
 
     questions = [args.question] if args.question else [
         "total revenue by month last year",

@@ -1230,13 +1230,10 @@ def main(url: Optional[str] = None, host: str = "127.0.0.1", port: int = 8770,
         questions: List[str] = []
     elif demo:
         from sqlalchemy import create_engine
-        from .demo_schema import GOLDEN, HINTS, create_demo_db
-        demo_url = create_demo_db()
+        from .demo_schema import GOLDEN, demo_catalog
+        cat = demo_catalog(name="studio")
+        demo_url = cat._demo_url
         engine = create_engine(demo_url)
-        cat = Catalog(name="studio").bootstrap(engine)
-        for table, text in HINTS.items():
-            cat.hint(table, text)
-        cat.restrict("hr_compensation", ["payroll"])
         title, blurb = "Demo schema", "42 objects, invented. Connect a database to replace them."
         questions = [q for q, _ in GOLDEN]
     else:

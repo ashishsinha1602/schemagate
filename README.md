@@ -146,7 +146,7 @@ identity first is the only way I know to avoid it.
 ```python
 from schemagate import Catalog, Principal
 
-cat = Catalog().bootstrap("postgresql://localhost/app")
+cat = Catalog().bootstrap("postgresql://localhost/app")   # or: from schemagate.demo_schema import demo_catalog; cat = demo_catalog()
 cat.hint("invoice_draft", "pre-issue drafts only, not real revenue")
 cat.restrict("hr_compensation", ["payroll"])
 

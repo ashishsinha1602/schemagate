@@ -21,6 +21,31 @@ import sqlite3
 import tempfile
 
 
+#: The restriction that makes the demo mean something: `hr_compensation` is
+#: visible to the `payroll` role and to nobody else. It used to be applied
+#: by the CLI, the MCP server and the Studio each on their own, and not by
+#: anything a library user would call -- so `Catalog().bootstrap(create_demo_db())`
+#: followed by a select as any principal returned exactly what an anonymous
+#: select returned, and the headline feature looked like it did nothing.
+RESTRICT = {"hr_compensation": ["payroll"]}
+
+
+def demo_catalog(name: str = "demo"):
+    """The demo the way every entry point shows it: schema, hints, and the
+    restriction. ``cat._demo_url`` is the SQLite file, for anything that
+    wants to run SQL against it."""
+    from .catalog import Catalog
+
+    url = create_demo_db()
+    cat = Catalog(name=name).bootstrap(url)
+    for table, text in HINTS.items():
+        cat.hint(table, text)
+    for table, roles in RESTRICT.items():
+        cat.restrict(table, roles)
+    cat._demo_url = url
+    return cat
+
+
 def create_demo_db() -> str:
     """Materialise the schema in a temporary SQLite file; returns its URL.
 
