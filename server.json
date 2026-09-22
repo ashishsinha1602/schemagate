@@ -6,12 +6,12 @@
     "url": "https://github.com/ashishsinha1602/schemagate",
     "source": "github"
   },
-  "version": "0.1.58",
+  "version": "1.0.0",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "schemagate",
-      "version": "0.1.58",
+      "version": "1.0.0",
       "runtimeHint": "python",
       "transport": {
         "type": "stdio"

@@ -1034,7 +1034,19 @@ didn't include won't run — but size your prompt budget for it.
 
 ## Status
 
-v0.1. Alpha, and the API may still move.
+v1.0. The public API is stable.
+
+The names this README documents -- `Catalog` and its methods, `Principal`,
+`Selection`, the `schemagate` CLI and its flags, the MCP tool names, the
+catalog config file and the LangChain retriever -- keep working without a
+breaking change until 2.0. Anything underscore-prefixed is internal and may
+move in any release.
+
+Two things are deliberately not covered by that promise. The rows below marked
+unfinished, until they say done. And the *ranking*: retrieval is tuned release
+to release, so the set of tables a question returns can change between 1.x
+versions. What does not change is the part that matters -- a table the caller
+may not read is never in it.
 
 | | |
 |---|---|

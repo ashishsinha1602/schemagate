@@ -25,8 +25,10 @@ Do not open a public issue for entitlement bypasses.
 
 ## Supported versions
 
-Only the latest release on PyPI receives fixes. There is no long-term branch;
-the release cadence is frequent enough that upgrading is the fix.
+Only the latest release on PyPI receives fixes. There is no long-term branch,
+and from 1.0 there does not need to be one: the public API does not break
+within a major version, so moving to the newest 1.x is an upgrade rather than
+a migration.
 
 ## Verifying what you installed
 
