@@ -35,8 +35,18 @@ attestation naming the workflow, repository and commit that built it:
 
     gh attestation verify schemagate-<version>-py3-none-any.whl --repo ashishsinha1602/schemagate
 
-Release assets on GitHub are signed with Sigstore (`.sig` and `.pem` next to
-each file).
+The OCI stack zip attached to each GitHub release is signed with Sigstore,
+keylessly, and the signature ships as one bundle beside it --
+`schemagate-oci-stack.zip.sigstore.json`, holding the signature, the
+certificate and the transparency-log entry together:
+
+    cosign verify-blob --bundle schemagate-oci-stack.zip.sigstore.json \
+      --certificate-identity-regexp 'github.com/ashishsinha1602/schemagate' \
+      --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+      schemagate-oci-stack.zip
+
+Signing starts at v0.1.58. Earlier releases carry the zip with no bundle, so
+there is nothing to verify against -- not a failed check, an absent one.
 
 ## What schemagate does and does not protect
 
