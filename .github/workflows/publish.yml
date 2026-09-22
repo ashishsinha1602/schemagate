@@ -10,11 +10,19 @@ on:
   # "tag -> create release" workflow would create the release and publish
   # nothing, silently. Hence one workflow with two entry points.
   #
-  # The two entry points cannot both fire for one release: a tag created
-  # through the Releases UI arrives as `create`, not `push`, so the UI route
-  # is a `release` event only, and a `git push --tags` route is a `push`
-  # event only. Checked against this repository's own history -- 52 tags and
-  # ci.yml on a bare `push`, and not one ci run on a tag ref.
+  # Both entry points DO fire when the release is cut from the UI, and the
+  # comment here used to say they could not. v1.0.0 proved otherwise: the
+  # form raised `release` AND a `push` on the new tag, two runs, seconds
+  # apart. The evidence that argued otherwise -- 52 tags, ci.yml on a bare
+  # `push`, no ci run on a tag ref -- was real and the conclusion drawn from
+  # it was still wrong, so it is written down here rather than quietly
+  # deleted.
+  #
+  # So the push route stands down when a release for the tag already exists:
+  # the `release` job sets proceed=false and every publishing job below is
+  # gated on it. Standing down is a green no-op, not a failure -- a red run
+  # on every release teaches people to ignore red on this workflow, which
+  # costs more than the duplicate it was reporting.
   push:
     tags: ['v*']
   # Re-attach the stack zip to an existing release when only that job
@@ -41,6 +49,7 @@ jobs:
       contents: write
     outputs:
       tag: ${{ steps.name.outputs.tag }}
+      proceed: ${{ steps.gate.outputs.proceed }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -55,12 +64,34 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "publishing $tag" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: stand down if this tag already has a release
+        # The UI route raises both a `release` and a `push` for one release.
+        # The release exists before either run starts -- it is what raises
+        # them -- so this check is not a race: the push run sees it and
+        # steps aside, and the release run does the publishing.
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" != "push" ]; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          tag="${{ steps.name.outputs.tag }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::$tag already has a release; the release event is publishing it"
+            echo "$tag already has a release -- the release event is publishing it, so this run stood down." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: the tag matches the version the tree declares
         # Before PyPI, not after: a wheel cannot be unpublished, so a tag that
         # disagrees with pyproject has to stop the run while stopping is still
         # free. The five version-agreement tests keep the other five pins in
         # step with pyproject; this is the same check against the tag.
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && steps.gate.outputs.proceed == 'true'
         run: |
           set -euo pipefail
           want="${{ steps.name.outputs.tag }}"; want="${want#v}"
@@ -69,7 +100,7 @@ jobs:
             echo "::error::tag says $want, pyproject says $have -- tag the commit that carries the version"; exit 1; }
 
       - name: the release notes are this version's changelog section
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && steps.gate.outputs.proceed == 'true'
         run: |
           set -euo pipefail
           python3 - "${{ steps.name.outputs.tag }}" <<'PY' > release-notes.md
@@ -88,23 +119,22 @@ jobs:
           echo "--- release notes ---"; cat release-notes.md
 
       - name: create the release
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && steps.gate.outputs.proceed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           tag="${{ steps.name.outputs.tag }}"
-          if gh release view "$tag" >/dev/null 2>&1; then
-            echo "::error::a release for $tag already exists; refusing to publish over it"
-            exit 1
-          fi
+          # The gate above already established there is no release for this
+          # tag; `create` failing on one that appeared since is the right
+          # outcome, not something to swallow.
           gh release create "$tag" --verify-tag \
             --title "$tag" --notes-file release-notes.md
           echo "created release $tag" >> "$GITHUB_STEP_SUMMARY"
 
   pypi:
     needs: release
-    if: github.event_name != 'workflow_dispatch'
+    if: github.event_name != 'workflow_dispatch' && needs.release.outputs.proceed == 'true'
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
@@ -118,6 +148,7 @@ jobs:
 
   oci-stack:
     needs: release
+    if: needs.release.outputs.proceed == 'true'
     # The "Deploy to Oracle Cloud" button hands Resource Manager a zip URL, and
     # RM expects the .tf files at the ZIP ROOT -- a repo source archive nests
     # everything under a folder, so build a dedicated one and attach it to the
@@ -161,7 +192,7 @@ jobs:
 
   terraform-registry:
     needs: release
-    if: github.event_name != 'workflow_dispatch'
+    if: github.event_name != 'workflow_dispatch' && needs.release.outputs.proceed == 'true'
     # The Registry module is a copy of oci/stack in a repo named the way the
     # Registry insists on (terraform-oci-<name>). It was synced by hand and
     # last at 0.1.45 while everything else moved on -- so the module people
@@ -203,7 +234,7 @@ jobs:
 
   docker:
     needs: release
-    if: github.event_name != 'workflow_dispatch'
+    if: github.event_name != 'workflow_dispatch' && needs.release.outputs.proceed == 'true'
     # Published to GHCR rather than Docker Hub: no extra account, no rate
     # limit on pulls for anyone inside GitHub's network, and the token the
     # workflow already has is enough to push. `docker run ghcr.io/<owner>/
@@ -256,7 +287,7 @@ jobs:
   # or rotate anything.
   mcp-registry:
     needs: [release, pypi]
-    if: github.event_name != 'workflow_dispatch'
+    if: github.event_name != 'workflow_dispatch' && needs.release.outputs.proceed == 'true'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
