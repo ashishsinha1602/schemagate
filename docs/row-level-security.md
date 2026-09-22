@@ -106,13 +106,35 @@ base table, returned **0 rows** for `SGVPD_R2` as well: the policy follows
 through the view. That is correct behaviour and worth knowing — a view neither
 escapes VPD nor restores access.
 
+**Probed, same fixture, same database.** Two ways to ask Oracle what a user
+gets, from the application's own connection:
+
+| | `SGVPD_R1` | `SGVPD_R2` |
+|---|---|---|
+| rows as `ADMIN`, no identifier (baseline) | 4 | 4 |
+| rows as `ADMIN` with `CLIENT_IDENTIFIER` set to the user | 4 | 4 — this policy keys on `SESSION_USER`, so the identifier is inconclusive |
+| rows through proxy authentication, `ADMIN[user]` | **2** | **0** |
+| `restrict_from_policies` after the grants: table still visible to the user | yes | **no** |
+
+Proxy authentication is the `SET ROLE` of Oracle: the session user *is* the
+proxied user, so a policy keyed on `SESSION_USER` fires for them. It needs
+one statement from a DBA per user, `ALTER USER SGVPD_R2 GRANT CONNECT
+THROUGH ADMIN`; without it the role is kept and the report prints that
+statement. The client identifier needs no privilege and is the right probe
+for the other kind of policy — one keyed on
+`SYS_CONTEXT('USERENV','CLIENT_IDENTIFIER')`, the pattern Oracle documents
+for connection-pooled applications — and it can only withhold: rows with no
+identifier and none with it is a policy demonstrably reacting, rows on their
+own prove nothing, and it defers to the proxy.
+
 ## What to do about it today
 
 `restrict_from_grants()` is still right for table-level permissions and should
 keep being used, and `restrict_from_policies()` (below) now runs after it on
-every path that reads grants. Where the policy cannot be probed -- Oracle VPD,
-or a PostgreSQL connection that may not `SET ROLE` -- add the restriction
-yourself, because you know the policy and the catalogue does not:
+every path that reads grants. Where the policy cannot be probed -- a
+PostgreSQL connection that may not `SET ROLE`, an Oracle user the connection
+may not proxy for -- add the restriction yourself, because you know the
+policy and the catalogue does not:
 
 ```python
 cat.restrict("employee_salary", ["payroll"])       # roles that VPD actually admits
@@ -136,15 +158,17 @@ them right after the grants:
    the prompt carries one line -- *rows are filtered per caller by a row-level
    policy; an empty result may be the filter, not an absence* -- so the model
    does not report an empty result as a fact about the world.
-2. **Probe it** (PostgreSQL). For each role the grant reader left on a
-   policied object, the connection does `SET ROLE` and asks for one row. A
-   role that gets nothing loses the object, exactly as a missing grant would:
-   on the fixture above, `sgrls_r2` no longer sees `employee_salary` and
-   `sgrls_r1` still does. One round trip per (object, role) at bootstrap, not
-   per question. The connection must be allowed to `SET ROLE` -- a superuser
-   or a member of the role; when it is not, the role is *kept* and the report
-   names it, because "could not check" must never read as "checked and
-   denied".
+2. **Probe it.** For each role the grant reader left on a policied object,
+   ask the database what that role gets: on PostgreSQL `SET ROLE` and one
+   row; on Oracle the client identifier and then proxy authentication, as
+   measured above. A role that gets nothing loses the object, exactly as a
+   missing grant would: on the fixtures above, `sgrls_r2` and `SGVPD_R2` no
+   longer see the salary table and `sgrls_r1` and `SGVPD_R1` still do. One
+   round trip per (object, role) at bootstrap, not per question. When the
+   connection cannot act as the role -- not a superuser or member on
+   PostgreSQL, not authorised to proxy on Oracle -- the role is *kept* and the
+   report names it and the statement that would allow it, because "could not
+   check" must never read as "checked and denied".
 3. **Name the views that bypass the policy** (PostgreSQL). A view over a
    policied table that was not created `WITH (security_invoker = true)` is
    flagged and listed in the report; `hide_bypassing_views=True` removes it
@@ -159,11 +183,11 @@ restrict_from_grants(cat, engine)
 print(restrict_from_policies(cat, engine, report=True))
 ```
 
-Oracle gets step 1 only: `ALL_POLICIES` says which objects VPD covers, and
-there is no `SET ROLE` that changes what VPD sees from one connection, so
-nothing is probed and the report says so. The turn from "the caller may read
-this table" into "the caller can get rows out of this table" is complete on
-PostgreSQL and half done on Oracle, and that is stated rather than implied.
+Oracle gets steps 1 and 2; step 3 has no Oracle case, because a predicate
+view there carries the policy through (measured above). The turn from "the
+caller may read this table" into "the caller can get rows out of this table"
+is complete on both, given a connection that may act as the role, and the
+report says exactly which roles it could not act as.
 
 ## Reproducing it
 
@@ -188,7 +212,8 @@ Then `SELECT COUNT(*)` from the table and from each view as `sgrls_r2`, and
 build a catalogue as the superuser with `restrict_from_grants` and select for
 `Principal("db:sgrls_r2", roles={"sgrls_r2"})`.
 
-**Oracle.** The fixture is four statements: a table with rows in two departments, a
+**Oracle.** To probe, the application user also needs `ALTER USER <reader>
+GRANT CONNECT THROUGH <app>` for each reader. The fixture is four statements: a table with rows in two departments, a
 function returning a different predicate per `SYS_CONTEXT('USERENV',
 'SESSION_USER')`, `DBMS_RLS.ADD_POLICY` over `SELECT`, and two users with
 `GRANT SELECT`. Then build a catalogue as each user and compare

@@ -230,6 +230,12 @@ def test_postgres_reads_the_acl_not_the_information_schema_view():
 
 
 def test_oracle_covers_the_owner_because_self_grants_are_not_recorded():
-    from schemagate.grants import _ORA_SQL
+    from schemagate.grants import _ORA_SQL, _ORA_SQL_DBA
     assert "all_tab_privs" in _ORA_SQL
     assert "all_tables" in _ORA_SQL and "all_views" in _ORA_SQL
+    # the DBA views first: all_tab_privs hides every grant the connected user
+    # is not party to, and a DBA building a catalogue of someone else's
+    # schema is party to none of them
+    assert "dba_tab_privs" in _ORA_SQL_DBA and "dba_tables" in _ORA_SQL_DBA
+    for sql in (_ORA_SQL, _ORA_SQL_DBA):
+        assert "'READ'" in sql, "READ is the grant Oracle recommends over SELECT"

@@ -16,6 +16,25 @@
   connection has been remembered with `--remember`, which still wins.
   `schemagate studio` with no flags is unchanged and still starts empty.
 
+- **Fixed: Oracle grants read by a DBA account missed every grant it was not
+  party to.** `all_tab_privs` lists only grants where the connected user is
+  owner, grantor or grantee, so `ADMIN` building a catalogue of an
+  application schema saw none of that schema's grants, restricted every
+  table to its owner, and withheld tables from readers who hold `SELECT`.
+  The reader now prefers `dba_tab_privs` and falls back to `all_tab_privs`
+  for a connection that cannot read it; `READ` grants count alongside
+  `SELECT` in both.
+
+- **Added: Oracle VPD is probed, not just flagged.** Two ways, from the
+  application's own connection: the client identifier
+  (`DBMS_SESSION.SET_IDENTIFIER`, no privilege, for policies keyed on it --
+  the connection-pool pattern), which can only withhold and defers otherwise;
+  then proxy authentication (`app[user]`), Oracle's `SET ROLE`, whose answer
+  is final. Measured on Autonomous Database 26ai: the reader whose policy
+  admits nothing loses the table, the other keeps it. A user the connection
+  may not proxy for is kept, and the report prints the `ALTER USER ... GRANT
+  CONNECT THROUGH` a DBA would run.
+
 - **Added: row-level policies are read, probed, and named.** `restrict_from_grants`
   answered who holds `SELECT`; a row-level policy can answer "no rows" for a
   caller who holds it, and every dictionary answer is identical for a reader

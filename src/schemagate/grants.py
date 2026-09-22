@@ -258,11 +258,29 @@ def _pg_role_graph(engine):
 _ORA_SQL = """
     SELECT table_schema, table_name, grantee
       FROM all_tab_privs
-     WHERE privilege = 'SELECT'
+     WHERE privilege IN ('SELECT', 'READ')
     UNION
     SELECT owner, table_name, owner FROM all_tables
     UNION
     SELECT owner, view_name, owner FROM all_views
+"""
+
+#: Preferred when the connection may read it. `all_tab_privs` lists only the
+#: grants the connected user is party to -- owner, grantor or grantee -- so a
+#: catalogue built by a DBA account that is none of those (ADMIN on an
+#: Autonomous Database, reading an application schema) saw *no* grants on
+#: that schema, restricted every table to its owner, and withheld it from
+#: readers who hold SELECT. Found against a live 26ai. `READ` is included in
+#: both: it is the grant Oracle has recommended over SELECT since 12c and it
+#: permits exactly the query this library writes.
+_ORA_SQL_DBA = """
+    SELECT owner, table_name, grantee
+      FROM dba_tab_privs
+     WHERE privilege IN ('SELECT', 'READ')
+    UNION
+    SELECT owner, table_name, owner FROM dba_tables
+    UNION
+    SELECT owner, view_name, owner FROM dba_views
 """
 
 #: `grantee` receives `granted_role` and so inherits its privileges. Keyed by
@@ -274,7 +292,15 @@ _ORA_ROLES_FALLBACK = "SELECT granted_role, username FROM user_role_privs"
 def _ora_grants(engine):
     out: Dict[Tuple[Optional[str], str], Set[str]] = {}
     with engine.connect() as conn:
-        for schema, obj, grantee in conn.exec_driver_sql(_ORA_SQL).fetchall():
+        try:
+            rows = conn.exec_driver_sql(_ORA_SQL_DBA).fetchall()
+        except Exception:                             # noqa: BLE001
+            # ORA-00942: the DBA views need SELECT_CATALOG_ROLE or better,
+            # which an application user rarely holds. all_* is what that
+            # user is party to, which is less than the whole picture but is
+            # exactly right for a catalogue built as the reader itself.
+            rows = conn.exec_driver_sql(_ORA_SQL).fetchall()
+        for schema, obj, grantee in rows:
             out.setdefault((schema, obj), set()).add(str(grantee))
     return out
 
