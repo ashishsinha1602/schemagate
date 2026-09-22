@@ -25,8 +25,10 @@ Do not open a public issue for entitlement bypasses.
 
 ## Supported versions
 
-Only the latest release on PyPI receives fixes. There is no long-term branch;
-the release cadence is frequent enough that upgrading is the fix.
+Only the latest release on PyPI receives fixes. There is no long-term branch,
+and from 1.0 there does not need to be one: the public API does not break
+within a major version, so moving to the newest 1.x is an upgrade rather than
+a migration.
 
 ## Verifying what you installed
 
@@ -35,8 +37,18 @@ attestation naming the workflow, repository and commit that built it:
 
     gh attestation verify schemagate-<version>-py3-none-any.whl --repo ashishsinha1602/schemagate
 
-Release assets on GitHub are signed with Sigstore (`.sig` and `.pem` next to
-each file).
+The OCI stack zip attached to each GitHub release is signed with Sigstore,
+keylessly, and the signature ships as one bundle beside it --
+`schemagate-oci-stack.zip.sigstore.json`, holding the signature, the
+certificate and the transparency-log entry together:
+
+    cosign verify-blob --bundle schemagate-oci-stack.zip.sigstore.json \
+      --certificate-identity-regexp 'github.com/ashishsinha1602/schemagate' \
+      --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+      schemagate-oci-stack.zip
+
+Signing starts at v0.1.58. Earlier releases carry the zip with no bundle, so
+there is nothing to verify against -- not a failed check, an absent one.
 
 ## What schemagate does and does not protect
 

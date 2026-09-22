@@ -1,6 +1,21 @@
 # Changelog
 
-## Unreleased
+## 1.0.0
+
+- **The API is stable.** Fifty-eight 0.1.x releases in sixteen days said
+  "not ready" to exactly the reviewers this library is for, whatever the
+  tests said. The names the README documents -- `Catalog` and its methods,
+  `Principal`, `Selection`, the CLI and its flags, the MCP tool names, the
+  catalog config file and the LangChain retriever -- now keep working
+  without a breaking change until 2.0. Underscore-prefixed names stay
+  internal. Retrieval ranking is explicitly not covered: it is tuned
+  release to release, so the set of tables a question returns can move
+  within 1.x. The invariant that does not move is that a table the caller
+  may not read is never in that set.
+
+  The version number is the only thing this declaration changes. The fixes
+  below are the ones that had accumulated since 0.1.58 and they ship here
+  as they were; nothing was rushed in or held back to make a round number.
 
 - **Fixed: the demo carried no restriction as a library.** `schemagate demo`,
   the MCP server and the Studio each applied `hr_compensation -> payroll`
