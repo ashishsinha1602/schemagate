@@ -140,6 +140,25 @@ def test_demo_is_a_documented_flag_not_a_hidden_one():
     assert "demo" in inspect.signature(main).parameters
 
 
+def test_a_saved_connection_can_be_read_back_from_a_fresh_home(tmp_path, monkeypatch):
+    """Saving hardened the store *directory* to 0600, which on Linux and macOS
+    removes the execute bit, so the file inside could not be created and
+    every save returned None -- silently, because an unwritable home must not
+    take a connection down. Windows ignores directory modes, which is why
+    no test on the author's machine ever saw it. The directory must stay
+    traversable and the round trip must work on a home that did not exist."""
+    import os
+    from schemagate import remember
+
+    home = tmp_path / "fresh"
+    monkeypatch.setenv("SCHEMAGATE_HOME", str(home))
+    assert remember.save_connection("dev", {"kind": "url", "url": "sqlite:///x.db"}) is not None
+    assert os.access(home, os.X_OK), "store directory lost its execute bit"
+    assert remember.default_connection() == {"kind": "url", "url": "sqlite:///x.db"}
+    assert remember.save({"url": "sqlite:///y.db"}, allow=True) is not None
+    assert remember.load() == {"url": "sqlite:///y.db"}
+
+
 def test_bare_schemagate_opens_the_demo_unless_a_connection_is_remembered(tmp_path, monkeypatch):
     """Every fresh install used to land on a blank Studio waiting for a URL.
     Bare `schemagate` now means the demo -- unless the person has remembered

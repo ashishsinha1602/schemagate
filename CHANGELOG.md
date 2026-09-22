@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Fixed: remembering a connection never worked on Linux or macOS.** The
+  store directory was hardened to mode 0600, which removes the execute bit,
+  so the file inside could not be created and every save returned None --
+  silently, by design, so an unwritable home never takes a connection down.
+  Windows ignores directory modes, which is why it passed everywhere it was
+  tried. The directory is 0700 now, the file still 0600, and a test saves and
+  reads back from a home that did not exist.
+
 - **Changed: bare `schemagate` opens the demo.** It opened the Studio on
   nothing -- a blank page waiting for a URL -- so every fresh install landed
   on an empty screen. It now opens on the bundled 42-object demo, unless a

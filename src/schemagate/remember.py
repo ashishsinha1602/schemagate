@@ -92,9 +92,13 @@ def path() -> Path:
     return root / "connection.json"
 
 
-def _harden(p: Path) -> None:
+def _harden(p: Path, mode: int = stat.S_IRUSR | stat.S_IWUSR) -> None:
+    """Owner-only. Files get 0600; a *directory* needs 0700, because without
+    the execute bit nothing inside it can be opened -- 0600 on the directory
+    made every save on Linux and macOS fail silently with EACCES, while on
+    Windows chmod is a no-op and it passed."""
     try:
-        os.chmod(p, stat.S_IRUSR | stat.S_IWUSR)     # 0600
+        os.chmod(p, mode)
     except OSError:
         pass                                          # best effort, Windows
 
@@ -115,7 +119,7 @@ def save(body: Dict[str, Any], allow: bool = False) -> Optional[Path]:
     p = path()
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
-        _harden(p.parent)
+        _harden(p.parent, _DIR_MODE)
         # Open with the mode set at creation rather than chmod-ing afterwards,
         # so there is no window where the file exists world-readable with a
         # password already in it.
@@ -184,6 +188,7 @@ def describe() -> str:
 # upgrade does not lose the connection someone already saved.
 
 _STORE = "store.json"
+_DIR_MODE = stat.S_IRWXU                         # 0700
 
 
 def store_path() -> Path:
@@ -212,7 +217,7 @@ def _write_store(st: Dict[str, Any]) -> Optional[Path]:
     p = store_path()
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
-        _harden(p.parent)
+        _harden(p.parent, _DIR_MODE)
         fd = os.open(p, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             json.dump(st, fh, indent=2)
