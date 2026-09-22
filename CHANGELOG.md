@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+- **Fixed: the demo carried no restriction as a library.** `schemagate demo`,
+  the MCP server and the Studio each applied `hr_compensation -> payroll`
+  themselves, and nothing a library user would call did, so
+  `Catalog().bootstrap(create_demo_db())` followed by a select as any
+  principal returned exactly what an anonymous select returned -- the
+  headline feature looked like it did nothing. `demo_schema.demo_catalog()`
+  now returns the demo the way every entry point shows it, and the three
+  entry points use it.
+
+- **Fixed: `hypothesis` was listed as a required dependency by pypistats.**
+  Its `python_version >= '3.10'` marker in the `dev` extra made hatchling
+  emit a compound marker that pypistats mis-parses; hypothesis resolves on
+  3.9, so the marker did nothing. Dropped. `mcp`'s marker is load-bearing
+  (every published version needs 3.10) and stays.
+
+- **Tests: the body channel is pinned to `embed_text` minus the comments**,
+  at the document level and at the index, with a property test whose
+  generator reaches the one shape where a positional form would pass
+  wrongly; the selector's under-retrieval lower bound; and both sides of the
+  abstention coverage boundary.
+
 - **Fixed: remembering a connection never worked on Linux or macOS.** The
   store directory was hardened to mode 0600, which removes the execute bit,
   so the file inside could not be created and every save returned None --

@@ -54,6 +54,37 @@ def _corpus(n=120, named=4):
     return cat
 
 
+def _corpus_with(term_in: int, n: int = 120):
+    """`n` objects whose descriptions all say the same thing, and `term_in`
+    of them also carry the word "quorum": idf for that word is a function
+    of `term_in` alone."""
+    docs = []
+    for i in range(n):
+        extra = " quorum" if i < term_in else ""
+        docs.append(ObjectDoc(name=f"obj_{i:03d}", kind="TABLE",
+                              description=SATURATED + extra,
+                              columns=[Column(name="id", type="INTEGER")]))
+    cat = Catalog(name="abstain-boundary")
+    cat.add_all(docs)
+    cat.index()
+    return cat
+
+
+def test_the_threshold_is_a_coverage_cut_and_both_sides_of_it_behave():
+    """ABSTAIN_MIN_IDF = 0.1 is a coverage cut. In a 120-object corpus it
+    falls between a term in 108 objects (must NOT abstain) and one in 109
+    (must abstain). The preconditions come first, so a change to the idf
+    formula shows up as "the boundary moved", not as a mystery failure."""
+    below, above = _corpus_with(109), _corpus_with(108)
+    idf_above = _best_idf(above._bm25_prose, "quorum")
+    idf_below = _best_idf(below._bm25_prose, "quorum")
+    assert idf_above >= ABSTAIN_MIN_IDF > idf_below, (
+        f"precondition: the boundary is no longer between 108/120 ({idf_above:.4f}) "
+        f"and 109/120 ({idf_below:.4f})")
+    assert _abstains(above._bm25_prose, "quorum") is False
+    assert _abstains(below._bm25_prose, "quorum") is True
+
+
 def _best_idf(index, question):
     return max((index.idf.get(_stem(t), 0.0) for t in tokenize(question)),
                default=0.0)
