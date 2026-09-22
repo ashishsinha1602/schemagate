@@ -197,8 +197,11 @@ API token to steal. Check one yourself with
 
 ```bash
 pip install schemagate            # add an extra for your driver, below
-schemagate studio                 # opens http://127.0.0.1:8770
+schemagate                        # opens http://127.0.0.1:8770 on the 42-object demo
 ```
+
+Every wheel on PyPI carries a signed provenance attestation naming the commit that built it:
+`gh attestation verify <wheel> --repo ashishsinha1602/schemagate`.
 
 Or without installing anything, with every driver already in the image:
 
@@ -284,6 +287,7 @@ schemagate select --url postgresql+psycopg://user:pw@host/db "unpaid invoices"
 ### `studio`
 
 ```bash
+schemagate                              # the demo, or your remembered connection
 schemagate studio                       # empty, connect from the page
 schemagate studio --demo                # the bundled sample schema
 schemagate studio --url postgresql://localhost/app

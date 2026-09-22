@@ -503,6 +503,24 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def default_argv() -> List[str]:
+    """What bare `schemagate` means.
+
+    The Studio, on the remembered connection if there is one, else on the
+    bundled 42-object demo. It used to open on nothing: every fresh install
+    landed on a blank page waiting for a URL, which is the least useful thing
+    to hand someone who has just typed the name of the tool to see what it
+    does. A remembered connection still wins, because someone who asked for
+    that is not a first-timer.
+    """
+    from . import remember
+    try:
+        remembered = remember.default_connection() is not None
+    except Exception:                                 # noqa: BLE001
+        remembered = False                            # an unreadable store is not a URL
+    return ["studio"] if remembered else ["studio", "--demo"]
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     # Bare `schemagate` opens the browser rather than printing usage. Someone
     # who has just installed this has a database and a question, not a
@@ -510,7 +528,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     # to hand them at that moment.
     argv = sys.argv[1:] if argv is None else list(argv)
     if not argv:
-        argv = ["studio"]
+        argv = default_argv()
     args = build_parser().parse_args(argv)
     return args.func(args)
 
