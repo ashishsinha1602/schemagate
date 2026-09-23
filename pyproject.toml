@@ -82,7 +82,11 @@ dev         = ["pytest>=8", "ruff", "mypy", "sqlglot>=25", "anyio>=4",
                # here made hatchling emit a compound marker that pypistats
                # mis-parses as an unconditional requirement.
                "mcp>=1.2; python_version >= '3.10'",
-               "hypothesis>=6"]
+               "hypothesis>=6",
+               # tests/test_site.py builds the Pages site and reads it back;
+               # without this it skipped in CI, and an assertion about the
+               # image tag drifted for three releases unnoticed.
+               "markdown>=3"]
 
 [project.scripts]
 schemagate = "schemagate.cli:main"
