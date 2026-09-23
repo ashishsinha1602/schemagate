@@ -112,11 +112,18 @@ def test_the_version_on_the_page_is_this_version(site: Path):
 
 
 def test_the_image_tag_is_the_one_the_workflow_pushes(site: Path):
-    """The release workflow tags with `github.event.release.tag_name`, so the
-    tag carries a `v`. A page that says `:0.1.52` sends people to a 404."""
+    """The release workflow tags the image with the `release` job's `tag`
+    output, which is the pushed tag or the dispatch input -- either way the
+    `v`-prefixed name. A page that says `:0.1.52` sends people to a 404.
+
+    This assertion drifted once without anyone noticing: the workflow moved
+    from `github.event.release.tag_name` to a job output, and this file was
+    skipping in CI because `markdown` was not a dev dependency."""
     wf = (ROOT / ".github" / "workflows" / "publish.yml").read_text("utf-8")
-    assert "schemagate:${{ github.event.release.tag_name }}" in wf, (
+    assert "schemagate:${{ needs.release.outputs.tag }}" in wf, (
         "the tag scheme changed -- this test and the install page both need rereading")
+    assert 'tag="${{ inputs.tag || github.ref_name }}"' in wf, (
+        "the release job no longer derives the tag from the pushed ref")
     body = _text(site, "/install/")
     assert re.search(r":v\d+\.\d+\.\d+", body), "install page names no v-prefixed tag"
 
