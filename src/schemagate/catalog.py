@@ -728,6 +728,23 @@ class Catalog:
                           if n >= self._DIMENSION_IN_DEGREE}
         return dict(self._dims)
 
+    def _ordered(self) -> List[str]:
+        """The indexed qnames, rebuilding first if the catalogue moved.
+
+        `_order` is derived from `_docs` and is assigned in exactly one
+        place, `index()`. Every mutation path that removes or re-keys a doc
+        leaves the two disagreeing until the next index: `collapse_partitions`
+        re-keys the survivor under its wildcard name and deletes the rest, so
+        `_order` holds qnames `_docs` no longer has and is missing the one it
+        gained. That window is legitimate and closes on the next index() --
+        but only while every reader of `_order` comes through here. Read it
+        directly and you get the dead names, silently, which is the failure
+        that returns an absence rather than raising.
+        """
+        if self._stale or not self._order:
+            self.index()
+        return self._order
+
     def index(self) -> "Catalog":
         store_dim = getattr(self.store, "dim", None)
         if store_dim is not None and store_dim != self.embedder.dim:
@@ -891,8 +908,7 @@ class Catalog:
 
     def shadows(self) -> Dict[str, str]:
         """Objects ranked below a same-named base object, and which base."""
-        if self._stale or not self._order:
-            self.index()
+        self._ordered()
         return dict(self._shadows)
 
     def __len__(self) -> int:
@@ -929,10 +945,9 @@ class Catalog:
         handed the already-filtered list. And a model that fails leaves the
         maths order untouched, so this can only help.
         """
-        if self._stale or not self._order:
-            self.index()
+        order = self._ordered()
 
-        allowed = [q for q in self._order if self._visible(self._docs[q], principal)]
+        allowed = [q for q in order if self._visible(self._docs[q], principal)]
         allowed_set = set(allowed)
 
         # The joined forms confirmed against the index vocabulary go to the
@@ -943,7 +958,7 @@ class Catalog:
         _base = tokenize(question)
         _joins = [t for t in expand_joins(_base, vocab=_vocab) if t not in _base]
         qvec = self.embedder.embed([question + (" " + " ".join(_joins) if _joins else "")])[0]
-        vec_hits = self.store.search(self._ns, qvec, k=len(self._order) or 1,
+        vec_hits = self.store.search(self._ns, qvec, k=len(order) or 1,
                                      max_distance=2.0)
         vec_rank = _competition_rank(
             [(h["qname"], -float(h.get("_distance", 0.0)))
@@ -956,8 +971,8 @@ class Catalog:
                 return {}
             scores = index.scores(question)
             return _competition_rank(
-                [(self._order[i], s) for i, s in enumerate(scores)
-                 if self._order[i] in allowed_set and s > 0])
+                [(order[i], s) for i, s in enumerate(scores)
+                 if order[i] in allowed_set and s > 0])
 
         lex_rank = _rank(self._bm25)
         name_rank = _rank(self._bm25_name)
@@ -1180,4 +1195,4 @@ class Catalog:
                             taken.add(q)
 
         return Selection(question=question, hits=chosen,
-                         total_objects=len(self._order), principal=principal)
+                         total_objects=len(order), principal=principal)
