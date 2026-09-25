@@ -61,6 +61,7 @@ input{font:inherit;padding:4px 8px;width:7em;border:1px solid var(--line);border
 NAV = ('<nav><a href="/schemagate/">Demo</a><a href="/schemagate/install/">Install</a>'
        '<a href="/schemagate/benchmarks/">Benchmarks</a>'
        '<a href="/schemagate/local-models/">Local models</a>'
+       '<a href="/schemagate/langchain/">LangChain</a>'
        '<a href="/schemagate/row-level-security/">Row-level security</a><a href="/schemagate/cost/">Cost</a>'
        '<a href="/schemagate/vanna-alternative/">Coming from Vanna</a>'
        f'<a href="{REPO}">GitHub</a><a href="https://pypi.org/project/schemagate/">PyPI</a></nav>')
@@ -192,6 +193,20 @@ def build_rls() -> None:
         "/row-level-security/", body), "utf-8")
 
 
+def build_langchain() -> None:
+    body = render(ROOT / "docs" / "langchain.md")
+    body += (f'<p><a class="cta" href="{REPO}/blob/main/docs/langchain.md">On GitHub</a>'
+             '<a class="cta" href="/schemagate/">Try the demo</a></p>')
+    (SITE / "langchain").mkdir(parents=True, exist_ok=True)
+    (SITE / "langchain" / "index.html").write_text(page(
+        "LangChain SQL agent with a schema too large for the context window — schemagate",
+        "A LangChain SQL agent sends the model your whole schema, and on a real "
+        "database the table listing alone outgrows the context window. "
+        "SchemagateRetriever is a drop-in retriever that selects the tables a "
+        "question needs, from the set that caller is allowed to see.",
+        "/langchain/", body), "utf-8")
+
+
 def build_install() -> None:
     """pip, Docker and the OCI stack.
 
@@ -318,6 +333,7 @@ PAGES = {
     "/install/":            ["scripts/build_site.py"],
     "/benchmarks/":         ["BENCHMARKS.md"],
     "/local-models/":       ["docs/local-models.md"],
+    "/langchain/":          ["docs/langchain.md", "src/schemagate/integrations/langchain.py"],
     "/row-level-security/": ["docs/row-level-security.md"],
     "/cost/":               ["scripts/build_site.py"],
     "/vanna-alternative/":  ["docs/migrating-from-vanna.md"],
@@ -428,6 +444,7 @@ Oracle 23ai VECTOR store.
 - Install, Docker and the OCI stack: {BASE}/install/
 - Benchmarks (Spider, BIRD, Spider 2.0): {BASE}/benchmarks/
 - Running it with a local model, no API key: {BASE}/local-models/
+- LangChain: a retriever for SQL agents whose schema outgrows the context window: {BASE}/langchain/
 - Row-level security (VPD) and what grant-based scoping misses: {BASE}/row-level-security/
 - Token cost table and calculator: {BASE}/cost/
 - Migrating from Vanna: {BASE}/vanna-alternative/
@@ -440,7 +457,7 @@ def main() -> None:
         shutil.rmtree(SITE)
     SITE.mkdir()
     build_index(); build_install(); build_benchmarks(); build_local_models()
-    build_rls()
+    build_langchain(); build_rls()
     build_vanna(); build_cost(); build_misc()
     for p in sorted(SITE.rglob("*")):
         if p.is_file():
