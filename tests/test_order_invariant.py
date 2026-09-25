@@ -15,6 +15,7 @@ Reported by howcani on the dev.to thread for the 1,245-table post.
 import ast
 import inspect
 import pathlib
+import subprocess
 
 import pytest
 
@@ -84,21 +85,40 @@ _READER_EXEMPT_DIRS = ("tests/",)
 # In catalog.py, `index()` assigns `_order` and `_ordered()` guards it.
 _READER_EXEMPT_FUNCS = {"index", "_ordered", "__init__"}
 
+# Mutating dict methods, for the writer rule. Subscript assignment and `del`
+# are not the only ways `_docs` moves.
+_MUTATING_DICT_METHODS = {"pop", "popitem", "clear", "update", "setdefault"}
+
 
 def _repo_root():
     # <repo>/src/schemagate/catalog.py -> parents[2] is <repo>
     return pathlib.Path(catalog_mod.__file__).resolve().parents[2]
 
 
-def _python_files():
+def _tracked_python_files():
+    """The tracked sources, and the two counts that say which set that is.
+
+    `rglob` walks the working tree, which is not the repository: this
+    project's .gitignore declares certify_oracle.py, complex_atp_test.py and
+    drop_complex.py as local-only, and a reader in one of those would fail
+    here as a red CI could not reproduce. `git ls-files` puts both rules on
+    one definition, and returns (parsed, exempt) so the domain is stated
+    rather than assumed -- a rule whose population is silent is the same
+    failure as a comparison whose population is silent.
+    """
     root = _repo_root()
-    for path in sorted(root.rglob("*.py")):
-        rel = path.relative_to(root).as_posix()
-        if any(part in rel for part in (".venv/", "site-packages/", "build/", ".git/")):
+    out = subprocess.run(["git", "-C", str(root), "ls-files", "*.py"],
+                         capture_output=True, text=True, check=True)
+    parsed, exempt = [], 0
+    for rel in out.stdout.split("\n"):
+        rel = rel.strip()
+        if not rel:
             continue
         if rel.startswith(_READER_EXEMPT_DIRS):
+            exempt += 1
             continue
-        yield rel, path
+        parsed.append((rel, root / rel))
+    return parsed, exempt
 
 
 def test_no_one_reads_order_without_the_rebuild():
@@ -115,8 +135,10 @@ def test_no_one_reads_order_without_the_rebuild():
     This rule cannot see `getattr(self, "_order")` or any other dynamic
     access. No rule of this shape can.
     """
+    files, exempt = _tracked_python_files()
+    assert files, "the walk parsed no files -- a rule over an empty domain passes vacuously"
     offenders = {}
-    for rel, path in _python_files():
+    for rel, path in files:
         tree = ast.parse(path.read_text(encoding="utf-8"))
         in_catalog = rel.endswith("src/schemagate/catalog.py")
         for node in ast.walk(tree):
@@ -130,8 +152,9 @@ def test_no_one_reads_order_without_the_rebuild():
             if hits:
                 offenders[f"{rel}::{node.name}"] = hits
     assert not offenders, (
-        "these read _order without going through _ordered(), so they can see "
-        "qnames that _docs no longer has: " + repr(offenders))
+        f"({len(files)} parsed, {exempt} exempt) these read _order without going "
+        f"through _ordered(), so they can see qnames that _docs no longer has: "
+        + repr(offenders))
 
 
 def test_every_writer_of_docs_marks_the_index_stale():
@@ -139,33 +162,56 @@ def test_every_writer_of_docs_marks_the_index_stale():
 
     `_ordered()` rebuilds a catalogue somebody marked stale. It cannot rebuild
     an unmarked one, so "every reader rebuilds" is only safe while "every
-    writer marks" also holds -- a second property, and the one with no test
-    standing under it: the fixture above pins `_stale` for
-    `collapse_partitions()` and nothing pinned it for `add()`.
+    writer marks" also holds.
 
-    Raised by howcani, who took the writer census by hand.
+    Two things this rule got wrong on the first pass, both raised by howcani:
+
+    Its domain was one module while the obligation is a property of the class.
+    `rls.apply_policies` deletes from `catalog._docs` and was invisible to it
+    -- the benchmark reader again, in the half that shipped with the fix. It
+    now walks the same tracked file list the reader rule does.
+
+    And it accepted any assignment to `_stale` as a mark, so `_stale = False`
+    counted. A `_docs` mutation added to `index()` -- the one function that
+    assigns False -- passed cleanly. The mark must now raise the flag: a bare
+    `True`, not a name, a call, or a condition that may be false.
+
+    A dict is also not only mutated by subscript. `catalog.py:586` calls
+    `self._docs.pop(old, None)`, and counting only subscripts missed it --
+    which is why howcani's own probe, a `.pop()` added to `index()`, still
+    passed after the mark-side hardening he proposed for it.
     """
-    tree = ast.parse(inspect.getsource(catalog_mod))
+    files, exempt = _tracked_python_files()
+    assert files, "the walk parsed no files -- a rule over an empty domain passes vacuously"
     offenders = {}
-    for node in ast.walk(tree):
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            continue
-        writes, marks = [], []
-        for n in ast.walk(node):
-            targets = getattr(n, "targets", []) if isinstance(n, (ast.Assign, ast.Delete)) else []
-            for t in targets:
-                if (isinstance(t, ast.Subscript) and isinstance(t.value, ast.Attribute)
-                        and t.value.attr == "_docs"):
+    for rel, path in files:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            writes, marks = [], []
+            for n in ast.walk(node):
+                targets = getattr(n, "targets", []) if isinstance(n, (ast.Assign, ast.Delete)) else []
+                for t in targets:
+                    if (isinstance(t, ast.Subscript) and isinstance(t.value, ast.Attribute)
+                            and t.value.attr == "_docs"):
+                        writes.append(n.lineno)
+                if (isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+                        and n.func.attr in _MUTATING_DICT_METHODS
+                        and isinstance(n.func.value, ast.Attribute)
+                        and n.func.value.attr == "_docs"):
                     writes.append(n.lineno)
-            if isinstance(n, ast.Assign):
-                for t in n.targets:
-                    if isinstance(t, ast.Attribute) and t.attr == "_stale":
-                        marks.append(n.lineno)
-        if writes and not marks:
-            offenders[node.name] = writes
+                if isinstance(n, ast.Assign):
+                    raised = isinstance(n.value, ast.Constant) and n.value.value is True
+                    for t in n.targets:
+                        if isinstance(t, ast.Attribute) and t.attr == "_stale" and raised:
+                            marks.append(n.lineno)
+            if writes and not marks:
+                offenders[f"{rel}::{node.name}"] = writes
     assert not offenders, (
-        "these mutate self._docs without setting self._stale, so _ordered() "
-        "will not rebuild after them: " + repr(offenders))
+        f"({len(files)} parsed, {exempt} exempt) these mutate _docs without "
+        f"raising _stale, so _ordered() will not rebuild after them: "
+        + repr(offenders))
 
 
 @pytest.mark.parametrize("call", [
