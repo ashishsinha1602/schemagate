@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SITE = ROOT / "site"
 BUILD = ROOT / "scripts" / "build_site.py"
 
-PAGES = ["/", "/install/", "/benchmarks/", "/local-models/",
+PAGES = ["/", "/install/", "/benchmarks/", "/local-models/", "/langchain/",
          "/row-level-security/", "/cost/", "/vanna-alternative/"]
 
 pytestmark = pytest.mark.skipif(not BUILD.is_file(), reason="no site builder in this tree")
@@ -133,7 +133,7 @@ def test_sitemap_and_llms_txt_list_every_page(site: Path):
     for p in PAGES:
         assert f"/schemagate{p}" in sitemap or sitemap.count(p) , f"{p} missing from sitemap.xml"
     llms = (site / "llms.txt").read_text("utf-8")
-    for p in ["/install/", "/benchmarks/", "/local-models/",
+    for p in ["/install/", "/benchmarks/", "/local-models/", "/langchain/",
               "/row-level-security/", "/cost/"]:
         assert p in llms, f"{p} missing from llms.txt"
 
@@ -150,7 +150,7 @@ def test_rendered_docs_carry_their_own_content(site: Path):
 def test_no_relative_markdown_link_survived_into_the_html(site: Path):
     """`](benchmarks/)` means GitHub, not this site, and a reader who follows
     it to a 404 has been told something false about the rest."""
-    for path in ("/benchmarks/", "/local-models/", "/vanna-alternative/"):
+    for path in ("/benchmarks/", "/local-models/", "/vanna-alternative/", "/langchain/"):
         f = SITE / path.strip("/") / "index.html"
         for href in re.findall(r'href="([^"]+)"', f.read_text("utf-8")):
             assert href.startswith(("http://", "https://", "/", "#", "mailto:")), (
