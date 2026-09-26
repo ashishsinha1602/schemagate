@@ -132,8 +132,11 @@ def test_no_one_reads_order_without_the_rebuild():
     claiming one about the codebase: `benchmarks/fixture_1200.py` read
     `cat._order` with no guard and the green tick could not report it.
 
-    This rule cannot see `getattr(self, "_order")` or any other dynamic
-    access. No rule of this shape can.
+    This rule reads names, so every form that reaches the attribute
+    without naming it is invisible to it. Named rather than left to the
+    reader to generalise: an alias (`docs = self._order`), `getattr(self,
+    "_order")`, `setattr(self, "_order", ...)`, and `vars(self)["_order"]`.
+    No rule of this shape can see any of them.
     """
     files, exempt = _tracked_python_files()
     assert files, "the walk parsed no files -- a rule over an empty domain passes vacuously"
