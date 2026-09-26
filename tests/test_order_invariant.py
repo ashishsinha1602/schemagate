@@ -186,9 +186,10 @@ def test_every_writer_of_docs_marks_the_index_stale():
 
     What this rule still cannot hold, named in full rather than left to
     the reader to generalise from one example: an alias (`docs = self._docs`
-    and then `docs[k] = doc`, a store under another name), `setattr(self,
-    "_docs", ...)`, and `vars(self)["_docs"]`. All three reach the attribute
-    without naming it, and no rule of this shape sees any of them. They are
+    and then `docs[k] = doc`, a store under another name), `getattr(self,
+    "_docs")`, `setattr(self, "_docs", ...)`, and `vars(self)["_docs"]`. All
+    four reach the attribute without naming it, and no rule of this shape
+    sees any of them. They are
     covered by this sentence rather than by the walk.
     """
     files, exempt = _tracked_python_files()
