@@ -320,6 +320,15 @@ def apply_policies(catalog, policied: Set[Key], bypassing: Set[Key], *,
     cannot: Set[str] = set()
     why: Dict[str, str] = {}
 
+    # Marked before the loop, not after it. The loop calls the caller's
+    # `probe`, and a probe that touches the catalogue mid-loop would see
+    # `_docs` short by however many views have been hidden so far while
+    # `_stale` was still False -- and `_ordered()` does not rebuild a
+    # catalogue nobody marked. This function marks unconditionally either
+    # way, so moving it earlier costs nothing and drops the assumption
+    # that caller-supplied code leaves the catalogue alone.
+    catalog._stale = True
+
     for key, doc in list(catalog._docs.items()):
         if _match(doc, fp):
             doc.extra["row_policy"] = True
@@ -362,7 +371,6 @@ def apply_policies(catalog, policied: Set[Key], bypassing: Set[Key], *,
         for role in sorted(cannot):
             if why.get(role):
                 rep.warnings.append(why[role])
-    catalog._stale = True
     return rep
 
 

@@ -722,8 +722,13 @@ def _flat_rank(cat, question, top_k):
     reimplementation, so the comparison is between two ways of using the same
     machinery rather than between this library and a straw man.
     """
+    # Through the accessor, not the attribute: `_order` and `_bm25` are both
+    # derived state built by the same index(), and reading either directly
+    # depends on this call sitting below the explicit index() above. That is a
+    # fact about this file's ordering rather than a property of it.
+    order = cat._ordered()
     scores = cat._bm25.scores(question)
-    pairs = [(cat._order[i], s) for i, s in enumerate(scores) if s > 0]
+    pairs = [(order[i], s) for i, s in enumerate(scores) if s > 0]
     # Name as the secondary key, so this baseline is not itself decided by
     # reflection order -- the very bug the tie-determinism fix is about. A
     # comparison whose baseline wobbles measures the wobble.
