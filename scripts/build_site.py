@@ -279,8 +279,8 @@ machine, a server you already run, or a chat window you have open anyway &mdash;
     (SITE / "install").mkdir(parents=True, exist_ok=True)
     (SITE / "install" / "index.html").write_text(page(
         "Install schemagate — Docker, pip, or an OCI stack",
-        f"docker run -p 8770:8770 ghcr.io/ashishsinha1602/schemagate, or pip install schemagate. "
-        f"Version {v}, Apache-2.0, one dependency, no API key needed to select tables.",
+        f"Three ways to run schemagate: pip, a Docker image, or a one-click Oracle Cloud "
+        f"stack. Version {v}, Apache-2.0, one dependency, no API key needed to select tables.",
         "/install/", body), "utf-8")
 
 
