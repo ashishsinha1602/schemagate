@@ -460,6 +460,32 @@ def driver_hint(url: str) -> Optional[str]:
             return extra
     return None
 
+#: The module SQLAlchemy imports for each extra, read off SUPPORTED, plus the
+#: drivers SQLAlchemy picks when a URL names none (`postgresql://` means
+#: psycopg2, not psycopg).
+_DRIVER_MODULES = {prefix.split("+", 1)[1]: extra
+                   for prefix, extra in SUPPORTED.values() if "+" in prefix and extra}
+_DRIVER_MODULES.update({"psycopg2": SUPPORTED["postgresql"][1],
+                        "cx_Oracle": SUPPORTED["oracle"][1],
+                        "MySQLdb": SUPPORTED["mysql"][1]})
+
+
+def missing_driver_hint(exc: BaseException) -> Optional[str]:
+    """What to install, when ``exc`` is a database driver failing to import.
+
+    `driver_hint` answers from a URL, which Studio has in hand. The CLI and
+    the MCP server meet the failure deeper down, as an ImportError out of
+    SQLAlchemy -- and `pip install schemagate` is SQLAlchemy and nothing else,
+    so the first Oracle connect on a fresh install ended in a long traceback
+    whose last line was `No module named 'oracledb'`. Same wording as Studio.
+    """
+    name = getattr(exc, "name", None)
+    extra = _DRIVER_MODULES.get(name or "")
+    if not isinstance(exc, ImportError) or not extra:
+        return None
+    return f"driver not installed ({name}) -- pip install '{extra}'"
+
+
 #: What a password is replaced with when a connection is shown back to the
 #: person who made it. Not `***`: the point is a command they can actually
 #: run, and an environment variable is both runnable and not a secret written

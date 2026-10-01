@@ -97,12 +97,15 @@ def _answer(cat, sel, question, args, url) -> None:
     stops -- the same escape hatch `describe --provider none` offers, because
     the benefit should not require a key.
     """
-    from sqlalchemy import create_engine
-
     from .answer import (UnsafeSQL, format_rows, generate_sql, run_sql,
                          sql_prompt)
+    from .introspect import engine_from_url
 
-    engine = create_engine(url) if isinstance(url, str) else url
+    # engine_from_url, not create_engine: selection reflected through it, so
+    # SCHEMAGATE_CONNECT_ARGS (an Autonomous Database wallet) applied there --
+    # and then the answer opened a second connection without it and failed
+    # with DPY-4001 "no credentials specified" after the SQL was written.
+    engine = engine_from_url(url) if isinstance(url, str) else url
     fragment = sel.prompt_fragment()
     dialect = engine.dialect.name
 
@@ -142,11 +145,10 @@ def _answer(cat, sel, question, args, url) -> None:
 
 def _run_sql_only(args, url) -> int:
     """`--sql` runs a query you supply, through the same read-only guard."""
-    from sqlalchemy import create_engine
-
     from .answer import UnsafeSQL, format_rows, run_sql
+    from .introspect import engine_from_url
     try:
-        cols, rows = run_sql(create_engine(url), args.sql, limit=args.limit)
+        cols, rows = run_sql(engine_from_url(url), args.sql, limit=args.limit)
     except UnsafeSQL as e:
         sys.exit(f"schemagate: refused that SQL -- {e}")
     print(format_rows(cols, rows))
@@ -196,8 +198,8 @@ def _open(args) -> Catalog:
     # able to quietly re-open something the server has revoked.
     if getattr(args, "restrict_from_grants", False):
         from .grants import restrict_from_grants
-        from sqlalchemy import create_engine
-        engine = create_engine(args.url)
+        from .introspect import engine_from_url
+        engine = engine_from_url(args.url)
         rep = restrict_from_grants(cat, engine, report=True)
         print(rep, file=sys.stderr)
         # Then the half the grants cannot see: objects under a row-level
@@ -530,7 +532,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         return args.func(args)
     except ImportError as e:
-        from .introspect import missing_driver_hint
+        from .connect import missing_driver_hint
         hint = missing_driver_hint(e)
         if not hint:
             raise

@@ -83,6 +83,13 @@ def test_the_mcp_server_reads_values_when_asked(db, monkeypatch):
     assert _status_values(mcp_server._reflect(db, None)) == ["denied", "open", "paid"]
 
 
+def test_a_bad_budget_does_not_stop_the_server(db, monkeypatch):
+    from schemagate import mcp_server
+    monkeypatch.setenv("SCHEMAGATE_VALUES", "1")
+    monkeypatch.setenv("SCHEMAGATE_VALUES_BUDGET", "thirty")
+    assert _status_values(mcp_server._reflect(db, None)) == ["denied", "open", "paid"]
+
+
 def test_the_mcp_server_reads_no_values_unless_asked(db, monkeypatch):
     from schemagate import mcp_server
     monkeypatch.delenv("SCHEMAGATE_VALUES", raising=False)

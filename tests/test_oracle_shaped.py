@@ -399,7 +399,21 @@ def test_oracle_maintained_schemas_are_excluded():
     reflected. ALL_USERS.ORACLE_MAINTAINED is the signal."""
     from schemagate.dialects import vendor_maintained
     eng = _fake_engine({"oracle_maintained": [("APEX_230200",), ("ORDS_METADATA",), ("SYS",)]})
-    assert vendor_maintained(eng) == {"APEX_230200", "ORDS_METADATA", "SYS"}
+    # in SQLAlchemy's spelling, the one get_schema_names() returns
+    assert vendor_maintained(eng) == {"apex_230200", "ords_metadata", "sys"}
+
+
+def test_oracle_maintained_names_match_what_reflection_reports():
+    """The dictionary says SH; SQLAlchemy's get_schema_names() says sh. The
+    old set kept the dictionary spelling, so the exclusion never matched and
+    every Autonomous Database caller had Oracle's SH and SSB sample schemas
+    reflected beside their own tables."""
+    from sqlalchemy.dialects.oracle.oracledb import OracleDialect_oracledb
+    from schemagate.dialects.oracle import maintained_schemas
+    eng = _fake_engine({"oracle_maintained": [("SH",), ("SSB",), ("MixedCase",)]})
+    eng.dialect = OracleDialect_oracledb()
+    reported = {OracleDialect_oracledb().normalize_name(n) for n in ("SH", "SSB", "MixedCase")}
+    assert maintained_schemas(eng) == reported == {"sh", "ssb", "MixedCase"}
 
 
 def test_vendor_maintained_failure_excludes_nothing():

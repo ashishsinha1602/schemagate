@@ -156,7 +156,10 @@ def _reflect(url: str, config_path: Optional[str]) -> Catalog:
             # Still off unless set: it reads rows, not just the catalog.
             values = str(os.environ.get("SCHEMAGATE_VALUES", "")).strip().lower() in (
                 "1", "true", "yes", "on")
-            budget = float(os.environ.get("SCHEMAGATE_VALUES_BUDGET", "30"))
+            try:
+                budget = float(os.environ.get("SCHEMAGATE_VALUES_BUDGET", "30"))
+            except ValueError:
+                budget = 30.0    # a typo here must not stop the server starting
             cat = Catalog().bootstrap(engine, sample_values=values,
                                       sample_budget=budget)
         finally:
