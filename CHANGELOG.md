@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- **A value stored in two cases now says how to compare it.** With
+  `--values`, a column holding `'ACTIVE'` and `'Active'` was listed as
+  `one of: 'ACTIVE', 'Active', ...` and the model picked one spelling,
+  writing `status = 'ACTIVE'` and silently undercounting. The note now adds
+  `same value stored in more than one case: compare with UPPER(status)`.
+  Measured on a live Oracle Autonomous Database (24 tables, ~30M rows, 26
+  business questions checked against hand-written SQL, Gemini 2.5 Flash):
+  the two questions that hit mixed-case values went from wrong to right,
+  and `--values` with top-6 selection answered 26/26 against 18/26 for the
+  whole schema sent raw, at about the same prompt size.
+
 ## 1.0.0
 
 - **The API is stable.** Fifty-eight 0.1.x releases in sixteen days said

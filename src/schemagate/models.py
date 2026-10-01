@@ -128,6 +128,15 @@ class Column:
         notes = []
         if self.values:
             notes.append("one of: " + ", ".join(repr(v) for v in self.values))
+            # The list alone is not enough when one value is stored in two
+            # cases. Shown `'ACTIVE', 'Active'`, a model picks one, writes
+            # `status = 'ACTIVE'`, and silently undercounts -- measured on a
+            # live Oracle schema, both such questions were wrong until this
+            # line said what to do instead.
+            folded = [v.casefold() for v in self.values]
+            if len(set(folded)) < len(folded):
+                notes.append(f"same value stored in more than one case: "
+                             f"compare with UPPER({self.name})")
         comment = _one_line(self.comment)
         if comment:
             notes.append(comment)

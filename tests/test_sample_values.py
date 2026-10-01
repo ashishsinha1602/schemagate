@@ -55,6 +55,21 @@ def test_the_values_reach_the_prompt_the_model_sees(db):
     assert "'denied'" in frag
 
 
+def test_a_value_stored_in_two_cases_says_how_to_compare():
+    """Listing `'ACTIVE', 'Active'` is not enough: the model picks one and
+    undercounts. On a live Oracle schema both such questions were wrong until
+    the prompt said to compare case-insensitively."""
+    status = Column(name="STATUS", type="VARCHAR2(20)",
+                    values=["ACTIVE", "Active", "CHURNED"])
+    assert "compare with UPPER(STATUS)" in status.render()
+
+
+def test_distinct_values_alone_get_no_case_note():
+    status = Column(name="status", type="VARCHAR(20)",
+                    values=["denied", "open", "paid"])
+    assert "UPPER" not in status.render()
+
+
 def test_reading_values_is_off_by_default(db):
     """Everything else in this library reads metadata only. Reading rows is
     a different promise, so it must be asked for."""
