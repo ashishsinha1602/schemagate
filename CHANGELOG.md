@@ -1,6 +1,28 @@
 # Changelog
 
-## Unreleased
+## 1.1.0
+
+Accuracy on Oracle, and the MCP server catching up with the CLI. Measured on a
+live Autonomous Database (24 tables, ~30M rows, 26 business questions checked
+against hand-written SQL, Gemini 2.5 Flash via OCI Generative AI): `--values`
+with top-6 selection answered 26/26, against 18/26 for the whole schema sent
+raw, at about the same prompt size.
+
+**Behaviour that changes for existing users**
+
+- On Oracle, Oracle-maintained schemas (`SH`, `SSB`, `APEX_*`, `ORDS_*`, ...)
+  are no longer reflected when no schema is given -- the exclusion always
+  meant to do this and never matched (below). Name one with `--schema` to
+  keep it.
+- A missing database driver exits 2 with a one-line install hint instead of a
+  traceback.
+- With `--values`, a column whose values differ only in case gets one more note.
+- A catalog config file with a block schemagate does not know (`restrict_columns`
+  with an s, say) is refused instead of silently ignored; so is a `restrict` or
+  `restrict_column` entry naming a table or column that is not in the catalog.
+
+Nothing changes for PostgreSQL, MySQL, SQL Server or SQLite unless the new
+options are set.
 
 - **Fixed: Oracle's sample schemas were reflected beside the user's own.**
   The Oracle-maintained exclusion compared `ALL_USERS` names (`SH`) with the
@@ -40,6 +62,36 @@
   the two questions that hit mixed-case values went from wrong to right,
   and `--values` with top-6 selection answered 26/26 against 18/26 for the
   whole schema sent raw, at about the same prompt size.
+
+- **Column ACLs can live in `catalog.json`: the `restrict_column` block (#91).**
+  `{"restrict_column": {"employees": {"salary": ["hr"]}}}` withholds the
+  column from every caller without the role, through the CLI, the Studio and
+  the MCP server alike -- the one part of the access model that until now
+  could only be stated in code. Applied after `describe`, so a description is
+  never generated against a column the file withholds. `load()` now rejects
+  unknown top-level blocks and names them: `"restrict_columns"` with an s used
+  to be a no-op that looked like a policy.
+
+- **A bad `catalog.json` is reported in one line (#93).** A misspelled block,
+  table or column was refused but the command line died with the loader's
+  traceback; it now prints `schemagate: --config catalog.json: unknown
+  block(s) 'restrict_columns'; expected any of ...`, the same shape as a
+  failed connect. sentence-transformers 5 renamed an accessor and warned on
+  every run; the warning is gone.
+
+- **Autonomous Database: the URL that works, documented (#90).** The install
+  page and README show the TLS form (`oracle+oracledb://ADMIN:pw@/?dsn=(description=...)`)
+  and the wallet form; a failed connect is one line naming the URL with the
+  password hidden, instead of a driver traceback.
+
+- **CI holds the bottom of the declared `langchain-core` range (#87)**, so the
+  LangChain integration is tested on the oldest version the package claims to
+  support, not only the newest.
+
+## 1.0.1 (not published; folded into 1.1.0)
+
+- Hardening of the `_order` guard (#82), LangChain integration docs, and
+  `glama.json` registry metadata. No user-facing behaviour change.
 
 ## 1.0.0
 
