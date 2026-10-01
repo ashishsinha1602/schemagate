@@ -82,7 +82,16 @@ def engine_from_url(url: str, **kwargs):
         merged = dict(env_args)
         merged.update(kwargs.pop("connect_args", None) or {})
         kwargs["connect_args"] = merged
-    return create_engine(url, **kwargs)
+    try:
+        return create_engine(url, **kwargs)
+    except ImportError as e:
+        from .connect import missing_driver_hint
+        hint = missing_driver_hint(e)
+        if hint:
+            # same class as the original, so a caller catching
+            # ModuleNotFoundError still catches it
+            raise type(e)(hint, name=e.name) from e
+        raise
 
 
 #: Only short string columns are candidates. A `VARCHAR(30)` that holds four

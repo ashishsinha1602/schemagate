@@ -20,7 +20,15 @@ def maintained_schemas(engine) -> Set[str]:
         rows = conn.exec_driver_sql(
             "SELECT username FROM all_users WHERE oracle_maintained = 'Y'"
         ).fetchall()
-    return {r[0] for r in rows}
+    # In the spelling SQLAlchemy reports schemas in, which is what this set is
+    # compared against. The dictionary says `SH`; get_schema_names() says `sh`.
+    # Compared raw, nothing ever matched, so every Autonomous Database caller
+    # got Oracle's SH and SSB sample schemas reflected next to their own -- and
+    # "how many active customers" picked sh.customers over the user's table.
+    normalize = getattr(engine.dialect, "normalize_name", None)
+    if normalize is None:                     # SQLAlchemy's rule: ALL-CAPS -> lower
+        def normalize(n): return n.lower() if n.isupper() else n
+    return {normalize(r[0]) for r in rows}
 
 
 #: engine -> owner -> {(table, column): rendered type}. One query per SCHEMA,

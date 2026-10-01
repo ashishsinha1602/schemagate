@@ -55,6 +55,47 @@ def test_the_values_reach_the_prompt_the_model_sees(db):
     assert "'denied'" in frag
 
 
+def test_a_value_stored_in_two_cases_says_how_to_compare():
+    """Listing `'ACTIVE', 'Active'` is not enough: the model picks one and
+    undercounts. On a live Oracle schema both such questions were wrong until
+    the prompt said to compare case-insensitively."""
+    status = Column(name="STATUS", type="VARCHAR2(20)",
+                    values=["ACTIVE", "Active", "CHURNED"])
+    assert "compare with UPPER(STATUS)" in status.render()
+
+
+def test_distinct_values_alone_get_no_case_note():
+    status = Column(name="status", type="VARCHAR(20)",
+                    values=["denied", "open", "paid"])
+    assert "UPPER" not in status.render()
+
+
+def _status_values(cat):
+    claim = next(d for d in cat._docs.values() if d.name == "claim")
+    return next(c for c in claim.columns if c.name == "status").values
+
+
+def test_the_mcp_server_reads_values_when_asked(db, monkeypatch):
+    """The CLI and Studio had `--values`; the server -- how most people reach
+    a database through a model -- had no way to ask for them."""
+    from schemagate import mcp_server
+    monkeypatch.setenv("SCHEMAGATE_VALUES", "1")
+    assert _status_values(mcp_server._reflect(db, None)) == ["denied", "open", "paid"]
+
+
+def test_a_bad_budget_does_not_stop_the_server(db, monkeypatch):
+    from schemagate import mcp_server
+    monkeypatch.setenv("SCHEMAGATE_VALUES", "1")
+    monkeypatch.setenv("SCHEMAGATE_VALUES_BUDGET", "thirty")
+    assert _status_values(mcp_server._reflect(db, None)) == ["denied", "open", "paid"]
+
+
+def test_the_mcp_server_reads_no_values_unless_asked(db, monkeypatch):
+    from schemagate import mcp_server
+    monkeypatch.delenv("SCHEMAGATE_VALUES", raising=False)
+    assert not _status_values(mcp_server._reflect(db, None))
+
+
 def test_reading_values_is_off_by_default(db):
     """Everything else in this library reads metadata only. Reading rows is
     a different promise, so it must be asked for."""
