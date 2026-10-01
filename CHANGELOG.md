@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **A missing database driver now says which extra to install.**
+  `pip install schemagate` is SQLAlchemy only, so the first Oracle connect
+  on a fresh install ended in a long SQLAlchemy traceback whose last line was
+  `No module named 'oracledb'`. It now prints
+  `the oracledb driver is not installed: pip install 'schemagate[oracle]'`
+  (and the same for PostgreSQL, SQL Server and MySQL) and exits 2.
+
 - **The MCP server can read values too: `SCHEMAGATE_VALUES=1`.** The CLI
   and Studio had `--values`; the server, which is how most people reach a
   database through a model, had no way to ask for them, so its users got

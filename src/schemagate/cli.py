@@ -527,7 +527,15 @@ def main(argv: Optional[List[str]] = None) -> int:
     if not argv:
         argv = default_argv()
     args = build_parser().parse_args(argv)
-    return args.func(args)
+    try:
+        return args.func(args)
+    except ImportError as e:
+        from .introspect import missing_driver_hint
+        hint = missing_driver_hint(e)
+        if not hint:
+            raise
+        print(f"schemagate: {hint}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

@@ -69,6 +69,28 @@ def connect_args_from_env() -> dict:
     return parsed
 
 
+#: The database driver each extra installs, by the module SQLAlchemy imports.
+_DRIVER_EXTRA = {"oracledb": "oracle", "cx_Oracle": "oracle",
+                 "psycopg": "postgres", "psycopg2": "postgres",
+                 "pyodbc": "mssql", "pymysql": "mysql", "MySQLdb": "mysql"}
+
+
+def missing_driver_hint(exc: BaseException) -> Optional[str]:
+    """The install line for a database driver that is not there, or None.
+
+    `pip install schemagate` is SQLAlchemy and nothing else, so the first
+    Oracle connect on a fresh install died in a 30-line SQLAlchemy traceback
+    ending `No module named 'oracledb'` -- true, and no help. The AI providers
+    already said which extra to install; the drivers did not.
+    """
+    name = getattr(exc, "name", None)
+    extra = _DRIVER_EXTRA.get(name or "")
+    if not isinstance(exc, ImportError) or not extra:
+        return None
+    return (f"the {name} driver is not installed: "
+            f"pip install 'schemagate[{extra}]'")
+
+
 def engine_from_url(url: str, **kwargs):
     """``create_engine(url)`` with :func:`connect_args_from_env` merged in.
 
@@ -82,7 +104,13 @@ def engine_from_url(url: str, **kwargs):
         merged = dict(env_args)
         merged.update(kwargs.pop("connect_args", None) or {})
         kwargs["connect_args"] = merged
-    return create_engine(url, **kwargs)
+    try:
+        return create_engine(url, **kwargs)
+    except ImportError as e:
+        hint = missing_driver_hint(e)
+        if hint:
+            raise ImportError(hint, name=e.name) from e
+        raise
 
 
 #: Only short string columns are candidates. A `VARCHAR(30)` that holds four
