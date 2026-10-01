@@ -975,6 +975,63 @@ That opens Resource Manager in your own tenancy with the stack loaded — an
 Always-Free-eligible VM running the MCP server against an Autonomous Database
 it creates, or one you already have. Details and the Terraform: [`oci/`](oci/).
 
+### OCI Generative AI from your own machine
+
+Everything runs under your OCI identity and is billed to your tenancy. Nothing
+is installed in the database — no Select AI profile, no grants beyond `SELECT`.
+
+```bash
+pip install 'schemagate[oracle,oci,mcp]'
+```
+
+On Windows the OCI SDK has very long file paths: install into a short path
+(`python -m venv C:\sg`) or enable long paths, or pip fails part-way.
+
+**Sign-in** is the usual OCI one: `~/.oci/config` from an API key (Console ›
+Profile › API keys), or a resource / instance principal when running inside OCI.
+**Permission** is one policy, for your group — no dynamic group, nothing on the
+database:
+
+```
+allow group <your-group> to use generative-ai-family in compartment <compartment>
+```
+
+| variable | |
+|---|---|
+| `OCI_COMPARTMENT_ID` | turns OCI Generative AI on (it is the provider picked when no other key is set) |
+| `OCI_REGION` | the Generative AI region, e.g. `us-chicago-1`, `us-phoenix-1` |
+| `SCHEMAGATE_DESCRIBE_MODEL` | the model for automatic descriptions. **Required for OCI** — there is no default, because model ids differ by region |
+
+**Pick a model your region serves on demand.** The catalogue in a region lists
+models that are dedicated-cluster only; calling one fails with
+`404 Entity with key <model> not found`. Choose another (in `us-phoenix-1`,
+September 2026, `google.gemini-2.5-flash` was on demand; several listed Llama
+and Cohere models were not). The MCP server still starts when the model is
+wrong — it skips the descriptions — so check its log.
+
+**An MCP server on an Autonomous Database**, with values and descriptions:
+
+```json
+{"mcpServers": {"schemagate": {
+  "command": "python", "args": ["-m", "schemagate.mcp_server"],
+  "env": {
+    "SCHEMAGATE_DATABASE_URL": "oracle+oracledb://@",
+    "SCHEMAGATE_CONNECT_ARGS": "{\"config_dir\": \"C:/wallet\", \"wallet_location\": \"C:/wallet\", \"wallet_password\": \"...\", \"user\": \"APP\", \"password\": \"...\", \"dsn\": \"mydb_high\"}",
+    "SCHEMAGATE_VALUES": "1",
+    "SCHEMAGATE_VALUES_BUDGET": "120",
+    "OCI_COMPARTMENT_ID": "ocid1.compartment.oc1..…",
+    "OCI_REGION": "us-phoenix-1",
+    "SCHEMAGATE_DESCRIBE_MODEL": "google.gemini-2.5-flash"
+  }}}}
+```
+
+`SCHEMAGATE_VALUES_BUDGET` is seconds; the default 30 can cut value reading short
+on a large schema behind a wallet. Oracle-maintained schemas — including the
+`SH` and `SSB` samples every Autonomous Database ships — are left out, so the
+catalog is the schemas you own or were granted. From the CLI, `--answer
+--provider oci --model <id>` writes the SQL with the same model and runs it
+read-only over the same connection.
+
 ## Keeping the index in Oracle
 
 `MemoryStore` rebuilds on every process start. Fine for a few hundred objects,

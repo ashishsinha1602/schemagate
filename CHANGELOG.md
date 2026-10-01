@@ -2,11 +2,25 @@
 
 ## Unreleased
 
+- **Fixed: Oracle's sample schemas were reflected beside the user's own.**
+  The Oracle-maintained exclusion compared `ALL_USERS` names (`SH`) with the
+  names SQLAlchemy reports (`sh`), so it never matched. Every Autonomous
+  Database ships the `SH` and `SSB` samples; with them in the catalog, "how
+  many active customers" picked `sh.customers` over the user's table.
+- **Fixed: `--answer`, `--sql` and `--restrict-from-grants` ignored
+  `SCHEMAGATE_CONNECT_ARGS`.** Selection connected with the wallet; the query
+  then opened a second connection without it and failed with
+  `DPY-4001: no credentials specified` after the SQL had been written.
+- **Docs: OCI Generative AI from your own machine** -- install, sign-in, the
+  one policy, the variables, why a listed model can 404, and an MCP config for
+  an Autonomous Database.
+
 - **A missing database driver now says which extra to install.**
   `pip install schemagate` is SQLAlchemy only, so the first Oracle connect
   on a fresh install ended in a long SQLAlchemy traceback whose last line was
   `No module named 'oracledb'`. It now prints
-  `the oracledb driver is not installed: pip install 'schemagate[oracle]'`
+  `driver not installed (oracledb) -- pip install 'schemagate[oracle]'`, the
+  wording Studio already used,
   (and the same for PostgreSQL, SQL Server and MySQL) and exits 2.
 
 - **The MCP server can read values too: `SCHEMAGATE_VALUES=1`.** The CLI
