@@ -150,7 +150,15 @@ def _reflect(url: str, config_path: Optional[str]) -> Catalog:
         # rather than raised on first use after a database restart
         engine = engine_from_url(url, pool_pre_ping=True)
         try:
-            cat = Catalog().bootstrap(engine)
+            # `--values` for the server. The CLI and Studio had it; the server,
+            # which is how most people reach a database through a model, had
+            # no way to ask -- so its users got 'Card' guessed for 'CARD'.
+            # Still off unless set: it reads rows, not just the catalog.
+            values = str(os.environ.get("SCHEMAGATE_VALUES", "")).strip().lower() in (
+                "1", "true", "yes", "on")
+            budget = float(os.environ.get("SCHEMAGATE_VALUES_BUDGET", "30"))
+            cat = Catalog().bootstrap(engine, sample_values=values,
+                                      sample_budget=budget)
         finally:
             engine.dispose()     # the index is in memory; hold nothing open
     _apply_config(cat, config_path)

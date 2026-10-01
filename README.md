@@ -350,6 +350,7 @@ run before trusting a new database or driver.
 | `SCHEMAGATE_HOME` | where `connection.json` lives (default `~/.schemagate`) |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY` / `GOOGLE_API_KEY`, `OCI_COMPARTMENT_ID` | picked up automatically by `--provider` |
 | `SCHEMAGATE_STUDIO_LOG=1` | log Studio requests |
+| `SCHEMAGATE_VALUES=1` | MCP server: read column values at startup, like `--values` (`SCHEMAGATE_VALUES_BUDGET` = seconds, default 30) |
 
 ## How it picks
 
@@ -913,6 +914,10 @@ the catalog's own embedder -- deterministic, offline, and a weak notion of
 "similar": it matches wording, not meaning, which is acceptable because the
 examples are advisory and the pins are gated.
 `SCHEMAGATE_DATABASE_URL=demo` serves the bundled schema.
+`SCHEMAGATE_VALUES=1` is the server's `--values`: it reads the distinct values of
+short, non-personal columns at startup so the model writes `'CARD'`, not `'Card'`.
+It reads rows, so it stays off unless set; `SCHEMAGATE_VALUES_BUDGET` caps it in
+seconds (default 30 -- raise it for a large schema behind a wallet).
 
 To host it for a team rather than one desktop:
 

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **The MCP server can read values too: `SCHEMAGATE_VALUES=1`.** The CLI
+  and Studio had `--values`; the server, which is how most people reach a
+  database through a model, had no way to ask for them, so its users got
+  `'Card'` guessed for `'CARD'`. Off unless set, as everywhere else: it reads
+  rows. `SCHEMAGATE_VALUES_BUDGET` caps the time it may spend (seconds,
+  default 30).
+
 - **A value stored in two cases now says how to compare it.** With
   `--values`, a column holding `'ACTIVE'` and `'Active'` was listed as
   `one of: 'ACTIVE', 'Active', ...` and the model picked one spelling,

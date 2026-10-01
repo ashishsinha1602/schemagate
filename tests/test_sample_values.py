@@ -70,6 +70,25 @@ def test_distinct_values_alone_get_no_case_note():
     assert "UPPER" not in status.render()
 
 
+def _status_values(cat):
+    claim = next(d for d in cat._docs.values() if d.name == "claim")
+    return next(c for c in claim.columns if c.name == "status").values
+
+
+def test_the_mcp_server_reads_values_when_asked(db, monkeypatch):
+    """The CLI and Studio had `--values`; the server -- how most people reach
+    a database through a model -- had no way to ask for them."""
+    from schemagate import mcp_server
+    monkeypatch.setenv("SCHEMAGATE_VALUES", "1")
+    assert _status_values(mcp_server._reflect(db, None)) == ["denied", "open", "paid"]
+
+
+def test_the_mcp_server_reads_no_values_unless_asked(db, monkeypatch):
+    from schemagate import mcp_server
+    monkeypatch.delenv("SCHEMAGATE_VALUES", raising=False)
+    assert not _status_values(mcp_server._reflect(db, None))
+
+
 def test_reading_values_is_off_by_default(db):
     """Everything else in this library reads metadata only. Reading rows is
     a different promise, so it must be asked for."""
