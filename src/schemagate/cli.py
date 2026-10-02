@@ -185,11 +185,32 @@ def cmd_demo(args) -> int:
     return 0
 
 
+def _safe_url(url: str) -> str:
+    try:
+        from sqlalchemy.engine import make_url
+        return make_url(url).render_as_string(hide_password=True)
+    except Exception:  # noqa: BLE001
+        return "the database"
+
+
 def _open(args) -> Catalog:
-    cat = Catalog().bootstrap(args.url, include=args.include or None,
-                              exclude=args.exclude or None,
-                              schemas=getattr(args, "schema", None) or None,
-                              sample_values=getattr(args, "values", False))
+    try:
+        cat = Catalog().bootstrap(args.url, include=args.include or None,
+                                  exclude=args.exclude or None,
+                                  schemas=getattr(args, "schema", None) or None,
+                                  sample_values=getattr(args, "values", False))
+    except (OSError, ConnectionError) as e:
+        # a reset or refused socket (an Autonomous Database answers plain TCP with
+        # a reset): the user needs the URL it tried, without the password, and the
+        # cause - not a driver traceback
+        sys.exit(f"schemagate: could not connect to {_safe_url(args.url)}: {e}")
+    except Exception as e:  # noqa: BLE001
+        name = type(e).__name__
+        if "Operational" in name or "DBAPI" in name or "Interface" in name or "Database" in name:
+            first = str(e).strip().splitlines()[0] if str(e).strip() else name
+            sys.exit(f"schemagate: could not connect to {_safe_url(args.url)}: {first}")
+        raise
+
     if getattr(args, "config", None):
         from . import config as _config
         _config.apply(cat, _config.load(args.config))
