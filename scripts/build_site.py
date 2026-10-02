@@ -255,9 +255,11 @@ schemagate select --schema APP "unpaid invoices" --prompt --url \
 <p class="muted">The host, port and service are the ones in the console&rsquo;s connection strings
 (the <code>_low</code> service is the right default). Percent-encode a password that contains
 <code>@</code>, <code>/</code> or <code>#</code>. <code>--schema</code> names the schema to read; without
-it you get the connecting user&rsquo;s own objects. A database that still requires mutual TLS takes the
-same URL plus the wallet parameters python-oracledb documents (<code>config_dir</code>,
-<code>wallet_location</code>, <code>wallet_password</code>) in the query string.</p>
+it you get the connecting user&rsquo;s own objects. A database that requires mutual TLS takes the wallet instead: unzip it,
+name the <code>tnsnames.ora</code> alias as <code>dsn</code> and point the three wallet parameters at the folder
+(verified against a live Autonomous Database):</p>
+<pre><code>schemagate select --schema APP "unpaid invoices" --prompt --url   "oracle+oracledb://ADMIN:PASSWORD@/?dsn=mydb_high&amp;config_dir=/path/to/wallet&amp;wallet_location=/path/to/wallet&amp;wallet_password=WALLETPASSWORD"
+</code></pre>
 
 <p>In Python, the whole of it:</p>
 <pre><code>from schemagate import Catalog, Principal
