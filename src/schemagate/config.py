@@ -1,9 +1,11 @@
 # Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Catalog configuration that lives outside your code.
 
-A JSON file with up to four blocks; every block is optional::
+A JSON file with up to five blocks; every block is optional::
 
-    {"restrict": {"hr_compensation": ["payroll"]},
+    {"restrict":        {"hr_compensation": ["payroll"]},
+     "restrict_column": {"employees": {"salary": ["hr"],
+                                       "national_id": ["hr", "compliance"]}},
      "hint":     {"invoice_draft": "drafts only, not revenue"},
      "describe": {"v_stock_shortfall": "Items below their reorder level."},
      "groups":   {"sources": [{"type": "entra", "tenant": "...", "client_id": "...",
@@ -27,7 +29,7 @@ from typing import Any, Dict, Mapping, Optional
 
 from .catalog import Catalog
 
-KEYS = ("restrict", "hint", "describe", "groups")
+KEYS = ("restrict", "restrict_column", "hint", "describe", "groups")
 
 
 def load(path: Optional[str]) -> Dict[str, Any]:
@@ -40,10 +42,22 @@ def load(path: Optional[str]) -> Dict[str, Any]:
         data = json.load(fh)
     if not isinstance(data, dict):
         raise ValueError(f"{path}: catalog config must be a JSON object")
+    unknown = [k for k in data if k not in KEYS]
+    if unknown:
+        raise ValueError(
+            f"{path}: unknown block(s) {', '.join(map(repr, sorted(unknown)))}; "
+            f"expected any of {', '.join(KEYS)}")
     return data
 
 
 def apply(cat: Catalog, config: Mapping[str, Any]) -> None:
+    """Apply every catalog block in ``config`` to ``cat``.
+
+    ``restrict`` and ``restrict_column`` raise ``KeyError`` for a table or
+    column that is not in the catalog, matching ``Catalog``'s own behaviour:
+    an ACL typo that reports success is a restriction that silently is not
+    there.
+    """
     for table, roles in (config.get("restrict") or {}).items():
         cat.restrict(table, list(roles))
     for table, text in (config.get("hint") or {}).items():
@@ -51,6 +65,15 @@ def apply(cat: Catalog, config: Mapping[str, Any]) -> None:
     desc = config.get("describe") or {}
     if desc:
         cat.describe(desc, only_missing=False)
+    # Last, so a description written above cannot be generated against a
+    # column this block is about to withhold.
+    for table, columns in (config.get("restrict_column") or {}).items():
+        if not isinstance(columns, Mapping):
+            raise ValueError(
+                f"restrict_column[{table!r}] must be an object mapping "
+                f"column name to a list of roles")
+        for column, roles in columns.items():
+            cat.restrict_column(table, column, list(roles))
 
 
 def groups_from(config: Mapping[str, Any], default_url: Optional[str] = None):
