@@ -265,6 +265,7 @@ schemagate certify   URL                 end-to-end check on a real engine
 ```bash
 schemagate demo "who reports to whom"
 schemagate select --url postgresql+psycopg://user:pw@host/db "unpaid invoices"
+schemagate select --schema APP --url "oracle+oracledb://ADMIN:pw@/?dsn=(description=(address=(protocol=tcps)(port=1522)(host=adb.us-phoenix-1.oraclecloud.com))(connect_data=(service_name=abc123_mydb_low.adb.oraclecloud.com)))" "unpaid invoices"   # Autonomous Database
 ```
 
 | flag | what it does |

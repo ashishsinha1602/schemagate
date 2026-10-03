@@ -243,6 +243,24 @@ library. The driver extras are only the database driver.</p>
 schemagate studio --url "postgresql://localhost/app"
 schemagate select "revenue by month" --url "postgresql://localhost/app" --prompt
 </code></pre>
+<h3>Oracle Autonomous Database</h3>
+<p>An Autonomous Database only speaks TLS, so the URL carries a connect descriptor in <code>dsn</code>
+rather than a host and port. With mutual TLS switched off on the database (the console&rsquo;s
+&ldquo;Access control list&rdquo; / &ldquo;mTLS not required&rdquo; setting) no wallet is needed:</p>
+<pre><code>pip install "schemagate[oracle]"
+
+schemagate select --schema APP "unpaid invoices" --prompt --url \
+  "oracle+oracledb://ADMIN:PASSWORD@/?dsn=(description=(address=(protocol=tcps)(port=1522)(host=adb.us-phoenix-1.oraclecloud.com))(connect_data=(service_name=abc123_mydb_low.adb.oraclecloud.com))(security=(ssl_server_dn_match=yes)))"
+</code></pre>
+<p class="muted">The host, port and service are the ones in the console&rsquo;s connection strings
+(the <code>_low</code> service is the right default). Percent-encode a password that contains
+<code>@</code>, <code>/</code> or <code>#</code>. <code>--schema</code> names the schema to read; without
+it you get the connecting user&rsquo;s own objects. A database that requires mutual TLS takes the wallet instead: unzip it,
+name the <code>tnsnames.ora</code> alias as <code>dsn</code> and point the three wallet parameters at the folder
+(verified against a live Autonomous Database):</p>
+<pre><code>schemagate select --schema APP "unpaid invoices" --prompt --url   "oracle+oracledb://ADMIN:PASSWORD@/?dsn=mydb_high&amp;config_dir=/path/to/wallet&amp;wallet_location=/path/to/wallet&amp;wallet_password=WALLETPASSWORD"
+</code></pre>
+
 <p>In Python, the whole of it:</p>
 <pre><code>from schemagate import Catalog, Principal
 
