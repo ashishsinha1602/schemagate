@@ -213,7 +213,15 @@ def _open(args) -> Catalog:
 
     if getattr(args, "config", None):
         from . import config as _config
-        _config.apply(cat, _config.load(args.config))
+        try:
+            _config.apply(cat, _config.load(args.config))
+        except (ValueError, KeyError) as e:
+            # a misspelled block, table or column in the file: the loader refuses
+            # it on purpose, and the user needs the reason, not a traceback
+            msg = str(e.args[0]) if e.args else str(e)
+            if not msg.startswith(args.config):       # load() names the file already
+                msg = f"{args.config}: {msg}"
+            sys.exit(f"schemagate: --config {msg}")
     # After --config on purpose: the database's own grants are the source of
     # truth for who may see an object, and a hand-written file should not be
     # able to quietly re-open something the server has revoked.

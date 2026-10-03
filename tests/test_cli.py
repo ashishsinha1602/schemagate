@@ -76,6 +76,33 @@ def test_version_flag():
     assert exc.value.code == 0
 
 
+def _config_file(tmp_path, obj):
+    import json
+    p = tmp_path / "catalog.json"
+    p.write_text(json.dumps(obj), encoding="utf-8")
+    return str(p)
+
+
+def test_misspelled_config_block_is_one_line_not_a_traceback(tmp_path):
+    """The loader refuses a block it does not know; the command line must say why
+    in one line, naming the file, rather than die with the loader's traceback."""
+    from schemagate.demo_schema import create_demo_db
+    path = _config_file(tmp_path, {"restrict_columns": {"hr_compensation": {"annual_amount": ["hr"]}}})
+    with pytest.raises(SystemExit) as exc:
+        run("select", "salary by employee", "--url", create_demo_db(), "--config", path)
+    msg = str(exc.value)
+    assert msg.startswith("schemagate: --config ") and "unknown block" in msg and "restrict_columns" in msg
+    assert msg.count(path) == 1 and "Traceback" not in msg
+
+
+def test_misspelled_config_column_is_one_line(tmp_path):
+    from schemagate.demo_schema import create_demo_db
+    path = _config_file(tmp_path, {"restrict_column": {"hr_compensation": {"anual_amount": ["hr"]}}})
+    with pytest.raises(SystemExit) as exc:
+        run("select", "salary by employee", "--url", create_demo_db(), "--config", path)
+    assert "anual_amount" in str(exc.value) and str(exc.value).startswith(f"schemagate: --config {path}: ")
+
+
 def test_console_script_is_installed():
     """`schemagate` on PATH, as pip would install it."""
     out = subprocess.run([sys.executable, "-m", "schemagate.cli", "demo",

@@ -21,7 +21,10 @@ class SentenceTransformerEmbedder:
                 "pip install 'schemagate[huggingface]' to use SentenceTransformerEmbedder"
             ) from e
         self._m = SentenceTransformer(model, device=device, cache_folder=cache_folder)
-        self.dim = int(self._m.get_sentence_embedding_dimension())
+        # sentence-transformers 5 renamed the accessor and warns on the old name at
+        # every start; the floor is still 3.0, which has only the old one
+        dim_of = getattr(self._m, "get_embedding_dimension", None) or self._m.get_sentence_embedding_dimension
+        self.dim = int(dim_of())
         self.batch_size = batch_size
         self.name = f"st:{model}"
 
