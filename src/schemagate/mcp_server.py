@@ -269,27 +269,62 @@ def _engine():
         return _ENGINE
 
 
-#: `FROM x`, `JOIN x` -- the only two places a base table can be named.
-_REFERENCED = re.compile(r"\b(?:from|join)\s+([A-Za-z_][\w$]*(?:\.[A-Za-z_][\w$]*)*|\"[^\"]+\"(?:\.\"[^\"]+\")*)",
-                         re.I)
+#: One identifier part, bare or quoted the way some dialect quotes it:
+#: "x" (ANSI, Postgres, Oracle), [x] (SQL Server, SQLite), `x` (MySQL, SQLite).
+#: The previous pattern knew only "x", so `FROM [hr_compensation]` and
+#: FROM `hr_compensation` named nothing it could see -- and an empty list of
+#: names passed the scope check.
+_PART = r'(?:"[^"]+"|\[[^\]]+\]|`[^`]+`|[A-Za-z_][\w$#]*)'
+_REF = _PART + r"(?:\s*\.\s*" + _PART + r")*"
+_NOT_ALIAS = (r"(?!(?:where|join|on|using|group|order|limit|union|intersect|except|inner|left|right|full|"
+              r"cross|natural|having|window|offset|fetch|for|outer|lateral|straight_join|qualify|"
+              r"connect|start|pivot|unpivot|sample|tablesample|match_recognize)\b)")
+_ITEM = _REF + r"(?:\s+(?:as\s+)?" + _NOT_ALIAS + _PART + r")?"
+#: `FROM a, b c, d AS e` and `JOIN x` -- every item of a FROM list, not just
+#: the first: `FROM hr_employee, hr_compensation` used to read as one table.
+_REFERENCED = re.compile(r"\b(?:from|join)\s+(" + _ITEM + r"(?:\s*,\s*" + _ITEM + r")*)", re.I)
 #: `WITH name AS (`, and the `, name AS (` that follow it.
-_CTE = re.compile(r"(?:\bwith\b|,)\s*([A-Za-z_][\w$]*)\s+as\s*\(", re.I)
+_CTE = re.compile(r"(?:\bwith\b|,)\s*(" + _PART + r")\s+as\s*\(", re.I)
+
+
+def _unquote(part: str) -> str:
+    return part.strip()[1:-1] if part.strip()[:1] in ('"', "[", "`") else part.strip()
+
+
+def _sql_body(sql: str) -> str:
+    """The statement with comments removed and string literals emptied."""
+    body = re.sub(r"--[^\n]*", " ", sql)
+    body = re.sub(r"/\*.*?\*/", " ", body, flags=re.S)
+    return re.sub(r"'(?:[^']|'')*'", "''", body)
 
 
 def _referenced_tables(sql: str) -> List[str]:
     """Base tables the statement reads, with CTE and subquery aliases removed."""
-    body = re.sub(r"--[^\n]*", " ", sql)
-    body = re.sub(r"/\*.*?\*/", " ", body, flags=re.S)
-    body = re.sub(r"'(?:[^']|'')*'", "''", body)
-    ctes = {c.lower() for c in _CTE.findall(body)}
+    body = _sql_body(sql)
+    ctes = {_unquote(c).lower() for c in _CTE.findall(body)}
     out, seen = [], set()
-    for raw in _REFERENCED.findall(body):
-        name = raw.replace('"', "").strip()
-        if not name or name.lower() in ctes or name.lower() in seen:
-            continue
-        seen.add(name.lower())
-        out.append(name)
+    for clause in _REFERENCED.findall(body):
+        for item in re.findall(_ITEM, clause):
+            ref = re.match(_REF, item.strip())
+            if not ref:
+                continue
+            name = ".".join(_unquote(p) for p in re.findall(_PART, ref.group(0)))
+            if not name or name.lower() in ctes or name.lower() in seen:
+                continue
+            seen.add(name.lower())
+            out.append(name)
     return out
+
+
+def _identifiers(sql: str) -> set:
+    """Every identifier part in the statement, unquoted and lower-cased."""
+    return {_unquote(p).lower() for p in re.findall(_PART, _sql_body(sql))}
+
+
+#: A projection that takes every column: `SELECT *`, `SELECT DISTINCT *`,
+#: `, *`, `t.*`. COUNT(*) is not one; it reads no column's values.
+_STAR = re.compile(r"\bselect\s+(?:distinct\s+|all\s+|top\s*\(?\s*\d+\s*\)?\s+)?\*|,\s*\*\s*(?:,|\bfrom\b)|"
+                   r"(?:\w|\"|\]|`)\s*\.\s*\*", re.I)
 
 
 def _check_scope(cat: Catalog, sql: str, who: Optional[Principal]) -> Optional[str]:
@@ -305,18 +340,41 @@ def _check_scope(cat: Catalog, sql: str, who: Optional[Principal]) -> Optional[s
     catalog never reflected -- because from here those look identical, and
     the safe reading of "I do not recognise this" is no.
     """
-    visible = {}
+    visible, hidden = {}, set()
     for doc in cat.objects():
         if not cat._visible(doc, who):
+            hidden.add((doc.name or "").lower())
+            hidden.add(doc.qname.lower())
             continue
         visible[(doc.name or "").lower()] = doc
         visible[doc.qname.lower()] = doc
-    unknown = [t for t in _referenced_tables(sql)
+    refs = _referenced_tables(sql)
+    unknown = [t for t in refs
                if t.lower() not in visible
                and t.lower().split(".")[-1] not in visible]
+    # Backstop, whatever the syntax: a name this caller may not see, anywhere
+    # in the statement, is refused -- a FROM-list form the parser does not
+    # know, a LATERAL, a dialect's own table function. A hidden table whose
+    # name is also a visible object's name is left to the check above.
+    idents = _identifiers(sql)
+    unknown += sorted(n for n in (idents & hidden) - set(visible) if n not in {u.lower() for u in unknown})
     if unknown:
         return ("not available to this caller: %s. Call select_schema and use "
-                "only the objects it returns." % ", ".join(sorted(unknown)))
+                "only the objects it returns." % ", ".join(sorted(set(unknown))))
+    # Column rules. A table the caller may read can still hold a column it
+    # may not: `SELECT *` would return it, and so would naming it.
+    used = [visible.get(t.lower()) or visible.get(t.lower().split(".")[-1]) for t in refs]
+    used = [d for d in used if d is not None]
+    shown = {c.name.lower() for d in used for c in d.visible_columns(who)}
+    withheld = {c.name.lower() for d in used for c in d.columns} - shown
+    if withheld:
+        named = sorted(idents & withheld)
+        if named:
+            return ("not available to this caller: column %s. Call select_schema and "
+                    "use only the columns it returns." % ", ".join(named))
+        if _STAR.search(_sql_body(sql)):
+            return ("not available to this caller: SELECT * would include columns this "
+                    "caller may not see. Name the columns select_schema returned.")
     return None
 
 

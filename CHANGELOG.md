@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+- **Security: `run_query` (MCP server) could read what the caller may not see.**
+  Its scope check read table names in `"double quotes"` only and only the first
+  item of a `FROM` list, and an empty list of names passed. So `FROM
+  [hr_compensation]`, ``FROM `hr_compensation` `` and `FROM a, hr_compensation`
+  ran for a caller without the role on SQLite, SQL Server and MySQL. Column
+  restrictions were not checked at all: a caller who may read a table but not
+  one of its columns got that column by naming it or by `SELECT *`. Fixed:
+  every quoting style and every item of a `FROM` list is read; any identifier
+  naming a hidden object is refused whatever the syntax; a withheld column
+  named, or reached through `*`, is refused (`COUNT(*)` still runs). Upgrade if
+  you run the MCP server with restrictions. `select_schema` and the CLI were
+  not affected: they never execute a caller's SQL.
+
 ## 1.1.0
 
 Accuracy on Oracle, and the MCP server catching up with the CLI. Measured on a
