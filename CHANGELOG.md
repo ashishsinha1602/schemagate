@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 1.2.0
+
+An ontology, and a security fix for the MCP server's `run_query` -- upgrade if you
+run the server with restrictions.
 
 - **Security: `run_query` (MCP server) could read what the caller may not see.**
   Its scope check read table names in `"double quotes"` only and only the first
