@@ -8,6 +8,8 @@
 
 Your text-to-SQL agent picks which tables to show the model before anyone checks what the caller is allowed to read. schemagate does the check first: it filters the schema by the caller's grants, so restricted tables are absent from the prompt rather than ranked low. Works with LangChain, MCP, or any SQL agent, on Postgres, Oracle, MySQL, SQL Server and SQLite.
 
+![An analyst asks "salary by employee": hr_compensation is absent from the shortlist. Grant the payroll role and it becomes the top match.](https://raw.githubusercontent.com/ashishsinha1602/schemagate/main/docs/media/schemagate-demo.gif)
+
 With row-level security alone the failure is quiet: the model writes valid SQL against a table the caller cannot read, RLS strips every row, and the user is told "no records found" — indistinguishable from "this data does not exist."
 
 [Demo](https://ashishsinha1602.github.io/schemagate/) · [Install](https://ashishsinha1602.github.io/schemagate/install/) · [Benchmarks](https://ashishsinha1602.github.io/schemagate/benchmarks/) · [Local models](https://ashishsinha1602.github.io/schemagate/local-models/) · [What it costs](https://ashishsinha1602.github.io/schemagate/cost/) · [Coming from Vanna](https://ashishsinha1602.github.io/schemagate/vanna-alternative/)
@@ -22,8 +24,6 @@ schemagate demo "salary by employee" --principal okta:hr --role payroll  # now i
 Absent, not ranked low. A table the caller may not read never enters the
 prompt, so no rewording of the question reaches it and there is nothing to
 filter out of the answer afterwards.
-
-![Same question, two callers. Without the payroll role hr_compensation is absent from the prompt; with it, it is the first table.](docs/media/before-after.png)
 
 *[Try it in the browser](https://ashishsinha1602.github.io/schemagate/) — no
 install, no database, no model call.*
