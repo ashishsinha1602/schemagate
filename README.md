@@ -626,6 +626,33 @@ provider = OpenAIProvider(model="gpt-4.1-mini",
 cat = Catalog(embedder=APIEmbedder(provider, dim=1536))
 ```
 
+### Your organisation's words: a glossary
+
+Some questions share nothing with any identifier, and no description or model
+reliably bridges them: "money we gave back to shoppers" is `billing_credit_note`.
+State it once, in the same `catalog.json` as your access rules:
+
+```json
+{"terms": {"gave back": "billing_credit_note",
+           "revenue": ["billing_invoice", "v_monthly_revenue"]}}
+```
+
+or `cat.term("gave back", "billing_credit_note")` in Python. A term matches as a
+phrase, plurals folded, and only the most specific term counts ("take things
+offline" beats "offline"). It is applied when the question is asked, so nothing
+is re-indexed, and it never widens access: a term for a table the caller may
+not read does nothing for that caller. A term naming an object that does not
+exist is an error, not a silent no-op.
+
+What it is for, measured on the 58 business-language questions across the six
+bundled schemas (`tests/run_terms_repair.py`): every question that missed was
+fixed by adding **one** short term taken from it, and no other question broke --
+23 of 23 on the base embedder, 11 of 11 with MiniLM. What it is not: a glossary
+written in advance, from table names alone, barely moved the held-out questions
+(18/26 to 19/26 on the base embedder, 21/26 unchanged with MiniLM;
+`tests/run_terms_eval.py`), because people's words are hard to guess. Add terms
+for the questions you see missing.
+
 ## Connecting to what you actually have
 
 Most people do not have a SQLAlchemy URL. They have a wallet zip, a JDBC

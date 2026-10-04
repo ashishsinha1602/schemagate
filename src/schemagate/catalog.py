@@ -13,7 +13,7 @@ import re
 import math
 import os
 from collections import Counter
-from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
 
 from .embedder import (Embedder, HashingEmbedder, tokenize, expand_joins,
                        expand_acronyms)
@@ -62,6 +62,12 @@ NAME_WEIGHT = 1.0
 #: object that is named but otherwise irrelevant still cannot beat one that
 #: is named AND matches.
 NAMED_BOOST = 4.0
+
+#: Weight of the glossary channel (``Catalog.term``) in rank fusion, at parity
+#: with the other channels. A matched term also earns ``NAMED_BOOST``: a word
+#: the organisation itself defined as meaning this object is as strong a
+#: signal as the user typing the object's name.
+TERM_WEIGHT = 1.0
 
 #: A question word has to be informative before its absence is worth a slot.
 #: Measured against the name field, where the domain's own nouns stay rare:
@@ -376,6 +382,8 @@ class Catalog:
         self._shadows: Dict[str, str] = {}      # shadow qname -> base qname
         self._dims: Optional[Dict[str, int]] = None
         self._stale = True
+        # glossary: stemmed phrase -> (phrase as written, qnames it means)
+        self._terms: Dict[Tuple[str, ...], Tuple[str, List[str]]] = {}
 
     # ---------------- build ----------------
 
@@ -493,6 +501,66 @@ class Catalog:
                         return
                 raise KeyError(f"{table!r} has no column {column!r}")
         raise KeyError(f"{table!r} not in catalog")
+
+    def term(self, phrase: str, objects: Union[str, Sequence[str]]) -> None:
+        """Teach the catalog a business word: ``phrase`` means ``objects``.
+
+        For the questions identifiers cannot answer. "refund" shares no
+        characters with ``billing_credit_note``, and neither ranking nor
+        vectors can be trusted to bridge every such gap; a glossary entry
+        states it once. ``cat.term("refund", "billing_credit_note")``.
+
+        Matched against the question as a phrase, through the same tokenizer
+        and plural folding as the index, so "refunds" finds "refund" and a
+        multi-word term must appear in order. Applied at select time: no
+        reindex, and the stored vectors are untouched.
+
+        A term never widens access. The objects it names are filtered by the
+        caller's visibility exactly like every other candidate, so a term for
+        a restricted table does nothing for a caller who may not see it.
+
+        Raises ``KeyError`` for an object not in the catalog, like
+        ``restrict``: a glossary typo that reports success is a term that
+        silently does nothing.
+        """
+        names = [objects] if isinstance(objects, str) else list(objects)
+        key = tuple(_stem(t) for t in tokenize(phrase))
+        if not key:
+            raise ValueError(f"term {phrase!r} has no words")
+        qnames: List[str] = []
+        for name in names:
+            hit = next((q for q, d in self._docs.items() if q == name or d.name == name), None)
+            if hit is None:
+                raise KeyError(f"{name!r} not in catalog")
+            if hit not in qnames:
+                qnames.append(hit)
+        if key in self._terms:
+            qnames = self._terms[key][1] + [q for q in qnames if q not in self._terms[key][1]]
+        self._terms[key] = (phrase, qnames)
+
+    def terms(self) -> Dict[str, List[str]]:
+        """The glossary as ``{phrase: [qname, ...]}``."""
+        return {phrase: list(qs) for phrase, qs in self._terms.values()}
+
+    def _terms_in(self, question: str) -> List[Tuple[str, List[str]]]:
+        """The glossary entries the question uses, in the order it uses them."""
+        if not self._terms:
+            return []
+        stems = [_stem(t) for t in tokenize(question)]
+        found = []
+        for key, (phrase, qnames) in self._terms.items():
+            n = len(key)
+            for i in range(len(stems) - n + 1):
+                if tuple(stems[i:i + n]) == key:
+                    found.append((i, n, phrase, qnames))
+                    break
+        # Only the most specific match counts, the rule names already follow:
+        # "take things offline" is a maintenance window, and the single word
+        # "offline" inside it must not also pull in the silent-devices view.
+        kept = [f for f in found
+                if not any(o is not f and o[1] > f[1] and o[0] <= f[0]
+                           and f[0] + f[1] <= o[0] + o[1] for o in found)]
+        return [(phrase, qnames) for _, _, phrase, qnames in sorted(kept, key=lambda f: (f[0], -f[1]))]
 
     def restrict(self, table: str, roles: Sequence[str]) -> None:
         """Make an object visible only to principals holding one of ``roles``.
@@ -991,8 +1059,16 @@ class Catalog:
                        and other[:len(toks)] == toks
                        for other in _named.values())}
 
+        # Glossary terms the question uses. Only objects this caller may see
+        # count; a term can rank a visible object, never reveal a hidden one.
+        _term_hits = [(phrase, [q for q in qs if q in allowed_set])
+                      for phrase, qs in self._terms_in(question)]
+        _term_objs = {q for _, qs in _term_hits for q in qs}
+
         for q in allowed:
             s = 0.0
+            if q in _term_objs:
+                s += TERM_WEIGHT / (_RRF_K + 1)
             if q in vec_rank:
                 s += vector_weight / (_RRF_K + vec_rank[q] + 1)
             if q in lex_rank:
@@ -1029,7 +1105,7 @@ class Catalog:
             # for `fact_claim_line_v2` also spells out `fact_claim_line`, and
             # boosting both handed it to the shorter one, which is the table
             # the question went out of its way not to ask for.
-            if s and q in _named_best:
+            if s and (q in _named_best or q in _term_objs):
                 s *= NAMED_BOOST
             if s:
                 fused[q] = s
@@ -1065,10 +1141,30 @@ class Catalog:
             if len(chosen) >= top_k:
                 break
             if q not in taken:
-                reason = "hybrid" if (q in vec_rank and q in lex_rank) else (
-                    "vector" if q in vec_rank else "lexical")
+                reason = "term" if (q in _term_objs and q not in vec_rank and q not in lex_rank) else (
+                    "hybrid" if (q in vec_rank and q in lex_rank) else (
+                        "vector" if q in vec_rank else "lexical"))
                 chosen.append(Scored(self._docs[q], s, reason))
                 taken.add(q)
+
+        # Every glossary term the question used gets one of its objects in,
+        # the way coverage below does for words in names. Budget-neutral: it
+        # displaces the weakest ranked pick, never a pinned, covering or term
+        # pick, and is abandoned rather than break the budget.
+        for _phrase, qs in _term_hits:
+            if not qs or any(q in taken for q in qs):
+                continue
+            best = max(qs, key=lambda q: (fused.get(q, 0.0), q))
+            if len(chosen) >= top_k:
+                for i in range(len(chosen) - 1, -1, -1):
+                    if chosen[i].reason not in ("pinned", "covers", "term"):
+                        taken.discard(chosen[i].doc.qname)
+                        del chosen[i]
+                        break
+                else:
+                    continue
+            chosen.append(Scored(self._docs[best], fused.get(best, 0.0), "term"))
+            taken.add(best)
 
         # Column evidence gets one slot, the way a named thing gets one below.
         #
@@ -1096,7 +1192,7 @@ class Catalog:
                     and body_best not in taken):
                 if len(chosen) >= top_k:
                     for i in range(len(chosen) - 1, -1, -1):
-                        if chosen[i].reason not in ("pinned", "covers"):
+                        if chosen[i].reason not in ("pinned", "covers", "term"):
                             taken.discard(chosen[i].doc.qname)
                             del chosen[i]
                             break
@@ -1176,7 +1272,7 @@ class Catalog:
             # gets six, and the prompt it was sizing stays the size it sized.
             if len(chosen) >= top_k:
                 for i in range(len(chosen) - 1, -1, -1):
-                    if chosen[i].reason not in ("pinned", "covers"):
+                    if chosen[i].reason not in ("pinned", "covers", "term"):
                         taken.discard(chosen[i].doc.qname)
                         del chosen[i]
                         break

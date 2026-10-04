@@ -1,11 +1,13 @@
 # Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Catalog configuration that lives outside your code.
 
-A JSON file with up to five blocks; every block is optional::
+A JSON file with up to six blocks; every block is optional::
 
     {"restrict":        {"hr_compensation": ["payroll"]},
      "restrict_column": {"employees": {"salary": ["hr"],
                                        "national_id": ["hr", "compliance"]}},
+     "terms":    {"refund": "billing_credit_note",
+                  "revenue": ["billing_invoice", "v_monthly_revenue"]},
      "hint":     {"invoice_draft": "drafts only, not revenue"},
      "describe": {"v_stock_shortfall": "Items below their reorder level."},
      "groups":   {"sources": [{"type": "entra", "tenant": "...", "client_id": "...",
@@ -15,6 +17,10 @@ A JSON file with up to five blocks; every block is optional::
 ``groups`` is not catalog state: it says where a caller's roles come from
 (see ``schemagate.groups``) and is read by the CLI and the MCP server when
 they build a Principal. ``apply`` leaves it alone.
+
+``terms`` is the organisation's own vocabulary: a business word or phrase and
+the object (or objects) it means, for the questions whose words share nothing
+with an identifier. See ``Catalog.term``. A term never widens access.
 
 ``describe`` is where descriptions from ``schemagate describe`` land, so a
 catalog described once -- with an API key, or by pasting the prompt into a
@@ -29,7 +35,7 @@ from typing import Any, Dict, Mapping, Optional
 
 from .catalog import Catalog
 
-KEYS = ("restrict", "restrict_column", "hint", "describe", "groups")
+KEYS = ("restrict", "restrict_column", "terms", "hint", "describe", "groups")
 
 
 def load(path: Optional[str]) -> Dict[str, Any]:
@@ -53,13 +59,18 @@ def load(path: Optional[str]) -> Dict[str, Any]:
 def apply(cat: Catalog, config: Mapping[str, Any]) -> None:
     """Apply every catalog block in ``config`` to ``cat``.
 
-    ``restrict`` and ``restrict_column`` raise ``KeyError`` for a table or
-    column that is not in the catalog, matching ``Catalog``'s own behaviour:
+    ``restrict``, ``restrict_column`` and ``terms`` raise ``KeyError`` for a
+    table or column that is not in the catalog, matching ``Catalog``'s own behaviour:
     an ACL typo that reports success is a restriction that silently is not
     there.
     """
     for table, roles in (config.get("restrict") or {}).items():
         cat.restrict(table, list(roles))
+    for phrase, objects in (config.get("terms") or {}).items():
+        if not isinstance(objects, (str, list)):
+            raise ValueError(
+                f"terms[{phrase!r}] must be an object name or a list of them")
+        cat.term(phrase, objects)
     for table, text in (config.get("hint") or {}).items():
         cat.hint(table, str(text))
     desc = config.get("describe") or {}
