@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.1
 
 - **Security: `run_query` (MCP server) could read what the caller may not see.**
   Its scope check read table names in `"double quotes"` only and only the first
