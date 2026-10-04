@@ -164,3 +164,51 @@ def test_the_config_block_refuses_typos(tmp_path):
 def test_meanings_are_in_the_audit_record():
     d = revenue_catalog().select("turnover by month", top_k=6).to_dict()
     assert d["meanings"] and "total_net" in d["meanings"][0]
+
+
+# ------------------------------------------------------------------ learning
+
+HISTORY = [
+    ("refunds we issued last month", "SELECT * FROM billing_credit_note"),
+    ("refunds per customer", "SELECT c.name FROM billing_credit_note n JOIN crm_customer c ON c.id = n.id_customer"),
+    ("total refunds this year", "SELECT SUM(amount) FROM billing_credit_note"),
+    ("how many orders this year", "SELECT COUNT(*) FROM sales_order"),
+    ("how many invoices this year", "SELECT COUNT(*) FROM billing_invoice"),
+]
+
+
+def test_learning_suggests_the_domain_word_not_the_filler():
+    cat = demo_catalog()
+    found = cat.learn_concepts(HISTORY)
+    pairs = {(s["phrase"], s["object"]) for s in found}
+    assert ("refunds", "main.billing_credit_note") in pairs
+    assert not any(s["phrase"] in ("how many", "this year", "year") for s in found)
+    assert cat.ontology.get("refunds") is None          # nothing applied without apply=True
+
+
+def test_learning_skips_words_the_name_already_has():
+    cat = demo_catalog()
+    found = cat.learn_concepts(HISTORY + [("invoices overdue", "SELECT * FROM billing_invoice")])
+    assert not any(s["phrase"] == "invoices" for s in found)
+
+
+def test_learning_applies_as_learned_concepts_that_obey_access():
+    cat = demo_catalog()
+    cat.learn_concepts([("salary bands", "SELECT * FROM hr_compensation"),
+                        ("salary rises", "SELECT * FROM hr_compensation")], apply=True)
+    assert cat.ontology.get("salary").source == "learned"
+    assert "hr_compensation" not in names(cat.select("salary by employee", top_k=6, principal=Principal("okta:a")))
+
+
+def test_learning_reads_a_memory(tmp_path):
+    from schemagate.learn import Memory
+    cat = demo_catalog()
+    mem = Memory(cat.embedder, path=tmp_path / "mem.jsonl")
+    for q, sql in HISTORY:
+        mem.remember(q, sql)
+    assert any(s["object"] == "main.billing_credit_note" for s in cat.learn_concepts(mem))
+
+
+def test_unknown_tables_in_history_are_skipped():
+    cat = demo_catalog()
+    assert cat.learn_concepts([("ghost rows", "SELECT * FROM no_such_table")] * 3) == []

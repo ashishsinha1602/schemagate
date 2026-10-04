@@ -285,3 +285,83 @@ def meaning_line(c: Concept) -> Optional[str]:
     if not text:
         return None
     return f"-- {head}: {text}"
+
+
+# ------------------------------------------------------------------ learning
+
+#: Words that carry no meaning of their own in a question about data. A phrase
+#: may contain them ("per member per month") but may not start or end with one.
+STOP = frozenset("""
+a an the of for to in on at by with from and or not no is are was were be been being do does did
+how many much what which who whom whose where when why list show give find get tell me us our we
+you your i my all each every any some there their them they it its this that these those than then
+per as into over under about between more most less least top number count total average avg
+""".split())
+
+
+def learn(pairs: Iterable[Tuple[str, Iterable[str]]], *, min_support: int = 2,
+          min_precision: float = 0.6, max_n: int = 3, max_per_object: int = 5,
+          already_named=None) -> List[Dict[str, Any]]:
+    """Concepts suggested by a question history: ``[(question, [qname, ...]), ...]``.
+
+    A phrase is suggested for an object when it appears in at least
+    ``min_support`` questions whose SQL read that object, and at least
+    ``min_precision`` of all the questions using the phrase read it. That keeps
+    the domain's words ("passenger" -> flights) and drops the ones every
+    question shares ("how many"). ``already_named(phrase_key, qname)`` lets the
+    caller skip phrases the object's own name already answers.
+
+    Returns suggestions, strongest first, each ``{"phrase", "object",
+    "support", "precision"}``. Nothing is added to any catalog here: a person,
+    or ``Catalog.learn_concepts(apply=True)``, decides.
+    """
+    phrase_n: Dict[Tuple[str, ...], int] = {}
+    pair_n: Dict[Tuple[Tuple[str, ...], str], int] = {}
+    surface: Dict[Tuple[str, ...], str] = {}
+    for question, objects in pairs:
+        objs = {o for o in objects if o}
+        if not objs:
+            continue
+        words = tokenize(question)
+        stems = [_stem(w) for w in words]
+        grams = set()
+        for n in range(1, max_n + 1):
+            for i in range(len(stems) - n + 1):
+                g = tuple(stems[i:i + n])
+                if g[0] in STOP or g[-1] in STOP or any(t.isdigit() for t in g):
+                    continue
+                if all(t in STOP for t in g) or (n == 1 and len(g[0]) < 3):
+                    continue
+                grams.add(g)
+                surface.setdefault(g, " ".join(words[i:i + n]))
+        for g in grams:
+            phrase_n[g] = phrase_n.get(g, 0) + 1
+            for o in objs:
+                pair_n[(g, o)] = pair_n.get((g, o), 0) + 1
+    by_obj: Dict[str, List[Dict[str, Any]]] = {}
+    for (g, o), support in pair_n.items():
+        if support < min_support:
+            continue
+        precision = support / phrase_n[g]
+        if precision < min_precision:
+            continue
+        if already_named is not None and already_named(g, o):
+            continue
+        by_obj.setdefault(o, []).append({"phrase": surface[g], "object": o, "support": support,
+                                          "precision": round(precision, 3), "_key": g})
+    out = []
+    for o, cands in by_obj.items():
+        cands.sort(key=lambda c: (-c["precision"], -c["support"], -len(c["_key"]), c["phrase"]))
+        kept: List[Dict[str, Any]] = []
+        for c in cands:
+            # a longer phrase with no better precision than a kept shorter one adds nothing
+            if any(set(k["_key"]) <= set(c["_key"]) for k in kept):
+                continue
+            kept.append(c)
+            if len(kept) >= max_per_object:
+                break
+        out.extend(kept)
+    out.sort(key=lambda c: (-c["support"], -c["precision"], c["object"], c["phrase"]))
+    for c in out:
+        del c["_key"]
+    return out

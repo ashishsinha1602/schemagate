@@ -565,6 +565,50 @@ class Catalog:
             objects=objects, columns=columns, filter=filter, definition=definition,
             broader=[broader] if isinstance(broader, str) else list(broader), source=source))
 
+    def learn_concepts(self, history, *, apply: bool = False, min_support: int = 2,
+                       min_precision: float = 0.6, max_per_object: int = 5) -> List[Dict]:
+        """Suggest concepts from questions people asked and the SQL that answered them.
+
+        ``history`` is a ``schemagate.learn.Memory``, or an iterable of
+        ``(question, sql)`` or ``(question, [table, ...])`` pairs. Tables are
+        read from the SQL, resolved against this catalog, and unknown ones are
+        skipped. A phrase the table's own name already contains is not
+        suggested: the name finds it without help.
+
+        Returns the suggestions (see ``schemagate.ontology.learn``). With
+        ``apply=True`` each becomes a concept with ``source="learned"``; without
+        it nothing changes, so a person can review them first. Learned concepts
+        obey access exactly like written ones.
+        """
+        from .learn import referenced_tables
+        from .ontology import learn as _learn, phrase_key
+        if hasattr(history, "_entries"):
+            raw = [(e.get("question", ""), e.get("tables") or e.get("sql", "")) for e in list(history._entries)]
+        else:
+            raw = list(history)
+        pairs = []
+        for question, tabs in raw:
+            names = referenced_tables(tabs) if isinstance(tabs, str) else list(tabs or [])
+            qs = []
+            for n in names:
+                try:
+                    qs.append(self._resolve_object(n))
+                except KeyError:
+                    continue
+            if question and qs:
+                pairs.append((question, qs))
+        name_stems = {q: set(phrase_key(d.name)) for q, d in self._docs.items()}
+
+        def already_named(key, q):
+            return set(key) <= name_stems.get(q, set())
+
+        found = _learn(pairs, min_support=min_support, min_precision=min_precision,
+                       max_per_object=max_per_object, already_named=already_named)
+        if apply:
+            for s in found:
+                self.concept(s["phrase"], maps=[s["object"]], source="learned")
+        return found
+
     def term(self, phrase: str, objects: Union[str, Sequence[str]]) -> None:
         """Teach the catalog a business word: ``phrase`` means ``objects``.
 
