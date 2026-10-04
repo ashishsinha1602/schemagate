@@ -510,6 +510,14 @@ class Catalog:
     def _resolve_object(self, name: str) -> str:
         hit = next((q for q, d in self._docs.items() if q == name or d.name == name), None)
         if hit is None:
+            # Case-insensitively, when that names exactly one object: Oracle
+            # folds names to upper case, SQLAlchemy to lower, and a person
+            # writes whichever they see. Two candidates is ambiguity, not a match.
+            low = name.lower()
+            hits = [q for q, d in self._docs.items() if q.lower() == low or d.name.lower() == low]
+            if len(hits) == 1:
+                hit = hits[0]
+        if hit is None:
             raise KeyError(f"{name!r} not in catalog")
         return hit
 
@@ -527,8 +535,10 @@ class Catalog:
                 q = self._resolve_object(table)
             except KeyError:
                 raise KeyError(f"{ref!r} is neither an object nor object.column in the catalog") from None
-            if any(c.name == column for c in self._docs[q].columns):
-                return q, column
+            exact = [c.name for c in self._docs[q].columns if c.name == column]
+            folded = [c.name for c in self._docs[q].columns if c.name.lower() == column.lower()]
+            if exact or len(folded) == 1:
+                return q, (exact or folded)[0]
             raise KeyError(f"{table!r} has no column {column!r}")
         raise KeyError(f"{ref!r} not in catalog")
 
@@ -600,7 +610,9 @@ class Catalog:
         name_stems = {q: set(phrase_key(d.name)) for q, d in self._docs.items()}
 
         def already_named(key, q):
-            return set(key) <= name_stems.get(q, set())
+            # the object's own name finds it already, and a phrase the
+            # vocabulary already has needs no second concept
+            return set(key) <= name_stems.get(q, set()) or tuple(key) in self.ontology._phrases
 
         found = _learn(pairs, min_support=min_support, min_precision=min_precision,
                        max_per_object=max_per_object, already_named=already_named)
@@ -1383,7 +1395,10 @@ class Catalog:
         for c, _ in matched:
             line = meaning_line(c)
             tables = c.all_objects()
-            if line is not None and tables and any(q in selected for q in tables):
+            # A concept that maps to objects speaks when one of them is in the
+            # prompt; one that maps to none (a definition alone -- "female
+            # refers to gender = 'F'") speaks whenever the question uses it.
+            if line is not None and (not tables or any(q in selected for q in tables)):
                 candidates.append((c, line, tables))
         if not candidates:
             return []

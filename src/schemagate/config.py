@@ -111,6 +111,36 @@ def groups_from(config: Mapping[str, Any], default_url: Optional[str] = None):
     return from_config(config.get("groups"), default_url=default_url)
 
 
+def merge_concepts(path: str, concepts: Mapping[str, Mapping[str, Any]]) -> int:
+    """Write ``concepts`` (the ``to_dict()["concepts"]`` shape) into the
+    ``ontology`` block of ``path``, creating the file if needed and keeping
+    every other block. A concept already there is extended, not replaced:
+    synonyms, maps and broader concepts are unioned, a new filter or
+    definition wins. Returns how many concepts were written."""
+    data = load(path)
+    block = dict(data.get("ontology") or {})
+    body = dict(block.get("concepts", {}) if "concepts" in block else block)
+    for name, spec in concepts.items():
+        old = dict(body.get(name) or {})
+        if isinstance(body.get(name), (str, list)):
+            old = {"maps": [body[name]] if isinstance(body[name], str) else list(body[name])}
+        for f in ("synonyms", "maps", "broader"):
+            merged = list(old.get(f) or [])
+            for v in spec.get(f) or []:
+                if v not in merged:
+                    merged.append(v)
+            if merged:
+                old[f] = merged
+        for f in ("filter", "definition", "source"):
+            if spec.get(f):
+                old[f] = spec[f]
+        body[name] = old
+    data["ontology"] = {"concepts": body}
+    pathlib.Path(path).write_text(json.dumps(data, indent=2, sort_keys=True,
+                                             ensure_ascii=False) + "\n", "utf-8")
+    return len(concepts)
+
+
 def merge_descriptions(path: str, descriptions: Mapping[str, str]) -> int:
     """Write ``descriptions`` into the ``describe`` block of ``path``,
     creating the file if needed and keeping every other block. Returns the

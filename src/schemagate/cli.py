@@ -13,6 +13,7 @@ Everything printed is what your application would get from ``Catalog``.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from typing import List, Optional
@@ -372,6 +373,88 @@ def cmd_describe(args) -> int:
     return 0
 
 
+def _history(path: str):
+    """(question, sql) pairs from a JSONL or CSV file."""
+    import csv as _csv
+    import json as _json
+    out = []
+    if path.lower().endswith(".csv"):
+        with open(path, encoding="utf-8-sig", newline="") as fh:
+            for row in _csv.DictReader(fh):
+                q = row.get("question") or row.get("Question")
+                s = row.get("sql") or row.get("SQL") or row.get("query")
+                if q and s:
+                    out.append((q, s))
+        return out
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if line:
+                e = _json.loads(line)
+                if e.get("question") and (e.get("sql") or e.get("tables")):
+                    out.append((e["question"], e.get("sql") or e["tables"]))
+    return out
+
+
+def cmd_ontology(args) -> int:
+    from . import config as _config
+    if args.save and not args.config:
+        sys.exit("schemagate: --save needs --config catalog.json to save into")
+    cat = _open(args)
+    onto = cat.ontology
+    if args.action == "check":
+        problems = onto.check()
+        print(f"{len(onto)} concept(s)")
+        for p in problems:
+            print(f"  {p}")
+        return 1 if any("claimed by" not in p for p in problems) else 0
+    if args.action == "show":
+        for c in onto.concepts.values():
+            maps = ", ".join(list(c.objects) + [f"{q}.{col}" for q, col in c.columns]) or "-"
+            extra = f"  [also: {', '.join(c.synonyms)}]" if c.synonyms else ""
+            rule = f"  where {c.filter}" if c.filter else ""
+            up = f"  < {', '.join(c.broader)}" if c.broader else ""
+            print(f"{c.name}{extra} -> {maps}{rule}{up}  ({c.source})")
+        return 0
+    if args.action == "import":
+        if not (args.fmt and args.file):
+            sys.exit("schemagate: ontology import needs --from dbt|snowflake|csv and a file")
+        from . import ontology_io
+        fn = {"dbt": ontology_io.import_dbt, "snowflake": ontology_io.import_snowflake,
+              "csv": ontology_io.import_csv}[args.fmt]
+        report = fn(cat, args.file)
+        print(report)
+        new = {k: v for k, v in onto.to_dict()["concepts"].items() if k in set(report.added)}
+        if report.examples:
+            print(f"{len(report.examples)} verified question(s) found; learning from them")
+            for s in cat.learn_concepts(report.examples, apply=True):
+                new.setdefault(s["phrase"], onto.to_dict()["concepts"][s["phrase"]])
+        if args.save:
+            print(f"saved {_config.merge_concepts(args.config, new)} concept(s) to {args.config}")
+        else:
+            print(json.dumps({"ontology": {"concepts": new}}, indent=2, ensure_ascii=False))
+        return 0
+    # suggest
+    if args.memory:
+        from .learn import Memory, default_path
+        path = default_path(cat.name) if args.memory in ("1", "default") else args.memory
+        history = Memory(cat.embedder, path=path)
+    elif args.file:
+        history = _history(args.file)
+    else:
+        sys.exit("schemagate: ontology suggest needs --memory PATH|1 or a history file")
+    found = cat.learn_concepts(history, apply=args.save)
+    for s in found:
+        print(f"{s['support']:4d}  {s['precision']:.2f}  {s['phrase']!r} -> {s['object']}")
+    if not found:
+        print("no suggestions: the history is too short or too varied (each phrase needs 2+ questions)")
+    if args.save and found:
+        concepts = onto.to_dict()["concepts"]
+        print(f"saved {_config.merge_concepts(args.config, {s['phrase']: concepts[s['phrase']] for s in found})} "
+              f"concept(s) to {args.config}")
+    return 0
+
+
 def cmd_certify(args) -> int:
     """Run the dialect certification against a real database.
 
@@ -524,6 +607,26 @@ def build_parser() -> argparse.ArgumentParser:
     describe.add_argument("--model", metavar="ID", help="model id for --provider")
     describe.add_argument("--cache", metavar="FILE", help="description cache for --provider")
     describe.set_defaults(func=cmd_describe)
+
+    onto = sub.add_parser(
+        "ontology",
+        help="your business vocabulary: check it, show it, import it, learn it",
+        description="Concepts live in the 'ontology' block of catalog.json. "
+                    "import and suggest print what they found; with --config they also save it there.")
+    onto.add_argument("action", choices=("check", "show", "import", "suggest"))
+    onto.add_argument("file", nargs="?", help="import: the file to read; suggest: a history file "
+                                              "(JSONL with question and sql, or CSV with those columns)")
+    onto.add_argument("--url", required=True, help="SQLAlchemy URL")
+    onto.add_argument("--config", metavar="JSON", help="catalog.json to read, and save into")
+    onto.add_argument("--from", dest="fmt", choices=("dbt", "snowflake", "csv"),
+                      help="import: dbt semantic_manifest.json, a Snowflake semantic model, or a glossary CSV")
+    onto.add_argument("--memory", metavar="PATH|1", help="suggest: learn from schemagate's query memory")
+    onto.add_argument("--save", action="store_true",
+                      help="import/suggest: write the result into --config (otherwise only printed)")
+    onto.add_argument("--include", action="append", metavar="PATTERN")
+    onto.add_argument("--exclude", action="append", metavar="PATTERN")
+    onto.add_argument("--schema", action="append", metavar="NAME")
+    onto.set_defaults(func=cmd_ontology)
 
     certify = sub.add_parser("certify", help="end-to-end check on a real engine")
     certify.add_argument("url")

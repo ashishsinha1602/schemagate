@@ -351,11 +351,12 @@ def learn(pairs: Iterable[Tuple[str, Iterable[str]]], *, min_support: int = 2,
                                           "precision": round(precision, 3), "_key": g})
     out = []
     for o, cands in by_obj.items():
-        cands.sort(key=lambda c: (-c["precision"], -c["support"], -len(c["_key"]), c["phrase"]))
+        # shorter first, so a longer phrase is kept only when it says something its parts do not
+        cands.sort(key=lambda c: (len(c["_key"]), -c["precision"], -c["support"], c["phrase"]))
         kept: List[Dict[str, Any]] = []
         for c in cands:
-            # a longer phrase with no better precision than a kept shorter one adds nothing
-            if any(set(k["_key"]) <= set(c["_key"]) for k in kept):
+            # a longer phrase adds nothing over a kept shorter one unless it is more precise
+            if any(set(k["_key"]) <= set(c["_key"]) and k["precision"] >= c["precision"] for k in kept):
                 continue
             kept.append(c)
             if len(kept) >= max_per_object:
