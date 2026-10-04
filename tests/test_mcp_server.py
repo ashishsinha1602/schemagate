@@ -100,6 +100,65 @@ def test_a_restricted_table_cannot_hide_in_a_cte(runnable):
     assert "not available to this caller" in out["error"]
 
 
+@pytest.mark.parametrize("sql", [
+    "SELECT * FROM [hr_compensation]",                       # SQL Server / SQLite quoting
+    "SELECT * FROM `hr_compensation`",                       # MySQL / SQLite quoting
+    "SELECT * FROM main.[hr_compensation]",
+    'SELECT * FROM "main"."hr_compensation"',
+    "SELECT * FROM crm_customer, hr_compensation",           # a comma FROM list
+    "SELECT * FROM crm_customer c, hr_compensation h WHERE 1=1",
+    "SELECT id FROM crm_customer WHERE id IN (SELECT id_employee FROM [hr_compensation])",
+])
+def test_a_restricted_table_cannot_hide_behind_quoting_or_a_comma(runnable, sql):
+    """Each of these returned salary rows to a caller without the role: the
+    reader knew only "double quotes" and only the first item of a FROM list,
+    and an empty list of names passed the scope check."""
+    out = mcp_server.run_query(sql)
+    assert "not available to this caller" in out.get("error", ""), out
+
+
+def test_quoting_does_not_refuse_what_the_caller_may_see(runnable):
+    out = mcp_server.run_query("SELECT c.id FROM [crm_customer] c JOIN `crm_customer` d ON c.id = d.id",
+                               max_rows=2)
+    assert "error" not in out, out
+
+
+def test_a_hidden_name_inside_a_string_is_not_a_reference(runnable):
+    out = mcp_server.run_query("SELECT id FROM crm_customer WHERE 'hr_compensation' <> ''", max_rows=1)
+    assert "error" not in out, out
+
+
+@pytest.fixture
+def column_restricted(runnable):
+    """hr_compensation readable with payroll; its annual_amount only with hr."""
+    runnable.restrict_column("hr_compensation", "annual_amount", ["hr"])
+    return runnable
+
+
+@pytest.mark.parametrize("sql", [
+    "SELECT annual_amount FROM hr_compensation",
+    "SELECT [annual_amount] FROM hr_compensation",
+    "SELECT h.annual_amount FROM hr_compensation h",
+    "SELECT * FROM hr_compensation",
+    "SELECT h.* FROM hr_compensation h",
+    "SELECT DISTINCT * FROM hr_compensation",
+])
+def test_a_withheld_column_cannot_be_queried(column_restricted, sql):
+    """run_query checked tables only: a caller who may read the table but not
+    the column got it by naming it, or by SELECT *."""
+    out = mcp_server.run_query(sql, principal="okta:p", roles=["payroll"])
+    assert "not available to this caller" in out.get("error", ""), out
+
+
+def test_the_rest_of_a_column_restricted_table_is_still_queryable(column_restricted):
+    for sql in ("SELECT id, currency FROM hr_compensation", "SELECT COUNT(*) FROM hr_compensation"):
+        out = mcp_server.run_query(sql, principal="okta:p", roles=["payroll"])
+        assert "error" not in out, (sql, out)
+    out = mcp_server.run_query("SELECT annual_amount FROM hr_compensation",
+                               principal="okta:h", roles=["payroll", "hr"])
+    assert "error" not in out, out
+
+
 def test_scope_is_taken_from_this_call_not_the_previous_one(runnable):
     """An earlier authorised select_schema must not authorise a later query."""
     mcp_server.select_schema("salary by employee", top_k=10,
