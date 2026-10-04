@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+- **A glossary: your organisation's words, mapped to objects.** `cat.term("gave
+  back", "billing_credit_note")`, or a `terms` block in `catalog.json` that the
+  CLI, the Studio and the MCP server all read. For the questions whose words
+  share nothing with any identifier. A term matches as a phrase with plurals
+  folded, only the most specific term counts, it is applied at question time
+  (no re-index, vectors untouched), and it never widens access. An unknown
+  object is a `KeyError`. Measured on the 58 business-language questions of the
+  six bundled schemas: every miss was fixed by one short term from the question,
+  with nothing else broken (23/23 base embedder, 11/11 MiniLM;
+  `tests/run_terms_repair.py`). A glossary written in advance from table names
+  alone barely moved the held-out questions (18/26 to 19/26 base, 21/26 MiniLM
+  unchanged; `tests/run_terms_eval.py`) -- add terms for the misses you see.
+
 ## 1.1.0
 
 Accuracy on Oracle, and the MCP server catching up with the CLI. Measured on a
