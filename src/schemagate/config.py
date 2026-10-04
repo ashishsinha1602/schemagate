@@ -1,11 +1,19 @@
 # Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Catalog configuration that lives outside your code.
 
-A JSON file with up to five blocks; every block is optional::
+A JSON file with up to seven blocks; every block is optional::
 
     {"restrict":        {"hr_compensation": ["payroll"]},
      "restrict_column": {"employees": {"salary": ["hr"],
                                        "national_id": ["hr", "compliance"]}},
+     "terms":    {"refund": "billing_credit_note",
+                  "revenue": ["billing_invoice", "v_monthly_revenue"]},
+     "ontology": {"concepts": {
+                    "revenue": {"synonyms": ["sales", "turnover"],
+                                "maps": ["billing_invoice.total_net"],
+                                "filter": "billing_invoice.status = 'issued'",
+                                "broader": ["money in"]},
+                    "money in": {"maps": ["v_monthly_revenue"]}}},
      "hint":     {"invoice_draft": "drafts only, not revenue"},
      "describe": {"v_stock_shortfall": "Items below their reorder level."},
      "groups":   {"sources": [{"type": "entra", "tenant": "...", "client_id": "...",
@@ -15,6 +23,10 @@ A JSON file with up to five blocks; every block is optional::
 ``groups`` is not catalog state: it says where a caller's roles come from
 (see ``schemagate.groups``) and is read by the CLI and the MCP server when
 they build a Principal. ``apply`` leaves it alone.
+
+``terms`` is the organisation's own vocabulary: a business word or phrase and
+the object (or objects) it means, for the questions whose words share nothing
+with an identifier. See ``Catalog.term``. A term never widens access.
 
 ``describe`` is where descriptions from ``schemagate describe`` land, so a
 catalog described once -- with an API key, or by pasting the prompt into a
@@ -29,7 +41,7 @@ from typing import Any, Dict, Mapping, Optional
 
 from .catalog import Catalog
 
-KEYS = ("restrict", "restrict_column", "hint", "describe", "groups")
+KEYS = ("restrict", "restrict_column", "terms", "ontology", "hint", "describe", "groups")
 
 
 def load(path: Optional[str]) -> Dict[str, Any]:
@@ -53,13 +65,28 @@ def load(path: Optional[str]) -> Dict[str, Any]:
 def apply(cat: Catalog, config: Mapping[str, Any]) -> None:
     """Apply every catalog block in ``config`` to ``cat``.
 
-    ``restrict`` and ``restrict_column`` raise ``KeyError`` for a table or
-    column that is not in the catalog, matching ``Catalog``'s own behaviour:
+    ``restrict``, ``restrict_column`` and ``terms`` raise ``KeyError`` for a
+    table or column that is not in the catalog, matching ``Catalog``'s own behaviour:
     an ACL typo that reports success is a restriction that silently is not
     there.
     """
     for table, roles in (config.get("restrict") or {}).items():
         cat.restrict(table, list(roles))
+    for phrase, objects in (config.get("terms") or {}).items():
+        if not isinstance(objects, (str, list)):
+            raise ValueError(
+                f"terms[{phrase!r}] must be an object name or a list of them")
+        cat.term(phrase, objects)
+    if config.get("ontology"):
+        from .ontology import concepts_in
+        for name, spec in concepts_in(config["ontology"]):
+            cat.concept(name, **spec)
+        # A broader concept that does not exist, or a loop, is a typo in the
+        # file; one phrase claimed twice is a choice, reported by
+        # `schemagate ontology check` rather than refused here.
+        bad = [p for p in cat.ontology.check() if "claimed by" not in p]
+        if bad:
+            raise ValueError("ontology: " + "; ".join(bad))
     for table, text in (config.get("hint") or {}).items():
         cat.hint(table, str(text))
     desc = config.get("describe") or {}
@@ -82,6 +109,36 @@ def groups_from(config: Mapping[str, Any], default_url: Optional[str] = None):
     trusted, as before the block existed."""
     from .groups import from_config
     return from_config(config.get("groups"), default_url=default_url)
+
+
+def merge_concepts(path: str, concepts: Mapping[str, Mapping[str, Any]]) -> int:
+    """Write ``concepts`` (the ``to_dict()["concepts"]`` shape) into the
+    ``ontology`` block of ``path``, creating the file if needed and keeping
+    every other block. A concept already there is extended, not replaced:
+    synonyms, maps and broader concepts are unioned, a new filter or
+    definition wins. Returns how many concepts were written."""
+    data = load(path)
+    block = dict(data.get("ontology") or {})
+    body = dict(block.get("concepts", {}) if "concepts" in block else block)
+    for name, spec in concepts.items():
+        old = dict(body.get(name) or {})
+        if isinstance(body.get(name), (str, list)):
+            old = {"maps": [body[name]] if isinstance(body[name], str) else list(body[name])}
+        for f in ("synonyms", "maps", "broader"):
+            merged = list(old.get(f) or [])
+            for v in spec.get(f) or []:
+                if v not in merged:
+                    merged.append(v)
+            if merged:
+                old[f] = merged
+        for f in ("filter", "definition", "source"):
+            if spec.get(f):
+                old[f] = spec[f]
+        body[name] = old
+    data["ontology"] = {"concepts": body}
+    pathlib.Path(path).write_text(json.dumps(data, indent=2, sort_keys=True,
+                                             ensure_ascii=False) + "\n", "utf-8")
+    return len(concepts)
 
 
 def merge_descriptions(path: str, descriptions: Mapping[str, str]) -> int:

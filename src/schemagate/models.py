@@ -347,7 +347,7 @@ class Scored:
     #: printed a value the type said could not occur. `covers` went the same
     #: way: the coverage pass has written it since 5199001 and this line did
     #: not say so. The list is checked against the code in test_selection_record.
-    reason: str = "vector"     # hybrid | vector | lexical | fk | pinned | covers
+    reason: str = "vector"     # hybrid | vector | lexical | fk | pinned | covers | term
 
 
 @dataclass
@@ -361,6 +361,11 @@ class Selection:
     #: audit record must describe the same caller -- a selection rendered for
     #: someone other than the principal it was scored for is a hole.
     principal: Any = None
+    #: What the business words in the question mean, from the catalog's
+    #: ontology: one ``-- concept: table.column; only where ...`` line each.
+    #: Already filtered for this caller -- a line that would name a table or
+    #: column the caller may not see is never here.
+    meanings: List[str] = field(default_factory=list)
 
     @property
     def objects(self) -> List[ObjectDoc]:
@@ -387,10 +392,15 @@ class Selection:
         It is the selection's own question, not a caller's argument, for the
         same reason `principal` is: the fragment and the audit record have to
         describe the same request."""
-        return "\n\n".join(
+        ddl = "\n\n".join(
             d.render_ddl(max_columns, principal=self.principal,
                          question=self.question)
             for d in self.objects)
+        if not self.meanings:
+            return ddl
+        # Above the DDL, so the model reads what "revenue" means before it
+        # reads the columns it might otherwise guess from.
+        return "-- What the business terms in this question mean:\n" + "\n".join(self.meanings) + "\n\n" + ddl
 
     def to_dict(self) -> Dict[str, Any]:
         """A record of what was shown to whom, and what was held back.
@@ -407,6 +417,7 @@ class Selection:
             "principal": getattr(who, "subject", None),
             "roles": sorted(getattr(who, "roles", None) or []),
             "total_objects": self.total_objects,
+            "meanings": list(self.meanings),
             "hits": [{
                 "object": h.doc.qname,
                 "kind": h.doc.kind,

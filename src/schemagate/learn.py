@@ -81,7 +81,12 @@ MIN_SIMILARITY = 0.35
 
 Entry = Dict[str, Any]
 
-_TABLE_REF = re.compile(r"\b(?:from|join)\s+([`\"\[]?[\w.]+[`\"\]]?)", re.I)
+#: One table reference: dotted parts, each bare or quoted the way some dialect
+#: quotes -- `x`, "x", [x]. The old pattern allowed one quote pair around the
+#: whole name, so "main"."invoices" and [dbo].[invoices] stopped at the
+#: schema and the table itself was never seen.
+_PART = r'(?:`[^`]+`|"[^"]+"|\[[^\]]+\]|[\w$#]+)'
+_TABLE_REF = re.compile(r"\b(?:from|join)\s+(" + _PART + r"(?:\s*\.\s*" + _PART + r")*)", re.I)
 
 
 def _now() -> str:
@@ -89,7 +94,10 @@ def _now() -> str:
 
 
 def _bare(name: str) -> str:
-    return name.strip('`"[]').split(".")[-1].lower()
+    """The table part of a reference, quotes removed: the last dotted part,
+    split outside quotes so a quoted name containing a dot survives."""
+    parts = re.findall(_PART, name)
+    return (parts[-1] if parts else name).strip('`"[] ').lower()
 
 
 def referenced_tables(sql: str) -> List[str]:

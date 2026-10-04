@@ -15,6 +15,37 @@
   you run the MCP server with restrictions. `select_schema` and the CLI were
   not affected: they never execute a caller's SQL.
 
+- **An ontology.** `Catalog.concept(name, synonyms=, maps=, filter=,
+  definition=, broader=)` and an `ontology` block in `catalog.json`: concepts
+  mapped to objects or columns, a rule that makes them precise, a definition,
+  and a hierarchy. A matched concept's meaning is written above the DDL, for
+  callers who may see everything it names. `schemagate ontology
+  import|suggest|check|show`: imports dbt semantic manifests, Snowflake
+  semantic models and CSV glossaries (Collibra/Purview headers);
+  `Catalog.learn_concepts` suggests concepts from question/SQL history.
+  Measured: concepts learned from half of Spider's questions raise table
+  recall@5 on the other half from 73.3% to 82.8% (876 tables pooled, +49 / -0);
+  a complete glossary raises BIRD execution accuracy from 44.8% to 54.7% with
+  evidence withheld (Claude Sonnet 5, 201 questions, +28 / -8, p=0.001).
+  Concepts built from other questions' BIRD evidence did not help (46.8%, inside
+  the run-to-run noise). See the README.
+- **Table references in every dialect's quoting.** `"main"."t"`, `[dbo].[t]`
+  and `` `db`.`t` `` were read as the schema, not the table, by the query
+  memory's table reader; it now reads them, and names in catalog.json resolve
+  case-insensitively when that is unambiguous (Oracle's `INVOICES.TOTAL_NET`).
+- **A glossary: your organisation's words, mapped to objects.** `cat.term("gave
+  back", "billing_credit_note")`, or a `terms` block in `catalog.json` that the
+  CLI, the Studio and the MCP server all read. For the questions whose words
+  share nothing with any identifier. A term matches as a phrase with plurals
+  folded, only the most specific term counts, it is applied at question time
+  (no re-index, vectors untouched), and it never widens access. An unknown
+  object is a `KeyError`. Measured on the 58 business-language questions of the
+  six bundled schemas: every miss was fixed by one short term from the question,
+  with nothing else broken (23/23 base embedder, 11/11 MiniLM;
+  `tests/run_terms_repair.py`). A glossary written in advance from table names
+  alone barely moved the held-out questions (18/26 to 19/26 base, 21/26 MiniLM
+  unchanged; `tests/run_terms_eval.py`) -- add terms for the misses you see.
+
 ## 1.1.0
 
 Accuracy on Oracle, and the MCP server catching up with the CLI. Measured on a
