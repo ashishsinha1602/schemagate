@@ -1,13 +1,19 @@
 # Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Catalog configuration that lives outside your code.
 
-A JSON file with up to six blocks; every block is optional::
+A JSON file with up to seven blocks; every block is optional::
 
     {"restrict":        {"hr_compensation": ["payroll"]},
      "restrict_column": {"employees": {"salary": ["hr"],
                                        "national_id": ["hr", "compliance"]}},
      "terms":    {"refund": "billing_credit_note",
                   "revenue": ["billing_invoice", "v_monthly_revenue"]},
+     "ontology": {"concepts": {
+                    "revenue": {"synonyms": ["sales", "turnover"],
+                                "maps": ["billing_invoice.total_net"],
+                                "filter": "billing_invoice.status = 'issued'",
+                                "broader": ["money in"]},
+                    "money in": {"maps": ["v_monthly_revenue"]}}},
      "hint":     {"invoice_draft": "drafts only, not revenue"},
      "describe": {"v_stock_shortfall": "Items below their reorder level."},
      "groups":   {"sources": [{"type": "entra", "tenant": "...", "client_id": "...",
@@ -35,7 +41,7 @@ from typing import Any, Dict, Mapping, Optional
 
 from .catalog import Catalog
 
-KEYS = ("restrict", "restrict_column", "terms", "hint", "describe", "groups")
+KEYS = ("restrict", "restrict_column", "terms", "ontology", "hint", "describe", "groups")
 
 
 def load(path: Optional[str]) -> Dict[str, Any]:
@@ -71,6 +77,16 @@ def apply(cat: Catalog, config: Mapping[str, Any]) -> None:
             raise ValueError(
                 f"terms[{phrase!r}] must be an object name or a list of them")
         cat.term(phrase, objects)
+    if config.get("ontology"):
+        from .ontology import concepts_in
+        for name, spec in concepts_in(config["ontology"]):
+            cat.concept(name, **spec)
+        # A broader concept that does not exist, or a loop, is a typo in the
+        # file; one phrase claimed twice is a choice, reported by
+        # `schemagate ontology check` rather than refused here.
+        bad = [p for p in cat.ontology.check() if "claimed by" not in p]
+        if bad:
+            raise ValueError("ontology: " + "; ".join(bad))
     for table, text in (config.get("hint") or {}).items():
         cat.hint(table, str(text))
     desc = config.get("describe") or {}

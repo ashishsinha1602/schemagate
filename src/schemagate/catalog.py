@@ -69,6 +69,10 @@ NAMED_BOOST = 4.0
 #: signal as the user typing the object's name.
 TERM_WEIGHT = 1.0
 
+#: A concept one step from a matched one (broader or narrower): half a
+#: channel, no boost, no guaranteed slot.
+RELATED_WEIGHT = 0.5
+
 #: A question word has to be informative before its absence is worth a slot.
 #: Measured against the name field, where the domain's own nouns stay rare:
 #: "tenant" is in 30 names of 1,245, "the" is in none. Low enough to catch a
@@ -382,8 +386,9 @@ class Catalog:
         self._shadows: Dict[str, str] = {}      # shadow qname -> base qname
         self._dims: Optional[Dict[str, int]] = None
         self._stale = True
-        # glossary: stemmed phrase -> (phrase as written, qnames it means)
-        self._terms: Dict[Tuple[str, ...], Tuple[str, List[str]]] = {}
+        from .ontology import Ontology
+        #: The organisation's vocabulary: concepts, their words, where they live.
+        self.ontology = Ontology()
 
     # ---------------- build ----------------
 
@@ -502,65 +507,82 @@ class Catalog:
                 raise KeyError(f"{table!r} has no column {column!r}")
         raise KeyError(f"{table!r} not in catalog")
 
+    def _resolve_object(self, name: str) -> str:
+        hit = next((q for q, d in self._docs.items() if q == name or d.name == name), None)
+        if hit is None:
+            raise KeyError(f"{name!r} not in catalog")
+        return hit
+
+    def _resolve_map(self, ref: str) -> Tuple[str, Optional[str]]:
+        """``table``, ``schema.table``, ``table.column`` or ``schema.table.column``
+        -> (qname, column or None). An object name wins over a column reading,
+        so ``billing.account`` is the table when that table exists."""
+        try:
+            return self._resolve_object(ref), None
+        except KeyError:
+            pass
+        table, _, column = ref.rpartition(".")
+        if table and column:
+            try:
+                q = self._resolve_object(table)
+            except KeyError:
+                raise KeyError(f"{ref!r} is neither an object nor object.column in the catalog") from None
+            if any(c.name == column for c in self._docs[q].columns):
+                return q, column
+            raise KeyError(f"{table!r} has no column {column!r}")
+        raise KeyError(f"{ref!r} not in catalog")
+
+    def concept(self, name: str, *, synonyms: Sequence[str] = (), maps: Sequence[str] = (),
+                filter: Optional[str] = None, definition: Optional[str] = None,
+                broader: Sequence[str] = (), source: str = "manual"):
+        """Add a business concept to the catalog's ontology (see ``schemagate.ontology``).
+
+        ``maps`` names objects (``billing_invoice``) or columns
+        (``billing_invoice.total_net``); ``filter`` is the rule that makes the
+        concept precise (``billing_invoice.status = 'issued'``); ``broader``
+        places it under other concepts by name. A question using ``name`` or a
+        synonym brings the mapped objects in, and the concept's meaning is
+        written into the prompt for any caller who may see everything it
+        describes. Applied at select time: no reindex, vectors untouched.
+
+        Never widens access, and raises ``KeyError`` for an object or column
+        not in the catalog: a vocabulary typo that reports success is a concept
+        that silently does nothing.
+        """
+        from .ontology import Concept
+        objects: List[str] = []
+        columns: List[Tuple[str, str]] = []
+        for ref in ([maps] if isinstance(maps, str) else list(maps)):
+            q, col = self._resolve_map(ref)
+            if col is None:
+                if q not in objects:
+                    objects.append(q)
+            elif (q, col) not in columns:
+                columns.append((q, col))
+        return self.ontology.add(Concept(
+            name=name,
+            synonyms=[synonyms] if isinstance(synonyms, str) else list(synonyms),
+            objects=objects, columns=columns, filter=filter, definition=definition,
+            broader=[broader] if isinstance(broader, str) else list(broader), source=source))
+
     def term(self, phrase: str, objects: Union[str, Sequence[str]]) -> None:
         """Teach the catalog a business word: ``phrase`` means ``objects``.
 
-        For the questions identifiers cannot answer. "refund" shares no
-        characters with ``billing_credit_note``, and neither ranking nor
-        vectors can be trusted to bridge every such gap; a glossary entry
-        states it once. ``cat.term("refund", "billing_credit_note")``.
-
-        Matched against the question as a phrase, through the same tokenizer
-        and plural folding as the index, so "refunds" finds "refund" and a
-        multi-word term must appear in order. Applied at select time: no
-        reindex, and the stored vectors are untouched.
-
-        A term never widens access. The objects it names are filtered by the
-        caller's visibility exactly like every other candidate, so a term for
-        a restricted table does nothing for a caller who may not see it.
-
-        Raises ``KeyError`` for an object not in the catalog, like
-        ``restrict``: a glossary typo that reports success is a term that
-        silently does nothing.
+        The one-line form of ``concept``: ``cat.term("refund",
+        "billing_credit_note")``. For the questions identifiers cannot answer.
+        Matched as a phrase, plurals folded, the most specific phrase winning;
+        applied at select time; never widens access; ``KeyError`` for an
+        object not in the catalog.
         """
-        names = [objects] if isinstance(objects, str) else list(objects)
-        key = tuple(_stem(t) for t in tokenize(phrase))
-        if not key:
-            raise ValueError(f"term {phrase!r} has no words")
-        qnames: List[str] = []
-        for name in names:
-            hit = next((q for q, d in self._docs.items() if q == name or d.name == name), None)
-            if hit is None:
-                raise KeyError(f"{name!r} not in catalog")
-            if hit not in qnames:
-                qnames.append(hit)
-        if key in self._terms:
-            qnames = self._terms[key][1] + [q for q in qnames if q not in self._terms[key][1]]
-        self._terms[key] = (phrase, qnames)
+        self.concept(phrase, maps=[objects] if isinstance(objects, str) else list(objects))
 
     def terms(self) -> Dict[str, List[str]]:
-        """The glossary as ``{phrase: [qname, ...]}``."""
-        return {phrase: list(qs) for phrase, qs in self._terms.values()}
+        """The vocabulary as ``{concept: [qname, ...]}``."""
+        return {c.name: c.all_objects() for c in self.ontology.concepts.values()}
 
     def _terms_in(self, question: str) -> List[Tuple[str, List[str]]]:
-        """The glossary entries the question uses, in the order it uses them."""
-        if not self._terms:
-            return []
-        stems = [_stem(t) for t in tokenize(question)]
-        found = []
-        for key, (phrase, qnames) in self._terms.items():
-            n = len(key)
-            for i in range(len(stems) - n + 1):
-                if tuple(stems[i:i + n]) == key:
-                    found.append((i, n, phrase, qnames))
-                    break
-        # Only the most specific match counts, the rule names already follow:
-        # "take things offline" is a maintenance window, and the single word
-        # "offline" inside it must not also pull in the silent-devices view.
-        kept = [f for f in found
-                if not any(o is not f and o[1] > f[1] and o[0] <= f[0]
-                           and f[0] + f[1] <= o[0] + o[1] for o in found)]
-        return [(phrase, qnames) for _, _, phrase, qnames in sorted(kept, key=lambda f: (f[0], -f[1]))]
+        """The concepts the question uses, as ``(name, objects)``, in order."""
+        return [(c.name, c.all_objects()) for c, _ in self.ontology.match(question)]
 
     def restrict(self, table: str, roles: Sequence[str]) -> None:
         """Make an object visible only to principals holding one of ``roles``.
@@ -1061,14 +1083,22 @@ class Catalog:
 
         # Glossary terms the question uses. Only objects this caller may see
         # count; a term can rank a visible object, never reveal a hidden one.
-        _term_hits = [(phrase, [q for q in qs if q in allowed_set])
-                      for phrase, qs in self._terms_in(question)]
+        _matched = self.ontology.match(question) if self.ontology else []
+        _term_hits = [(c.name, [q for q in c.all_objects() if q in allowed_set])
+                      for c, _ in _matched]
         _term_objs = {q for _, qs in _term_hits for q in qs}
+        # One step away in the hierarchy -- broader or narrower -- is a weaker
+        # signal with no guaranteed slot: "parties" should consider
+        # `crm_customer`, not insist on it.
+        _related_objs = {q for c, _ in _matched for n in self.ontology.neighbours(c)
+                         for q in n.all_objects() if q in allowed_set} - _term_objs
 
         for q in allowed:
             s = 0.0
             if q in _term_objs:
                 s += TERM_WEIGHT / (_RRF_K + 1)
+            elif q in _related_objs:
+                s += RELATED_WEIGHT / (_RRF_K + 1)
             if q in vec_rank:
                 s += vector_weight / (_RRF_K + vec_rank[q] + 1)
             if q in lex_rank:
@@ -1291,4 +1321,76 @@ class Catalog:
                             taken.add(q)
 
         return Selection(question=question, hits=chosen,
-                         total_objects=len(order), principal=principal)
+                         total_objects=len(order), principal=principal,
+                         meanings=self._meanings(_matched, {sc.doc.qname for sc in chosen}, principal))
+
+    def _meanings(self, matched, selected, principal) -> List[str]:
+        """Meaning lines for the concepts this question used, for this caller.
+
+        A line is written only when every object the concept maps to is
+        selected-or-visible to the caller and every column it names -- in its
+        mapping, its filter or its definition -- is one the caller may see. A
+        definition that mentions `salary` would otherwise put a withheld
+        column's name back into the prompt, which is the one thing a column
+        restriction exists to prevent.
+        """
+        from .ontology import identifiers, meaning_line
+        candidates = []
+        for c, _ in matched:
+            line = meaning_line(c)
+            tables = c.all_objects()
+            if line is not None and tables and any(q in selected for q in tables):
+                candidates.append((c, line, tables))
+        if not candidates:
+            return []
+        # Everything this caller may not see, by name: hidden objects and
+        # withheld columns anywhere in the catalog. Built only when a line is
+        # about to be written, which is rare.
+        hidden = set()
+        for d in self._docs.values():
+            if not self._visible(d, principal):
+                hidden.add(d.name.lower())
+                hidden |= {col.name.lower() for col in d.columns}
+                continue
+            vis = {col.name for col in d.visible_columns(principal)}
+            hidden |= {col.name.lower() for col in d.columns if col.name not in vis}
+        # A name that is also visible somewhere (`status` on two tables, one
+        # restricted) is not a disclosure; only names the caller cannot see
+        # anywhere are.
+        seen = set()
+        for d in self._docs.values():
+            if self._visible(d, principal):
+                seen.add(d.name.lower())
+                seen |= {col.name.lower() for col in d.visible_columns(principal)}
+        hidden -= seen
+        out = []
+        for c, line, tables in candidates:
+            if any(self._docs.get(q) is None or not self._visible(self._docs[q], principal) for q in tables):
+                continue
+            if any(col.lower() in hidden for _, col in c.columns):
+                continue
+            if (identifiers(c.filter) | identifiers(c.definition)) & hidden:
+                continue
+            if self._names_withheld_column(f"{c.filter or ''} {c.definition or ''}", principal):
+                continue
+            out.append(line)
+        return out
+
+    def _names_withheld_column(self, text: str, principal) -> bool:
+        """True if ``text`` spells ``table.column`` (or ``schema.table.column``)
+        for a column this caller may not see on that table -- the case the
+        bare-name check lets through when the same column name is visible
+        on some other table."""
+        import re as _re
+        by_name: Dict[str, List[ObjectDoc]] = {}
+        for d in self._docs.values():
+            by_name.setdefault(d.name.lower(), []).append(d)
+        for m in _re.finditer(r"([A-Za-z_][\w$#]*)\.([A-Za-z_][\w$#]*)", text or ""):
+            table, column = m.group(1).lower(), m.group(2).lower()
+            for d in by_name.get(table, []):
+                if not self._visible(d, principal):
+                    return True
+                vis = {col.name.lower() for col in d.visible_columns(principal)}
+                if any(col.name.lower() == column for col in d.columns) and column not in vis:
+                    return True
+        return False
