@@ -347,7 +347,7 @@ class Scored:
     #: printed a value the type said could not occur. `covers` went the same
     #: way: the coverage pass has written it since 5199001 and this line did
     #: not say so. The list is checked against the code in test_selection_record.
-    reason: str = "vector"     # hybrid | vector | lexical | fk | pinned | covers
+    reason: str = "vector"     # hybrid | vector | lexical | fk | pinned | covers | term
 
 
 @dataclass

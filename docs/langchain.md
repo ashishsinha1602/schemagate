@@ -50,6 +50,7 @@ for d in docs:
 | `vector` | ranked by the vector channel only |
 | `lexical` | ranked by the lexical channel only |
 | `covers` | pulled in to cover a term nothing else answered |
+| `term` | matched a phrase in your glossary (`Catalog.term`, the `terms` config block) |
 | `fk` | a foreign-key target of something already chosen |
 | `pinned` | named outright in the question |
 
