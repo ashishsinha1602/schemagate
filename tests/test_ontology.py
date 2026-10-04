@@ -212,3 +212,19 @@ def test_learning_reads_a_memory(tmp_path):
 def test_unknown_tables_in_history_are_skipped():
     cat = demo_catalog()
     assert cat.learn_concepts([("ghost rows", "SELECT * FROM no_such_table")] * 3) == []
+
+
+def test_names_resolve_in_either_case():
+    cat = demo_catalog()
+    cat.concept("revenue", maps=["BILLING_INVOICE.TOTAL_NET", "Main.V_Monthly_Revenue"])
+    c = cat.ontology.get("revenue")
+    assert c.columns == [("main.billing_invoice", "total_net")] and c.objects == ["main.v_monthly_revenue"]
+
+
+def test_history_sql_in_every_dialects_quoting():
+    from schemagate.learn import referenced_tables as refs
+    assert refs('SELECT * FROM "main"."billing_credit_note"') == ["billing_credit_note"]
+    assert refs("SELECT * FROM [dbo].[billing_credit_note] n JOIN [dbo].[crm_customer] c ON 1=1") == \
+        ["billing_credit_note", "crm_customer"]
+    assert refs("select * from `db`.`billing_credit_note`") == ["billing_credit_note"]
+    assert refs('SELECT * FROM "Order Details" o') == ["order details"]

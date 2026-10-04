@@ -38,6 +38,9 @@ SAMPLE = int(os.environ.get("BIRD_SAMPLE", "200"))
 TOP_K = int(os.environ.get("BIRD_TOP_K", "10"))
 MODEL = os.environ.get("SG_MODEL", "claude-sonnet-5")
 OUT = pathlib.Path(os.environ.get("BIRD_OUT", str(BIRD / "ontology_run.jsonl")))
+#: A, A2 = no ontology (twice: the noise floor); B = ontology from the history half's evidence;
+#: D = complete glossary (every question's evidence); C = the question with its own evidence (BIRD's setting).
+ARMS = [a.strip() for a in os.environ.get("BIRD_ARMS", "A,A2,B").split(",") if a.strip()]
 
 _CLAUSE = re.compile(r"^\s*(?P<term>[^=;:]{2,80}?)\s+(?:refers?\s+to|means|stands\s+for|is\s+defined\s+as|=)\s+(?P<rule>.+?)\s*$", re.I)
 
@@ -123,7 +126,7 @@ def main():
         picked += rnd.sample(pool, min(n, len(pool)))
     rnd.shuffle(picked)
 
-    plain, rich, paths, nconc = {}, {}, {}, {}
+    plain, rich, full, paths, nconc = {}, {}, {}, {}, {}
     for db in sorted({r["db_id"] for r in picked}):
         f = BIRD / "dev_databases" / db / f"{db}.sqlite"
         paths[db] = f
@@ -131,6 +134,11 @@ def main():
         b = Catalog().bootstrap(f"sqlite:///{f}"); b.infer_foreign_keys()
         nconc[db] = concepts_from_evidence(b, [r.get("evidence") for r in history[db]])
         rich[db] = b.index()
+        if "D" in ARMS:
+            # the complete-glossary scenario: every dev question's evidence, the test question's included
+            c = Catalog().bootstrap(f"sqlite:///{f}"); c.infer_foreign_keys()
+            concepts_from_evidence(c, [r.get("evidence") for r in by_db[db]])
+            full[db] = c.index()
     print(f"BIRD dev: test half {len(test)}, sample {len(picked)}, model {MODEL}, top_k {TOP_K}")
     print("concepts built from the history half's evidence: "
           + ", ".join(f"{db} {n}" for db, n in sorted(nconc.items())))
@@ -147,12 +155,15 @@ def main():
         key = (r["question_id"], arm)
         if key in done:
             return done[key]
-        cat = rich[r["db_id"]] if arm == "B" else plain[r["db_id"]]
-        sel = cat.select(r["question"], top_k=TOP_K)
+        cat = {"B": rich, "D": full}.get(arm, plain)[r["db_id"]]
+        question = r["question"]
+        if arm == "C" and (r.get("evidence") or "").strip():
+            question = question + " " + r["evidence"].strip()      # BIRD's standard setting: the ceiling
+        sel = cat.select(question, top_k=TOP_K)
         e = {"question_id": r["question_id"], "db": r["db_id"], "arm": arm, "ok": False,
              "matched": [c.name for c, _ in cat.ontology.match(r["question"])], "meanings": len(sel.meanings)}
         try:
-            sql = generate_sql(prov, r["question"], sel.prompt_fragment(), dialect="SQLite")
+            sql = generate_sql(prov, question, sel.prompt_fragment(), dialect="SQLite")
             e["sql"] = sql
             e["ok"] = same(rows_of(paths[r["db_id"]], sql), rows_of(paths[r["db_id"]], r["SQL"]))
         except UnsafeSQL:
@@ -163,28 +174,29 @@ def main():
         done[key] = e
         return e
 
-    res = {"A": [], "A2": [], "B": []}
+    res = {a: [] for a in ARMS}
     matched = []
     for i, r in enumerate(picked, 1):
-        for arm in ("A", "A2", "B"):
+        for arm in ARMS:
             res[arm].append(ask(r, arm)["ok"])
-        matched.append(bool(done[(r["question_id"], "B")]["matched"]))
+        matched.append(bool(done[(r["question_id"], "B")]["matched"]) if "B" in ARMS else False)
         if i % 20 == 0:
             n = len(res["A"])
-            print(f"  {i:4}/{len(picked)}  A {sum(res['A'])/n:.3f}  A2 {sum(res['A2'])/n:.3f}  "
-                  f"B {sum(res['B'])/n:.3f}   ({time.time()-t0:.0f}s)")
+            print(f"  {i:4}/{len(picked)}  " + "  ".join(f"{a} {sum(res[a])/n:.3f}" for a in ARMS)
+                  + f"   ({time.time()-t0:.0f}s)")
 
     def flips(x, y):
         return sum(1 for a, b in zip(x, y) if b and not a), sum(1 for a, b in zip(x, y) if a and not b)
 
     n = len(picked)
     print(f"\nBIRD dev test half, n={n}, {MODEL}, evidence withheld")
-    for arm in ("A", "A2", "B"):
+    for arm in ARMS:
         print(f"  {arm:3} execution accuracy {sum(res[arm])}/{n} ({100*sum(res[arm])/n:.1f}%)")
     nb, nc = flips(res["A"], res["A2"])
     print(f"  noise floor A -> A2: +{nb} / -{nc}   p={mcnemar_p(nb, nc):.3f}")
-    fb, fc = flips(res["A"], res["B"])
-    print(f"  ontology   A -> B : +{fb} / -{fc}   p={mcnemar_p(fb, fc):.4f}")
+    for arm in [a for a in ARMS if a not in ("A", "A2")]:
+        fb, fc = flips(res["A"], res[arm])
+        print(f"  A -> {arm:2}: +{fb} / -{fc}   p={mcnemar_p(fb, fc):.4f}")
     sub = [i for i, m in enumerate(matched) if m]
     if sub:
         a = [res["A"][i] for i in sub]; b = [res["B"][i] for i in sub]
