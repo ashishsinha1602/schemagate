@@ -10,6 +10,8 @@ Your text-to-SQL agent picks which tables to show the model before anyone checks
 
 ![An analyst asks "salary by employee": hr_compensation is absent from the shortlist. Grant the payroll role and it becomes the top match.](https://raw.githubusercontent.com/ashishsinha1602/schemagate/main/docs/media/schemagate-demo.gif)
 
+If it keeps a table out of a prompt it should never have reached, a ⭐ helps other people building SQL agents find it.
+
 With row-level security alone the failure is quiet: the model writes valid SQL against a table the caller cannot read, RLS strips every row, and the user is told "no records found" — indistinguishable from "this data does not exist."
 
 [Demo](https://ashishsinha1602.github.io/schemagate/) · [Install](https://ashishsinha1602.github.io/schemagate/install/) · [Benchmarks](https://ashishsinha1602.github.io/schemagate/benchmarks/) · [Local models](https://ashishsinha1602.github.io/schemagate/local-models/) · [What it costs](https://ashishsinha1602.github.io/schemagate/cost/) · [Coming from Vanna](https://ashishsinha1602.github.io/schemagate/vanna-alternative/)
