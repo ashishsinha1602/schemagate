@@ -190,7 +190,7 @@ def test_every_dialect_url_variable_is_documented():
     """A new dialect must be added to the docs, not just the test."""
     readme = (
         pytest.importorskip("pathlib").Path(__file__).parent.parent / "README.md"
-    ).read_text()
+    ).read_text(encoding="utf-8")
     for name, var in DIALECT_ENV.items():
         if var is None:
             continue
