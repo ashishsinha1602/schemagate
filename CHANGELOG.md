@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- **Quantum-safe, tamper-evident audit log.** With
+  `SCHEMAGATE_AUDIT_SIGNING_KEY=<private key>` every audit record carries its
+  sequence number, the hash of the record before it, a SHA-256 over its
+  canonical JSON and an **ML-DSA-65 signature (NIST FIPS 204)**. `schemagate
+  audit keygen | verify | head`: verify names the first record that was
+  edited, removed, inserted, reordered, forged or signed with another key; the
+  chain continues across restarts and log rotation. Removing the *newest*
+  records is caught only against a head kept elsewhere (`verify --head`),
+  which the docs state. Opt-in: without a key the log is byte-for-byte what it
+  was. New extra `schemagate[pq]` (PyCA `cryptography>=48`); the base install
+  is unchanged.
+
 ## 1.2.0
 
 An ontology, and a security fix for the MCP server's `run_query` -- upgrade if you

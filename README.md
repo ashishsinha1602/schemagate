@@ -990,6 +990,35 @@ start writing files on its own. The log is for the operator, from the file;
 it is deliberately not a tool, because "recent decisions" handed to any
 client is every caller's questions handed to every other caller.
 
+**And the record can be proven, years later.** Turn on signing and every
+record is chained to the one before it and signed with **ML-DSA-65, the NIST
+post-quantum signature standard (FIPS 204)**: editing a record, deleting one,
+inserting one or reordering them is caught by `schemagate audit verify`, which
+names the line and the reason. Post-quantum because audit logs are kept for
+years, long enough that today's RSA and ECDSA signatures may be forgeable by
+then. It answers the auditor's question "can you prove the model was never
+shown the salary table for this user?" with a check anyone holding the public
+key can run.
+
+```bash
+pip install "schemagate[pq]"                       # PyCA cryptography >= 48 (OpenSSL)
+schemagate audit keygen --out ./keys               # private key stays with the server
+SCHEMAGATE_AUDIT_LOG=1 SCHEMAGATE_AUDIT_SIGNING_KEY=./keys/audit-signing-key.pem \
+  python -m schemagate.mcp_server
+schemagate audit verify ~/.schemagate/audit.jsonl --public-key ./keys/audit-signing-key.pub.pem
+# OK  1204 signed records (ML-DSA-65), seq 0..1203, no edits, gaps or reordering
+schemagate audit head ~/.schemagate/audit.jsonl     # keep this SEQ:HASH elsewhere
+```
+
+What it does not claim: someone who can write the file can still delete the
+*newest* records, because a shorter chain is still a valid chain. Keep the
+`head` somewhere else (a ticket, another system) and `verify --head SEQ:HASH`
+fails if the log no longer reaches it. Signing does not encrypt: the log is as
+readable as before, and still holds no rows and no names of what was withheld.
+It proves what schemagate decided, which is only as right as the roles it was
+given. One server process writes one log; a configured key that cannot be
+loaded stops the server at start-up rather than writing unsigned evidence.
+
 **It learns from SQL that ran.** When `answer` produces a query that
 executes, the question and the query are remembered -- never the rows. The
 next similar question gets the tables that query read pinned into its
