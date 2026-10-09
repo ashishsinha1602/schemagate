@@ -396,6 +396,49 @@ def _history(path: str):
     return out
 
 
+def cmd_audit(args) -> int:
+    from . import pq
+    try:
+        if args.action == "keygen":
+            pw = None
+            if args.passphrase_env:
+                pw = os.environ.get(args.passphrase_env)
+                if not pw:
+                    sys.exit(f"schemagate: {args.passphrase_env} is empty; set the passphrase there first")
+            priv, pub = pq.generate_keypair(args.out or ".", pw.encode("utf-8") if pw else None)
+            print(f"private key: {priv}   (keep it secret; the server signs with it)")
+            print(f"public key:  {pub}   (give it to whoever verifies the log)")
+            print(f"\nsign:   SCHEMAGATE_AUDIT_LOG=1 SCHEMAGATE_AUDIT_SIGNING_KEY={priv} python -m schemagate.mcp_server")
+            print(f"verify: schemagate audit verify <audit.jsonl> --public-key {pub}")
+            return 0
+        if not args.logs:
+            sys.exit(f"schemagate: audit {args.action} needs at least one log file")
+        if args.action == "head":
+            h = pq.head_of(args.logs)
+            if not h:
+                sys.exit("schemagate: no signed records in that log")
+            print(h)
+            return 0
+        if not args.public_key:
+            sys.exit("schemagate: audit verify needs --public-key")
+        rep = pq.verify_files(args.logs, pq.load_verifier(args.public_key), head=args.head)
+    except (RuntimeError, ValueError, FileExistsError, FileNotFoundError) as e:
+        sys.exit(f"schemagate: {e}")
+    if args.json:
+        print(json.dumps(rep.to_dict(), indent=2))
+    elif rep.ok:
+        print(f"OK  {rep.records} signed records ({pq.ALGORITHM}), seq {rep.first_seq}..{rep.last_seq}, "
+              "no edits, gaps or reordering")
+        if rep.unsigned_before:
+            print(f"    {rep.unsigned_before} earlier records were written before signing was switched on")
+        print(f"    head {rep.head}   (keep this elsewhere; verify --head checks the log still reaches it)")
+    else:
+        print(f"FAILED  {len(rep.problems)} problem(s); the first:")
+        for p in rep.problems[:5]:
+            print(f"  {p['file']}:{p['line']}  {p['reason']}" + (f"  (seq {p['seq']})" if p.get("seq") is not None else ""))
+    return 0 if rep.ok else 1
+
+
 def cmd_ontology(args) -> int:
     from . import config as _config
     if args.save and not args.config:
@@ -627,6 +670,25 @@ def build_parser() -> argparse.ArgumentParser:
     onto.add_argument("--exclude", action="append", metavar="PATTERN")
     onto.add_argument("--schema", action="append", metavar="NAME")
     onto.set_defaults(func=cmd_ontology)
+
+    audit = sub.add_parser(
+        "audit",
+        help="quantum-safe signed audit log: make a key, verify a log, print its head",
+        description="Every audited call can be chained and signed with ML-DSA-65 (NIST FIPS 204). "
+                    "keygen makes the key pair; run the server with SCHEMAGATE_AUDIT_SIGNING_KEY=<private .pem>. "
+                    "verify checks every record's hash, signature and place in the chain. "
+                    "head prints the newest SEQ:HASH to keep somewhere else, so a later "
+                    "verify --head can tell if the newest records were removed.")
+    audit.add_argument("action", choices=("keygen", "verify", "head"))
+    audit.add_argument("logs", nargs="*", metavar="LOG",
+                       help="verify/head: audit log files, oldest first (e.g. audit.jsonl.1 audit.jsonl)")
+    audit.add_argument("--out", metavar="DIR", help="keygen: where to write the key pair (default: current directory)")
+    audit.add_argument("--passphrase-env", metavar="VAR",
+                       help="keygen: encrypt the private key with the passphrase in this environment variable")
+    audit.add_argument("--public-key", metavar="PEM", help="verify: the public key (.pub.pem from keygen)")
+    audit.add_argument("--head", metavar="SEQ:HASH", help="verify: a head printed earlier; fail if the log no longer has it")
+    audit.add_argument("--json", action="store_true", help="verify: print the full report as JSON")
+    audit.set_defaults(func=cmd_audit)
 
     certify = sub.add_parser("certify", help="end-to-end check on a real engine")
     certify.add_argument("url")

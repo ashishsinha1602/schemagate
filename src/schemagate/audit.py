@@ -141,7 +141,7 @@ class AuditLog:
     """Append-only JSON Lines, plus an in-memory ring for `health`."""
 
     def __init__(self, path: Optional[os.PathLike] = None, *,
-                 max_bytes: int = DEFAULT_MAX_BYTES, ring: int = RING) -> None:
+                 max_bytes: int = DEFAULT_MAX_BYTES, ring: int = RING, signer=None) -> None:
         self.path: Optional[Path] = Path(path) if path else None
         self.max_bytes = int(max_bytes)
         self._ring: Deque[Record] = collections.deque(maxlen=ring)
@@ -150,18 +150,37 @@ class AuditLog:
                                       "write_failures": 0}
         if self.path is not None:
             self.path.parent.mkdir(parents=True, exist_ok=True)
+        # Signing (pq.py): every record is chained to the one before and signed with ML-DSA. A restarted
+        # server continues the chain from the newest sealed record on disk, current file first, then the
+        # rotated one, so a restart is not a gap.
+        self.signer = signer
+        self._seq, self._prev = -1, None
+        if signer is not None:
+            from . import pq
+            self._prev = pq.GENESIS
+            if self.path is not None:
+                last = pq.last_sealed([self.path, self.path.with_suffix(self.path.suffix + ".1")])
+                if last:
+                    self._seq, self._prev = last
 
     @classmethod
     def from_env(cls, env: Optional[Mapping[str, str]] = None) -> "AuditLog":
         """`SCHEMAGATE_AUDIT_LOG` unset -> memory only. `1`/`default`/`on`
-        -> the default file. Anything else -> that path."""
+        -> the default file. Anything else -> that path.
+
+        `SCHEMAGATE_AUDIT_SIGNING_KEY=<private key .pem>` signs every record
+        (see `pq.py`). A key that is configured but cannot be loaded raises
+        here, at start-up: whoever asked for signed evidence must not get
+        unsigned evidence without knowing."""
+        from . import pq
         src = os.environ if env is None else env
+        signer = pq.signer_from_env(src) if (src.get(pq.ENV_KEY) or "").strip() else None
         raw = (src.get(ENV_PATH) or "").strip()
         if not raw or raw == "0":
-            return cls(None)
+            return cls(None, signer=signer)
         if raw.lower() in ("1", "default", "on", "true"):
-            return cls(default_path())
-        return cls(raw)
+            return cls(default_path(), signer=signer)
+        return cls(raw, signer=signer)
 
     @property
     def enabled(self) -> bool:
@@ -174,6 +193,15 @@ class AuditLog:
         server down is a denial-of-service lever, so a failed write is
         counted and logged, and the call it was recording still returns."""
         with self._lock:
+            if self.signer is not None:
+                from . import pq
+                try:
+                    pq.seal(rec, self.signer, self._seq + 1, self._prev)
+                    self._seq, self._prev = rec["seq"], rec["hash"]
+                except Exception:                     # noqa: BLE001 - never take the call down
+                    self.stats["write_failures"] += 1
+                    import logging
+                    logging.getLogger("schemagate.audit").exception("audit signing failed")
             self._ring.append(rec)
             self.stats["records"] += 1
             if not rec.get("ok", True):
@@ -216,8 +244,12 @@ class AuditLog:
 
     def describe(self) -> Dict[str, Any]:
         """For `health`: counts and whether a file is on. No content."""
-        return {"file": str(self.path) if self.path else None,
-                "in_memory": len(self._ring), **self.stats}
+        out = {"file": str(self.path) if self.path else None,
+               "in_memory": len(self._ring), **self.stats}
+        if self.signer is not None:
+            from . import pq
+            out["signed"] = {"algorithm": pq.ALGORITHM, "key": self.signer.key_id, "last_seq": self._seq}
+        return out
 
     @staticmethod
     def read(path: os.PathLike, *, since: Optional[str] = None,
