@@ -70,7 +70,7 @@ import os
 import re
 import threading
 import time
-from typing import Any, Dict, List, Optional
+from typing import Annotated, Any, Dict, List, Optional
 
 from . import __version__
 from .catalog import Catalog
@@ -463,14 +463,47 @@ def _audit():
     return _AUDIT
 
 
+
+# --- what each parameter means, in the tool schema an agent reads -------
+# Field is pydantic's, present whenever the mcp package is; without it the
+# descriptions are inert metadata and the functions behave the same.
+try:
+    from pydantic import Field
+except ImportError:                                   # pragma: no cover - library use without [mcp]
+    def Field(*_a, **_k):                             # type: ignore[no-redef]
+        return None
+
+Question = Annotated[str, Field(description=(
+    "The user's question in plain language, e.g. 'revenue by month' or 'which customers owe us money'."))]
+PrincipalArg = Annotated[Optional[str], Field(description=(
+    "Who is asking, as an identity string such as 'okta:jdoe'. Pass it whenever you know the user: "
+    "visibility is decided for this identity. Omitted = anonymous, which sees only unrestricted objects."))]
+RolesArg = Annotated[Optional[List[str]], Field(description=(
+    "The caller's roles or groups, e.g. ['finance', 'payroll']. Objects and columns restricted to a role "
+    "are visible only when it is listed here. Omitted = no roles."))]
+TopK = Annotated[int, Field(description=(
+    "How many tables and views to select for the question (default 6). Raise it for questions that span "
+    "many areas; the caller's visible objects are the upper bound."), ge=1, le=50)]
+ExpandFK = Annotated[bool, Field(description=(
+    "Also pull in tables joined by foreign key to the selected ones (default true), only where the caller "
+    "may read them. Set false for the bare top matches."))]
+ObjectName = Annotated[str, Field(description=(
+    "Table or view name as returned by select_schema or list_objects, bare ('orders') or schema-qualified "
+    "('sales.orders')."))]
+SqlArg = Annotated[str, Field(description=(
+    "One read-only SELECT (or WITH ... SELECT) written against the DDL select_schema returned. Writes, DDL "
+    "and multiple statements are refused, as is any table or column this caller may not read."))]
+MaxRows = Annotated[int, Field(description=(
+    "Most rows to return (default 50, at most 200). The result says when it was truncated."), ge=1, le=200)]
+
 # --- tool implementations, importable without the mcp package ------------
 # Kept separate from the server wiring so they can be unit-tested directly
 # and reused by anyone building their own server.
 
 @_guard
-def select_schema(question: str, principal: Optional[str] = None,
-                  roles: Optional[List[str]] = None, top_k: int = 6,
-                  expand_foreign_keys: bool = True) -> Dict[str, Any]:
+def select_schema(question: Question, principal: PrincipalArg = None,
+                  roles: RolesArg = None, top_k: TopK = 6,
+                  expand_foreign_keys: ExpandFK = True) -> Dict[str, Any]:
     """Pick the tables and views a question needs, scoped to the caller.
 
     Returns the compact DDL to put in the SQL-writing prompt, the object
@@ -510,8 +543,8 @@ def select_schema(question: str, principal: Optional[str] = None,
 
 
 @_guard
-def list_objects(principal: Optional[str] = None,
-                 roles: Optional[List[str]] = None) -> Dict[str, Any]:
+def list_objects(principal: PrincipalArg = None,
+                 roles: RolesArg = None) -> Dict[str, Any]:
     """Every object the caller may see, with kind and column count.
 
     Useful for an agent that wants to know what exists before asking.
@@ -531,8 +564,8 @@ def list_objects(principal: Optional[str] = None,
 
 
 @_guard
-def describe_object(name: str, principal: Optional[str] = None,
-                    roles: Optional[List[str]] = None) -> Dict[str, Any]:
+def describe_object(name: ObjectName, principal: PrincipalArg = None,
+                    roles: RolesArg = None) -> Dict[str, Any]:
     """Full DDL for one object, if the caller may see it."""
     who = _principal(principal, roles)
     cat = _catalog()
@@ -552,9 +585,9 @@ def describe_object(name: str, principal: Optional[str] = None,
 
 
 @_guard
-def run_query(sql: str, principal: Optional[str] = None,
-              roles: Optional[List[str]] = None,
-              max_rows: int = DEFAULT_ROWS) -> Dict[str, Any]:
+def run_query(sql: SqlArg, principal: PrincipalArg = None,
+              roles: RolesArg = None,
+              max_rows: MaxRows = DEFAULT_ROWS) -> Dict[str, Any]:
     """Run one read-only SELECT and return the rows.
 
     This is the half that was missing. `select_schema` hands back the DDL and
@@ -622,9 +655,9 @@ def run_query(sql: str, principal: Optional[str] = None,
 
 
 @_guard
-def answer(question: str, principal: Optional[str] = None,
-           roles: Optional[List[str]] = None, top_k: int = 6,
-           max_rows: int = DEFAULT_ROWS) -> Dict[str, Any]:
+def answer(question: Question, principal: PrincipalArg = None,
+           roles: RolesArg = None, top_k: TopK = 6,
+           max_rows: MaxRows = DEFAULT_ROWS) -> Dict[str, Any]:
     """Question in, rows out -- selection, SQL and execution in one call.
 
     Only useful when this server has its own model configured
@@ -755,6 +788,39 @@ _INSTRUCTIONS = (
     "run_query scopes on what it is given, not on the earlier call.")
 
 
+#: What an agent reads for each tool: purpose, when to call it, what comes back. The docstrings above are for
+#: people reading the code; these are for the model choosing a tool.
+TOOL_DESCRIPTIONS = {
+    "select_schema": (
+        "Start here for any question about the data. Returns the few tables and views the question needs, as "
+        "compact DDL to write SQL against, scoped to the caller: objects and columns they may not read are "
+        "absent, not ranked low. Also returns each object's name and why it was picked. Pass principal and "
+        "roles whenever you know who is asking."),
+    "list_objects": (
+        "List every table and view this caller may read, with its kind and column count. Use it to see what "
+        "exists before asking, or when select_schema did not return what you expected."),
+    "describe_object": (
+        "Full DDL (all visible columns, keys, comments) for one table or view, if the caller may read it. Use "
+        "it when select_schema's compact DDL is not enough. A restricted or missing object returns the same "
+        "'not available' error, so its existence is not revealed."),
+    "run_query": (
+        "Execute one read-only SELECT and return the rows (capped by max_rows). Write the SQL against the DDL "
+        "select_schema returned for the same caller. Refuses writes, multiple statements, and any table or "
+        "column the caller may not read, with an error that says so ('not available to this caller'), "
+        "which you can pass on to the user instead of reporting 'no results'."),
+    "answer": (
+        "Question in, rows out: selects the schema, writes the SQL with the server's own configured model, "
+        "and runs it, all scoped to the caller. Only available when the server has a model configured; most "
+        "clients should use select_schema then run_query with their own model instead."),
+    "refresh_catalog": (
+        "Re-read the database structure (new tables, changed columns, changed grants) and swap the index in. "
+        "If the database is unreachable the previous catalog stays in service and the failure is reported."),
+    "health": (
+        "Server status: whether the catalog is loaded, how many objects it holds, the database dialect, and "
+        "audit-log counts. Takes no arguments; safe to call any time."),
+}
+
+
 def _server_class():
     """The high-level server class, whichever SDK major version is installed.
 
@@ -802,9 +868,22 @@ def create_server(catalog: Optional[Catalog] = None):
         low = getattr(app, "_mcp_server", None)
         if low is not None and hasattr(low, "version"):
             low.version = __version__
+    try:
+        from mcp.types import ToolAnnotations
+    except ImportError:                               # very old SDKs: descriptions only
+        ToolAnnotations = None
     for tool in (select_schema, list_objects, describe_object,
                  run_query, answer, refresh_catalog, health):
-        app.tool()(tool)
+        name = tool.__name__
+        kw: Dict[str, Any] = {"description": TOOL_DESCRIPTIONS[name]}
+        if ToolAnnotations is not None:
+            # Every tool only reads. refresh_catalog changes the server's own index, never the database.
+            kw["annotations"] = ToolAnnotations(readOnlyHint=True, destructiveHint=False,
+                                                idempotentHint=True, openWorldHint=False)
+        try:
+            app.tool(**kw)(tool)
+        except TypeError:                             # an SDK without annotations=
+            app.tool(description=kw["description"])(tool)
     return app
 
 
