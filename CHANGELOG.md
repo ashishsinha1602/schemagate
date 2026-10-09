@@ -1,6 +1,17 @@
 # Changelog
 
-## Unreleased
+## 1.3.0
+
+A quantum-safe, tamper-evident audit log, and MCP tools that describe every
+argument to the agent calling them.
+
+- **MCP tool definitions an agent can use.** Every one of the 19 tool
+  parameters now carries a description (who `principal` is, what `roles`
+  does, the limits on `top_k` and `max_rows`, which are also in the schema),
+  each tool has a description written for the model (what it returns, when to
+  call it, what its errors mean), and every tool is marked read-only with MCP
+  tool annotations. Behaviour is unchanged. Works on MCP SDK 1.x and 2.x; a
+  test fails the build if a tool or argument ships undescribed.
 
 - **Quantum-safe, tamper-evident audit log.** With
   `SCHEMAGATE_AUDIT_SIGNING_KEY=<private key>` every audit record carries its
