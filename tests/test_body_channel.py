@@ -85,6 +85,25 @@ def test_no_columns():
     _relation_holds(ObjectDoc(name="bc_empty_shell", kind="TABLE"))
 
 
+def test_identical_wording_in_two_fields_is_kept_by_field_not_by_text():
+    """The positive control. The bug was one source field feeding two
+    channels, never "the same words appear twice": a description and a
+    column comment may say the same sentence. The body channel keeps the
+    description's copy because of the field it came from, and drops the
+    comment's for the same reason -- not because the text was seen before.
+    A de-duplication by text would pass the first assert and fail the third."""
+    s = "reorder point for each warehouse"
+    both = ObjectDoc(name="bc_dup_both", kind="TABLE", description=s,
+                     columns=[Column(name="qty", type="INT", comment=s)])
+    assert both.embed_text().count(s) == 2      # the full text carries both fields
+    assert _body_text(both).count(s) == 1       # the body keeps the description's copy
+    only_comment = ObjectDoc(name="bc_dup_comment", kind="TABLE",
+                             columns=[Column(name="qty", type="INT", comment=s)])
+    assert s not in _body_text(only_comment)   # ...and never the comment's, alone or not
+    _relation_holds(both)
+    _relation_holds(only_comment)
+
+
 # --- the property, with a generator that reaches the divergent class -------
 
 ident = st.from_regex(r"[a-z]{3,10}(_[a-z]{3,10}){0,2}", fullmatch=True)
