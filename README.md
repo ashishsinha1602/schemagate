@@ -5,6 +5,7 @@
 [![CI](https://github.com/ashishsinha1602/schemagate/actions/workflows/ci.yml/badge.svg)](https://github.com/ashishsinha1602/schemagate/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15353/badge)](https://www.bestpractices.dev/projects/15353)
+[![REUSE status](https://api.reuse.software/badge/github.com/ashishsinha1602/schemagate)](https://api.reuse.software/info/github.com/ashishsinha1602/schemagate)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/schemagate?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/schemagate)
 [![MCP Registry](https://img.shields.io/badge/MCP%20Registry-listed-16a34a.svg)](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.ashishsinha1602/schemagate)
 [![Try it in the browser](https://img.shields.io/badge/demo-in%20your%20browser-0F7B6C)](https://ashishsinha1602.github.io/schemagate/)
