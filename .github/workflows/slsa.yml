@@ -8,7 +8,7 @@
 #
 #   slsa-verifier verify-artifact schemagate-<v>-py3-none-any.whl \
 #     --provenance-path schemagate-v<v>.intoto.jsonl \
-#     --source-uri github.com/ashishsinha1602/schemagate --source-tag v<v>
+#     --source-uri github.com/ashishsinha1602/schemagate --source-branch main
 #
 # Hashing what PyPI serves, rather than rebuilding, means the provenance names
 # the files people actually install. It can also be run by hand for an older
