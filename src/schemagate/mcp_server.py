@@ -382,9 +382,13 @@ def _check_scope(cat: Catalog, sql: str, who: Optional[Principal]) -> Optional[s
     unknown += sorted(n for n in (idents & (hid_q | hid_bare)) - visible_names
                       if n not in {u.lower() for u in unknown})
     if unknown:
-        ambiguous = sorted({t for t in unknown if t.lower() in vis_bare and t.lower() in hid_bare})
-        hint = (" %s also names an object this caller may not see; qualify it with its schema."
-                % ", ".join(ambiguous)) if ambiguous else ""
+        # A bare name refused only because it is ambiguous can still be used
+        # qualified. Say so by naming the visible objects it could mean --
+        # never the hidden one, nor that one exists. Where qualifying would
+        # not help either (names that differ only in case), give no hint.
+        usable = sorted({d.qname for t in unknown if "." not in t
+                         for d in vis_bare.get(t.lower(), []) if d.qname.lower() not in hid_q})
+        hint = (" Use the qualified name select_schema returns: %s." % ", ".join(usable)) if usable else ""
         return ("not available to this caller: %s.%s Call select_schema and use "
                 "only the objects it returns." % (", ".join(sorted(set(unknown))), hint))
     # Column rules. A table the caller may read can still hold a column it

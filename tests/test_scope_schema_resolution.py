@@ -68,9 +68,26 @@ def test_the_caller_with_the_role_reads_both():
         assert _check_scope(TWO_SCHEMAS, sql, PAYROLL) is None
 
 
-def test_an_ambiguous_bare_name_says_to_qualify_it():
+def test_an_ambiguous_bare_name_points_to_the_visible_qualified_name():
     msg = _check_scope(TWO_SCHEMAS, "SELECT * FROM salary", SALES)
-    assert "qualify it with its schema" in msg
+    assert "public.salary" in msg
+    assert _check_scope(TWO_SCHEMAS, "SELECT * FROM public.salary", SALES) is None   # and that name works
+
+
+def test_a_refusal_never_reveals_that_a_hidden_object_exists():
+    """The message names what the caller may use, never what it may not, and
+    never says that something hidden shares the name."""
+    for cat, sql in ((TWO_SCHEMAS, "SELECT * FROM salary"), (TWO_SCHEMAS, "SELECT * FROM hr.salary"),
+                     (CASE_TWINS, 'SELECT * FROM "Payroll"'), (CASE_TWINS, "SELECT * FROM payroll")):
+        msg = _check_scope(cat, sql, SALES)
+        assert msg is not None
+        assert "may not see" not in msg, msg
+        assert "hr.salary" not in msg or "hr.salary" in sql, msg   # never names a hidden object it was not given
+
+
+def test_case_only_twins_get_no_misleading_qualify_hint():
+    msg = _check_scope(CASE_TWINS, "SELECT * FROM payroll", SALES)
+    assert "qualified name" not in msg, msg
 
 
 CASE_TWINS = _Cat([_doc("public", "payroll", None), _doc("public", "Payroll", ["payroll"])])
