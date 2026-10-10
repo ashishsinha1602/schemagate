@@ -54,6 +54,21 @@ engine and version you ran against. These are enough:
       gvenzl/oracle-free:23-slim
     docker run -d --name pg16 -p 5432:5432 -e POSTGRES_PASSWORD=secret postgres:16
 
+## Coding standard
+
+Python follows [PEP 8](https://peps.python.org/pep-0008/). CI enforces the
+PEP 8 error rules and pyflakes with ruff, configured under `[tool.ruff]` in
+`pyproject.toml`; run it before you push:
+
+    pip install ruff==0.16.8
+    ruff check .
+
+The library (`src/`) is held to every selected rule. Tests and scripts may
+keep compact one-line setups (the per-file ignores say which).
+
+New functionality comes with tests in `tests/` that run in CI, and every bug
+fix comes with a regression test that fails without the fix.
+
 ## Pull requests
 
 One change per PR, tests included, CHANGELOG line added. Keep the README in

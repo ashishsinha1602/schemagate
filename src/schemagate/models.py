@@ -334,7 +334,7 @@ class ObjectDoc:
                 note = "  (inferred from the column name, not declared)" if fk.inferred else ""
                 lines.append(
                     f"-- FK {self.name}({','.join(fk.columns)}) -> {fk.ref_table}{note}")
-        return "\n".join(l for l in lines if l)
+        return "\n".join(line for line in lines if line)
 
 
 @dataclass

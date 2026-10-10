@@ -409,7 +409,6 @@ def seed_schema():
 def main():
     argv = sys.argv[1:]
     flags = {a for a in argv if a.startswith("--")}
-    model = "claude-sonnet-4-5"
     args, skip = [], False
     for i, a in enumerate(argv):
         if skip:

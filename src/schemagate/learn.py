@@ -220,7 +220,8 @@ class Memory:
         with self._lock:
             before = len(self._entries)
             if question is None:
-                self._entries.clear(); self._vectors.clear()
+                self._entries.clear()
+                self._vectors.clear()
             else:
                 key = self._key(question)
                 self._entries = collections.deque(

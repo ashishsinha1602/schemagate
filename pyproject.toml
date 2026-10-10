@@ -114,6 +114,19 @@ markers = [
     "live: needs real credentials and network (provider keys, OCI config, a database); skipped otherwise",
 ]
 
+[tool.ruff]
+# Style: PEP 8 errors and pyflakes, enforced in CI (ruff check). The library is held
+# to the rules as they stand; tests and scripts may keep compact one-line setups.
+extend-exclude = ["benchmarks", "studio"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["E401", "E402", "E701", "E702", "E741"]
+"scripts/**" = ["E401", "E402", "E701", "E702", "E741"]
+"examples/*.ipynb" = ["F401"]  # a teaching notebook; its setup cell imports more than it uses
+
 [tool.mypy]
 # Not a CI gate; run it locally with `mypy src/schemagate`.
 
