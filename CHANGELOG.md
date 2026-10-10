@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- `run_query` refusals no longer reveal that a hidden object shares a name. The
+  1.3.1 message for an ambiguous name said it "also names an object this caller
+  may not see" and suggested qualifying it even where that could not help (names
+  that differ only in case). It now names only the visible qualified name the
+  caller can use, and gives no hint where none applies.
+
 ## 1.3.1
 
 A security fix for the MCP server's `run_query`. Upgrade if more than one schema
