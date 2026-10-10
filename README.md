@@ -5,7 +5,7 @@
 [![CI](https://github.com/ashishsinha1602/schemagate/actions/workflows/ci.yml/badge.svg)](https://github.com/ashishsinha1602/schemagate/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15353/badge)](https://www.bestpractices.dev/projects/15353)
-[![Downloads](https://static.pepy.tech/badge/schemagate)](https://pepy.tech/projects/schemagate)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/schemagate?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/schemagate)
 [![Try it in the browser](https://img.shields.io/badge/demo-in%20your%20browser-0F7B6C)](https://ashishsinha1602.github.io/schemagate/)
 
 Your text-to-SQL agent picks which tables to show the model before anyone checks what the caller is allowed to read. schemagate does the check first: it filters the schema by the caller's grants, so restricted tables are absent from the prompt rather than ranked low. Works with LangChain, MCP, or any SQL agent, on Postgres, Oracle, MySQL, SQL Server and SQLite.
