@@ -29,6 +29,14 @@ jobs:
         # fails if recall drops on either schema, or token savings regress
         run: python tests/bench.py
 
+  reuse:
+    # Every file carries machine-readable copyright and licence information
+    # (REUSE.toml, LICENSES/). Fails if a new file is added without it.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: fsfe/reuse-action@676e2d560c9a403aa252096d99fcab3e1132b0f5 # v6.0.0
+
   live-models:
     # The provider tests against a real model. They skip without a key, so
     # the matrix above never runs them; this job does, on main only, with the

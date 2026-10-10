@@ -1,0 +1,34 @@
+version = 1
+SPDX-PackageName = "schemagate"
+SPDX-PackageSupplier = "Ashish Sinha <https://github.com/ashishsinha1602>"
+SPDX-PackageDownloadLocation = "https://github.com/ashishsinha1602/schemagate"
+
+# Everything in the repository is schemagate's own work under Apache-2.0,
+# except the two files below that carry third-party code.
+[[annotations]]
+path = "**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Ashish Sinha"
+SPDX-License-Identifier = "Apache-2.0"
+
+# blakejs 1.2.1 (BLAKE2b) by DC (dcposch), CC0-1.0, bundled for the browser.
+[[annotations]]
+path = "studio/blake2b.browser.js"
+precedence = "override"
+SPDX-FileCopyrightText = "2017 DC <https://github.com/dcposch/blakejs>"
+SPDX-License-Identifier = "CC0-1.0"
+
+# The Studio pages inline the same blakejs code alongside schemagate's own.
+[[annotations]]
+path = ["src/schemagate/studio.html", "studio/studio.html"]
+precedence = "override"
+SPDX-FileCopyrightText = ["2026 Ashish Sinha", "2017 DC <https://github.com/dcposch/blakejs>"]
+SPDX-License-Identifier = "Apache-2.0 AND CC0-1.0"
+
+# Generated from the MCP registry's OpenAPI spec, used as a test fixture.
+# That project is moving from MIT to Apache-2.0, so both are declared.
+[[annotations]]
+path = "tests/fixtures/mcp-server.schema.2025-12-11.json"
+precedence = "override"
+SPDX-FileCopyrightText = "Model Context Protocol registry contributors <https://github.com/modelcontextprotocol/registry>"
+SPDX-License-Identifier = "Apache-2.0 AND MIT"
