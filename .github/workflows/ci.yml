@@ -37,6 +37,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: fsfe/reuse-action@676e2d560c9a403aa252096d99fcab3e1132b0f5 # v6.0.0
 
+  lint:
+    # The coding standard is PEP 8 errors plus pyflakes, configured under
+    # [tool.ruff] in pyproject.toml; CONTRIBUTING.md says so. Version pinned
+    # so a new ruff release cannot fail a pull request that changed nothing.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: pip install ruff==0.16.8
+      - name: ruff
+        run: ruff check .
+
   live-models:
     # The provider tests against a real model. They skip without a key, so
     # the matrix above never runs them; this job does, on main only, with the

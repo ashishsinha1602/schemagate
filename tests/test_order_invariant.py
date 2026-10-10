@@ -13,7 +13,6 @@ so that is what these tests assert.
 Reported by howcani on the dev.to thread for the 1,245-table post.
 """
 import ast
-import inspect
 import pathlib
 import subprocess
 

@@ -11,7 +11,6 @@ it cannot reach a column the caller may not see.
 """
 from __future__ import annotations
 
-import pytest
 
 from schemagate.identity import Principal
 from schemagate.models import Column, ForeignKey, ObjectDoc
@@ -156,7 +155,6 @@ def test_a_restricted_column_is_not_even_counted_as_omitted():
 # --------------------------------------------------- through the Selection
 
 def test_prompt_fragment_passes_the_question_down():
-    from schemagate import Catalog
     from schemagate.models import Scored, Selection
 
     doc = wide()
