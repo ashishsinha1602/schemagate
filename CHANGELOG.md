@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.3.1
+
+A security fix for the MCP server's `run_query`. Upgrade if more than one schema
+in your database holds a table of the same name, or if two table names differ only
+in case.
+
+- **Security: `run_query` could read a restricted table that shares its name with
+  a visible one.** With `public.salary` visible and `hr.salary` restricted, `SELECT
+  * FROM hr.salary` passed the scope check, because a qualified name that did not
+  match fell back to its bare table name. The same case-insensitive fold let a
+  quoted name that differs only in case from a visible table through. A reference
+  must now resolve to visible objects only: a qualified name must match a visible
+  object exactly, an unqualified name that also names a hidden object is refused
+  with a hint to qualify it, and names that collide only in case are refused.
+  `select_schema` and the other tools were not affected. Regression tests:
+  `tests/test_scope_schema_resolution.py`.
+
 ## 1.3.0
 
 A quantum-safe, tamper-evident audit log, and MCP tools that describe every
