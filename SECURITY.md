@@ -50,6 +50,17 @@ certificate and the transparency-log entry together:
 Signing starts at v0.1.58. Earlier releases carry the zip with no bundle, so
 there is nothing to verify against -- not a failed check, an absent one.
 
+Each GitHub release also carries [SLSA Build Level 3](https://slsa.dev/spec/v1.0/levels)
+provenance, `schemagate-v<version>.intoto.jsonl`, signed by the official SLSA
+generator for the exact wheel and sdist that PyPI serves. Check a file you
+downloaded with [slsa-verifier](https://github.com/slsa-framework/slsa-verifier):
+
+    slsa-verifier verify-artifact schemagate-<version>-py3-none-any.whl \
+      --provenance-path schemagate-v<version>.intoto.jsonl \
+      --source-uri github.com/ashishsinha1602/schemagate --source-tag v<version>
+
+Provenance starts at v1.3.0.
+
 ## What schemagate does and does not protect
 
 - It filters *schema metadata* by identity before retrieval. It never sees or

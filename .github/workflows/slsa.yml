@@ -1,0 +1,94 @@
+# SLSA Build Level 3 provenance for every release.
+#
+# After `publish` has uploaded a release to PyPI, this downloads the exact
+# wheel and sdist PyPI serves for that version, hashes them, and has the
+# official SLSA generator (an isolated, reusable workflow) sign a provenance
+# statement for those hashes. The statement is attached to the GitHub release
+# as schemagate-v<version>.intoto.jsonl. Anyone can check a file from PyPI:
+#
+#   slsa-verifier verify-artifact schemagate-<v>-py3-none-any.whl \
+#     --provenance-path schemagate-v<v>.intoto.jsonl \
+#     --source-uri github.com/ashishsinha1602/schemagate --source-tag v<v>
+#
+# Hashing what PyPI serves, rather than rebuilding, means the provenance names
+# the files people actually install. It can also be run by hand for an older
+# release (Actions > slsa > Run workflow).
+name: slsa
+
+on:
+  workflow_run:
+    workflows: [publish]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version already on PyPI, e.g. 1.3.0"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  hashes:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      subjects: ${{ steps.hash.outputs.subjects }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - name: which version
+        id: version
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+          v="${INPUT_VERSION:-${RUN_BRANCH#v}}"
+          if ! printf '%s' "$v" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([a-z0-9.]*)?$'; then
+            echo "::error::not a release version: '$v'"; exit 1
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "tag=v$v" >> "$GITHUB_OUTPUT"
+      - name: download exactly what PyPI serves
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir dist
+          python3 - <<'PY'
+          import hashlib, json, os, urllib.request
+          v = os.environ["VERSION"]
+          for attempt in range(30):
+              try:
+                  meta = json.load(urllib.request.urlopen(f"https://pypi.org/pypi/schemagate/{v}/json"))
+                  break
+              except Exception:
+                  import time; time.sleep(10)
+          else:
+              raise SystemExit(f"PyPI never served schemagate {v}")
+          for f in meta["urls"]:
+              data = urllib.request.urlopen(f["url"]).read()
+              if hashlib.sha256(data).hexdigest() != f["digests"]["sha256"]:
+                  raise SystemExit(f"{f['filename']}: hash does not match PyPI's own record")
+              open(os.path.join("dist", f["filename"]), "wb").write(data)
+              print("got", f["filename"], f["digests"]["sha256"])
+          PY
+      - name: hash
+        id: hash
+        run: |
+          set -euo pipefail
+          cd dist
+          echo "subjects=$(sha256sum * | base64 -w0)" >> "$GITHUB_OUTPUT"
+
+  provenance:
+    needs: hashes
+    permissions:
+      actions: read      # to read the workflow path
+      id-token: write    # to sign the provenance (keyless, Sigstore)
+      contents: write    # to attach it to the release
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: ${{ needs.hashes.outputs.subjects }}
+      upload-assets: true
+      upload-tag-name: ${{ needs.hashes.outputs.tag }}
+      provenance-name: schemagate-${{ needs.hashes.outputs.tag }}.intoto.jsonl
