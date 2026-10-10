@@ -22,8 +22,7 @@ command -v oci >/dev/null || die "no oci CLI -- run this in OCI Cloud Shell."
 
 # ---------------------------------------------------------------- 1. PyPI
 say "1. Is $VERSION on PyPI?"
-have="$(curl -fsS https://pypi.org/pypi/schemagate/json \
-        | python3 -c 'import sys,json;print(json.load(sys.stdin)["info"]["version"])' 2>/dev/null)"
+have="$(python3 -c 'import json,urllib.request as u;print(json.load(u.urlopen("https://pypi.org/pypi/schemagate/json"))["info"]["version"])' 2>/dev/null)"
 echo "   PyPI has: ${have:-unknown}"
 if [ "$have" != "$VERSION" ]; then
   die "PyPI is on '${have:-unknown}', not $VERSION.

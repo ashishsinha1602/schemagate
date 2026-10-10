@@ -307,7 +307,7 @@ jobs:
           set -euo pipefail
           want="${TAG#v}"
           for i in $(seq 1 24); do
-            have="$(curl -fsS https://pypi.org/pypi/schemagate/json | python3 -c 'import sys,json;print(json.load(sys.stdin)["info"]["version"])' 2>/dev/null || true)"
+            have="$(python3 -c 'import json,urllib.request as u;print(json.load(u.urlopen("https://pypi.org/pypi/schemagate/json"))["info"]["version"])' 2>/dev/null || true)"
             [ "$have" = "$want" ] && { echo "PyPI serves $have"; exit 0; }
             sleep 5
           done
@@ -319,8 +319,7 @@ jobs:
         # is a clear failure and not a rejected publish.
         run: |
           set -euo pipefail
-          curl -fsS https://pypi.org/pypi/schemagate/json \
-            | python3 -c 'import sys,json; d=json.load(sys.stdin)["info"]["description"]; sys.exit(0 if "mcp-name: io.github.ashishsinha1602/schemagate" in d else 1)' \
+          python3 -c 'import sys,json,urllib.request as u; d=json.load(u.urlopen("https://pypi.org/pypi/schemagate/json"))["info"]["description"]; sys.exit(0 if "mcp-name: io.github.ashishsinha1602/schemagate" in d else 1)' \
             || { echo "::error::the published README has no mcp-name marker; the registry will refuse ownership"; exit 1; }
 
       - name: install mcp-publisher
