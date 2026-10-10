@@ -5,8 +5,8 @@ title: "schemagate: identity-scoped schema selection for text-to-SQL"
 authors:
   - family-names: Sinha
     given-names: Ashish
-version: 1.3.0
-date-released: 2026-10-09
+version: 1.3.1
+date-released: 2026-10-10
 license: Apache-2.0
 repository-code: "https://github.com/ashishsinha1602/schemagate"
 url: "https://ashishsinha1602.github.io/schemagate/"

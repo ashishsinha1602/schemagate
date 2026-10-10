@@ -340,31 +340,56 @@ def _check_scope(cat: Catalog, sql: str, who: Optional[Principal]) -> Optional[s
     catalog never reflected -- because from here those look identical, and
     the safe reading of "I do not recognise this" is no.
     """
-    visible, hidden = {}, set()
+    # Every name is matched case-insensitively. Where that folds a hidden and
+    # a visible object together -- the same table name in two schemas, or two
+    # quoted names that differ only in case -- the reference is refused: the
+    # database may resolve it to the hidden one, so the safe answer is no.
+    vis_q, vis_bare, hid_q, hid_bare = {}, {}, set(), set()
     for doc in cat.objects():
-        if not cat._visible(doc, who):
-            hidden.add((doc.name or "").lower())
-            hidden.add(doc.qname.lower())
-            continue
-        visible[(doc.name or "").lower()] = doc
-        visible[doc.qname.lower()] = doc
+        q, b = doc.qname.lower(), (doc.name or "").lower()
+        if cat._visible(doc, who):
+            vis_q[q] = doc
+            vis_bare.setdefault(b, []).append(doc)
+        else:
+            hid_q.add(q)
+            hid_bare.add(b)
+
+    def resolve(ref: str) -> List[Any]:
+        """The visible objects ``ref`` can only mean, or [] if it may name a
+        hidden one. A qualified name must match a visible object exactly
+        (``db.schema.table`` is tried as ``schema.table`` too); it never
+        falls back to its bare table name, which may be another schema's."""
+        r = ref.lower()
+        if "." in r:
+            parts = r.split(".")
+            for cand in (r, ".".join(parts[-2:])):
+                if cand in vis_q and cand not in hid_q:
+                    return [vis_q[cand]]
+            return []
+        if r in hid_bare:
+            return []
+        return vis_bare.get(r, [])
+
     refs = _referenced_tables(sql)
-    unknown = [t for t in refs
-               if t.lower() not in visible
-               and t.lower().split(".")[-1] not in visible]
+    resolved = {t: resolve(t) for t in refs}
+    unknown = [t for t in refs if not resolved[t]]
     # Backstop, whatever the syntax: a name this caller may not see, anywhere
     # in the statement, is refused -- a FROM-list form the parser does not
     # know, a LATERAL, a dialect's own table function. A hidden table whose
     # name is also a visible object's name is left to the check above.
     idents = _identifiers(sql)
-    unknown += sorted(n for n in (idents & hidden) - set(visible) if n not in {u.lower() for u in unknown})
+    visible_names = set(vis_q) | set(vis_bare)
+    unknown += sorted(n for n in (idents & (hid_q | hid_bare)) - visible_names
+                      if n not in {u.lower() for u in unknown})
     if unknown:
-        return ("not available to this caller: %s. Call select_schema and use "
-                "only the objects it returns." % ", ".join(sorted(set(unknown))))
+        ambiguous = sorted({t for t in unknown if t.lower() in vis_bare and t.lower() in hid_bare})
+        hint = (" %s also names an object this caller may not see; qualify it with its schema."
+                % ", ".join(ambiguous)) if ambiguous else ""
+        return ("not available to this caller: %s.%s Call select_schema and use "
+                "only the objects it returns." % (", ".join(sorted(set(unknown))), hint))
     # Column rules. A table the caller may read can still hold a column it
     # may not: `SELECT *` would return it, and so would naming it.
-    used = [visible.get(t.lower()) or visible.get(t.lower().split(".")[-1]) for t in refs]
-    used = [d for d in used if d is not None]
+    used = [d for t in refs for d in resolved[t]]
     shown = {c.name.lower() for d in used for c in d.visible_columns(who)}
     withheld = {c.name.lower() for d in used for c in d.columns} - shown
     if withheld:
