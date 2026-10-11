@@ -1,0 +1,137 @@
+# `schemagate-mcp` end to end, against a real server of every engine schemagate supports.
+#
+# Each job starts the database, builds the same-name-in-two-schemas fixture (a visible
+# <app>.salary beside a restricted hr.salary), starts the server with real `uvx` from this
+# checkout plus the engine's driver extra, and drives it with an MCP client over stdio
+# (tests/mcp_command_e2e.py). A release is cut only when all four pass.
+name: mcp-e2e
+on:
+  # push only, like mysql.yml and mssql.yml: on a PR branch pull_request would stand up a
+  # second set of servers for the same commit.
+  push:
+  workflow_dispatch:
+
+# Least privilege by default: a job that needs to write says so itself.
+permissions:
+  contents: read
+
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          # Throwaway: one job long, runner loopback only. Not a credential.
+          POSTGRES_PASSWORD: "Sg_CI_throwaway_2026!"
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 30
+    env:
+      SGE_ENGINE: postgres
+      SGE_EXTRA: postgres
+      SGE_ADMIN_URL: "postgresql+psycopg://postgres:Sg_CI_throwaway_2026!@127.0.0.1:5432/postgres"
+      SGE_URL: "postgresql+psycopg://postgres:Sg_CI_throwaway_2026!@127.0.0.1:5432/postgres"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: pip install uv -e ".[mcp,postgres]"
+      - run: python tests/mcp_command_e2e.py
+
+  mysql:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: "Sg_CI_throwaway_2026!"
+          MYSQL_DATABASE: app
+        ports: ["3306:3306"]
+        options: --health-cmd "mysqladmin ping -h 127.0.0.1 -pSg_CI_throwaway_2026!" --health-interval 5s --health-timeout 5s --health-retries 40
+    env:
+      SGE_ENGINE: mysql
+      SGE_EXTRA: mysql
+      SGE_ADMIN_URL: "mysql+pymysql://root:Sg_CI_throwaway_2026!@127.0.0.1:3306/app"
+      SGE_URL: "mysql+pymysql://root:Sg_CI_throwaway_2026!@127.0.0.1:3306/app"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: pip install uv -e ".[mcp,mysql]"
+      - run: python tests/mcp_command_e2e.py
+
+  mssql:
+    runs-on: ubuntu-latest
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "Sg_CI_throwaway_2026!"
+          MSSQL_PID: Developer
+        ports: ["1433:1433"]
+    env:
+      SGE_ENGINE: mssql
+      SGE_EXTRA: mssql
+      SGE_ADMIN_URL: "mssql+pyodbc://sa:Sg_CI_throwaway_2026!@127.0.0.1:1433/master?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
+      SGE_URL: "mssql+pyodbc://sa:Sg_CI_throwaway_2026!@127.0.0.1:1433/master?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: ODBC Driver 18 (same steps as mssql.yml)
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq unixodbc unixodbc-dev odbcinst gnupg
+          if ! odbcinst -q -d | grep -qi "ODBC Driver 18 for SQL Server"; then
+            curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
+            . /etc/os-release
+            echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/ubuntu/${VERSION_ID}/prod ${VERSION_CODENAME} main" | sudo tee /etc/apt/sources.list.d/mssql-release.list >/dev/null
+            sudo apt-get update -qq
+            sudo ACCEPT_EULA=Y apt-get install -y -qq msodbcsql18
+          fi
+          odbcinst -q -d | grep -qi "ODBC Driver 18 for SQL Server"
+      - run: pip install uv -e ".[mcp,mssql]"
+      - name: wait for SQL Server
+        run: |
+          python - <<'PY'
+          import os, time
+          import sqlalchemy as sa
+          for i in range(60):
+              try:
+                  with sa.create_engine(os.environ["SGE_ADMIN_URL"]).connect() as c:
+                      c.execute(sa.text("SELECT 1")); print("up after", i * 5, "s"); break
+              except Exception as e:
+                  time.sleep(5)
+          else:
+              raise SystemExit("SQL Server never came up")
+          PY
+      - run: python tests/mcp_command_e2e.py
+
+  oracle:
+    runs-on: ubuntu-latest
+    services:
+      oracle:
+        image: gvenzl/oracle-free:23-slim-faststart
+        env:
+          ORACLE_PASSWORD: "Sg_CI_throwaway_2026"
+          APP_USER: app
+          APP_USER_PASSWORD: "Sg_CI_throwaway_2026"
+        ports: ["1521:1521"]
+        options: --health-cmd healthcheck.sh --health-interval 10s --health-timeout 5s --health-retries 60
+    env:
+      SGE_ENGINE: oracle
+      SGE_EXTRA: oracle
+      SGE_ADMIN_URL: "oracle+oracledb://system:Sg_CI_throwaway_2026@127.0.0.1:1521/?service_name=FREEPDB1"
+      SGE_URL: "oracle+oracledb://app:Sg_CI_throwaway_2026@127.0.0.1:1521/?service_name=FREEPDB1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: pip install uv -e ".[mcp,oracle]"
+      - run: python tests/mcp_command_e2e.py
