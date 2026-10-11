@@ -1,6 +1,6 @@
 # SLSA Build Level 3 provenance for every release.
 #
-# After `publish` has uploaded a release to PyPI, this downloads the exact
+# When a release is published, this waits for PyPI and downloads the exact
 # wheel and sdist PyPI serves for that version, hashes them, and has the
 # official SLSA generator (an isolated, reusable workflow) sign a provenance
 # statement for those hashes. The statement is attached to the GitHub release
@@ -8,21 +8,25 @@
 #
 #   slsa-verifier verify-artifact schemagate-<v>-py3-none-any.whl \
 #     --provenance-path schemagate-v<v>.intoto.jsonl \
-#     --source-uri github.com/ashishsinha1602/schemagate --source-branch main
+#     --source-uri github.com/ashishsinha1602/schemagate --source-tag v<v>
 #
 # Hashing what PyPI serves, rather than rebuilding, means the provenance names
-# the files people actually install. It can also be run by hand for an older
-# release (Actions > slsa > Run workflow).
+# the files people actually install.
 name: slsa
 
+# It runs on the release itself, not after the publish workflow: a workflow_run job
+# executes on the default branch, so its provenance recorded refs/heads/main and
+# whatever commit main had reached by then -- the release commit only if nothing
+# merged in between. On the release event the predicate carries the tag ref and the
+# tagged commit, and `slsa-verifier --source-tag v<version>` passes. By hand: Actions
+# > slsa > Run workflow, with "Use workflow from" set to the release tag.
 on:
-  workflow_run:
-    workflows: [publish]
-    types: [completed]
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       version:
-        description: "Version already on PyPI, e.g. 1.3.0"
+        description: "Version already on PyPI, e.g. 1.3.1 (run it from that version's tag)"
         required: true
 
 permissions:
@@ -30,7 +34,6 @@ permissions:
 
 jobs:
   hashes:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     outputs:
       subjects: ${{ steps.hash.outputs.subjects }}
@@ -40,10 +43,10 @@ jobs:
         id: version
         env:
           INPUT_VERSION: ${{ github.event.inputs.version }}
-          RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           set -euo pipefail
-          v="${INPUT_VERSION:-${RUN_BRANCH#v}}"
+          v="${INPUT_VERSION:-${RELEASE_TAG#v}}"
           if ! printf '%s' "$v" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([a-z0-9.]*)?$'; then
             echo "::error::not a release version: '$v'"; exit 1
           fi
@@ -58,12 +61,12 @@ jobs:
           python3 - <<'PY'
           import hashlib, json, os, urllib.request
           v = os.environ["VERSION"]
-          for attempt in range(30):
+          for attempt in range(60):
               try:
                   meta = json.load(urllib.request.urlopen(f"https://pypi.org/pypi/schemagate/{v}/json"))
                   break
               except Exception:
-                  import time; time.sleep(10)
+                  import time; time.sleep(15)
           else:
               raise SystemExit(f"PyPI never served schemagate {v}")
           for f in meta["urls"]:

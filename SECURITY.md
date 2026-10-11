@@ -57,11 +57,12 @@ downloaded with [slsa-verifier](https://github.com/slsa-framework/slsa-verifier)
 
     slsa-verifier verify-artifact schemagate-<version>-py3-none-any.whl \
       --provenance-path schemagate-v<version>.intoto.jsonl \
-      --source-uri github.com/ashishsinha1602/schemagate --source-branch main
+      --source-uri github.com/ashishsinha1602/schemagate --source-tag v<version>
 
-The provenance is signed after the release is published, by a workflow on
-`main`, so it names the commit rather than the tag; that commit is the one the
-`v<version>` tag points to (`git rev-parse v<version>`). Provenance starts at v1.3.1.
+The provenance is signed on the release itself, so it names the tag and the tagged commit.
+v1.3.1's was signed from `main` after the release; for that version use
+`--source-branch main` instead of `--source-tag` (its commit is the one `v1.3.1` points
+to). Provenance starts at v1.3.1.
 
 ## What schemagate does and does not protect
 
