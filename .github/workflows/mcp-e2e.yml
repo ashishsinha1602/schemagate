@@ -3,7 +3,10 @@
 # Each job starts the database, builds the same-name-in-two-schemas fixture (a visible
 # <app>.salary beside a restricted hr.salary), starts the server with real `uvx` from this
 # checkout plus the engine's driver extra, and drives it with an MCP client over stdio
-# (tests/mcp_command_e2e.py). A release is cut only when all four pass.
+# (tests/mcp_command_e2e.py); and that a GRANT and a REVOKE reach the server within
+# SCHEMAGATE_CATALOG_MAX_AGE and a server that cannot read the database refuses rather
+# than answering from old permissions (tests/freshness_e2e.py). A release is cut only
+# when every job passes.
 name: mcp-e2e
 on:
   # push only, like mysql.yml and mssql.yml: on a PR branch pull_request would stand up a
@@ -18,6 +21,12 @@ permissions:
 jobs:
   postgres:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # each script gets its own fresh server
+        script: [mcp_command_e2e, freshness_e2e]
+    name: postgres (${{ matrix.script }})
     services:
       postgres:
         image: postgres:16
@@ -28,6 +37,7 @@ jobs:
         options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 30
     env:
       SGE_ENGINE: postgres
+      SGE_SERVER_URL: "postgresql+psycopg://sgserver:Sg_CI_throwaway_2026x@127.0.0.1:5432/postgres"
       SGE_EXTRA: postgres
       SGE_ADMIN_URL: "postgresql+psycopg://postgres:Sg_CI_throwaway_2026!@127.0.0.1:5432/postgres"
       SGE_URL: "postgresql+psycopg://postgres:Sg_CI_throwaway_2026!@127.0.0.1:5432/postgres"
@@ -37,10 +47,16 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install uv -e ".[mcp,postgres]"
-      - run: python tests/mcp_command_e2e.py
+      - run: python tests/${{ matrix.script }}.py
 
   mysql:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # each script gets its own fresh server
+        script: [mcp_command_e2e, freshness_e2e]
+    name: mysql (${{ matrix.script }})
     services:
       mysql:
         image: mysql:8.4
@@ -51,6 +67,7 @@ jobs:
         options: --health-cmd "mysqladmin ping -h 127.0.0.1 -pSg_CI_throwaway_2026!" --health-interval 5s --health-timeout 5s --health-retries 40
     env:
       SGE_ENGINE: mysql
+      SGE_SERVER_URL: "mysql+pymysql://sgserver:Sg_CI_throwaway_2026x@127.0.0.1:3306/app"
       SGE_EXTRA: mysql
       SGE_ADMIN_URL: "mysql+pymysql://root:Sg_CI_throwaway_2026!@127.0.0.1:3306/app"
       SGE_URL: "mysql+pymysql://root:Sg_CI_throwaway_2026!@127.0.0.1:3306/app"
@@ -60,10 +77,16 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install uv -e ".[mcp,mysql]"
-      - run: python tests/mcp_command_e2e.py
+      - run: python tests/${{ matrix.script }}.py
 
   mssql:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # each script gets its own fresh server
+        script: [mcp_command_e2e, freshness_e2e]
+    name: mssql (${{ matrix.script }})
     services:
       mssql:
         image: mcr.microsoft.com/mssql/server:2022-latest
@@ -74,6 +97,7 @@ jobs:
         ports: ["1433:1433"]
     env:
       SGE_ENGINE: mssql
+      SGE_SERVER_URL: "mssql+pyodbc://sgserver:Sg_CI_throwaway_2026x@127.0.0.1:1433/master?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
       SGE_EXTRA: mssql
       SGE_ADMIN_URL: "mssql+pyodbc://sa:Sg_CI_throwaway_2026!@127.0.0.1:1433/master?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
       SGE_URL: "mssql+pyodbc://sa:Sg_CI_throwaway_2026!@127.0.0.1:1433/master?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
@@ -110,10 +134,16 @@ jobs:
           else:
               raise SystemExit("SQL Server never came up")
           PY
-      - run: python tests/mcp_command_e2e.py
+      - run: python tests/${{ matrix.script }}.py
 
   oracle:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # each script gets its own fresh server
+        script: [mcp_command_e2e, freshness_e2e]
+    name: oracle (${{ matrix.script }})
     services:
       oracle:
         image: gvenzl/oracle-free:23-slim-faststart
@@ -125,6 +155,7 @@ jobs:
         options: --health-cmd healthcheck.sh --health-interval 10s --health-timeout 5s --health-retries 60
     env:
       SGE_ENGINE: oracle
+      SGE_SERVER_URL: "oracle+oracledb://sgserver:Sg_CI_throwaway_2026x@127.0.0.1:1521/?service_name=FREEPDB1"
       SGE_EXTRA: oracle
       SGE_ADMIN_URL: "oracle+oracledb://system:Sg_CI_throwaway_2026@127.0.0.1:1521/?service_name=FREEPDB1"
       SGE_URL: "oracle+oracledb://app:Sg_CI_throwaway_2026@127.0.0.1:1521/?service_name=FREEPDB1"
@@ -134,4 +165,4 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install uv -e ".[mcp,oracle]"
-      - run: python tests/mcp_command_e2e.py
+      - run: python tests/${{ matrix.script }}.py

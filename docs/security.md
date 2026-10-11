@@ -18,8 +18,10 @@ evidence for each claim. To report a problem, see [SECURITY.md](../SECURITY.md).
    Writes, DDL, and a second statement hidden in a comment or a string literal
    are refused (`answer.check_read_only`). Results are capped (`max_rows`).
 4. **Visibility can come from the database itself.** With
-   `--restrict-from-grants` the rules are read from the database's GRANTs, so
-   there is no second copy to fall out of date. Row-level policies are probed
+   `--restrict-from-grants` (or `SCHEMAGATE_RESTRICT_FROM_GRANTS=1` for the MCP
+   server) the rules are read from the database's GRANTs, so there is no second
+   copy to fall out of date. How long a change takes to reach the server is
+   bounded and stated below, under "How fresh are the permissions". Row-level policies are probed
    as the caller, and views that would bypass a policy are flagged
    ([row-level-security.md](row-level-security.md)).
 5. **Decisions can be proven afterwards.** With the audit log on, each record
@@ -46,6 +48,30 @@ evidence for each claim. To report a problem, see [SECURITY.md](../SECURITY.md).
 - **The public demo endpoint** serves a sample schema with no real data and no
   authentication. It is for trying the tools, not for real databases.
 
+## How fresh are the permissions
+
+Two separate claims, because the two paths refresh differently:
+
+- **Restrictions in schemagate's own role lists** (the config file, or
+  `Catalog.restrict` in Python) are evaluated on every call against the
+  caller's current roles. Changing them in a running Python process takes
+  effect on the next call. The MCP server reads its config file when it builds
+  the catalogue, so for the server a change lands on the next re-read.
+- **Permissions read from the database** (`SCHEMAGATE_RESTRICT_FROM_GRANTS`)
+  are a snapshot taken when the catalogue is built. Without
+  `SCHEMAGATE_CATALOG_MAX_AGE` the snapshot lasts until `refresh_catalog`.
+  With it, a GRANT or REVOKE reaches the server **within** that many seconds.
+  That is a bounded window, not "immediately".
+
+Past the age, a failed re-read makes every scoping tool refuse ("permissions
+are stale") rather than serve the last snapshot, and the refusal names no host,
+user or database error; the operator finds those in `health` and the server
+log. A failed re-read is retried at most every 5 seconds.
+
+Caller roles from a `groups` resolver are cached for its `ttl` (300 seconds by
+default) and a resolver that fails refuses the call; that bound is separate
+from the catalogue's.
+
 ## Threat model
 
 | Threat | Mitigation | Evidence |
@@ -55,7 +81,7 @@ evidence for each claim. To report a problem, see [SECURITY.md](../SECURITY.md).
 | `SELECT *` pulls a hidden column | `*` is expanded against visibility and refused if it would include one | `tests/test_mcp_server.py` |
 | The model writes or chains statements | single-read check that strips comments and literals first | `tests/test_answer.py` |
 | A Postgres view runs with its owner's rights and bypasses row-level security | policied tables are probed as the caller; non-`security_invoker` views over them are flagged or hidden | `tests/test_rls.py`, live job `postgres.yml` |
-| The rules drift from the database | `--restrict-from-grants` reads GRANTs directly; `refresh_catalog` re-reads them | `tests/test_grants.py` |
+| The rules drift from the database | `--restrict-from-grants` reads GRANTs directly; `SCHEMAGATE_CATALOG_MAX_AGE` bounds how old they may be and refuses past it if they cannot be re-read | `tests/test_grants.py`, `tests/test_catalog_max_age.py`, `tests/freshness_e2e.py` (real GRANT/REVOKE on PostgreSQL, MySQL, Oracle) |
 | Someone edits the audit trail after the fact | hash chain plus ML-DSA-65 signatures; `audit verify` | `tests/test_pq_audit.py` |
 | A tampered release | PEP 740 attestations, Sigstore-signed stack zip, pinned Actions | `.github/workflows/publish.yml` |
 | Injection through the build pipeline | no `pull_request_target`; least-privilege tokens; CodeQL on every push | OpenSSF Scorecard: Dangerous-Workflow and Token-Permissions 10/10 |
