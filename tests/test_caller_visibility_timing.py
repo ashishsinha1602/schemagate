@@ -6,10 +6,16 @@
    have carried catalog text to a remote service. Recording fakes for both
    show what each one is handed during that caller's select().
 
-2. A permission change on a catalog object that is reused. A cache keyed on
-   the caller alone would miss it: the identity is the same before and after,
-   only what it may see changed. Revoking must take effect on the next call,
-   and granting back must give exactly what a fresh catalog gives.
+2. A permission change on a catalog object that is reused -- on the ROLE-LIST
+   path only (`Catalog.restrict`, the config file's `restrict`). A cache keyed
+   on the caller alone would miss it: the identity is the same before and
+   after, only what it may see changed. Revoking must take effect on the next
+   call, and granting back must give exactly what a fresh catalog gives.
+
+   The other path, permissions read from the database's GRANTs, makes a
+   different claim: a snapshot, bounded by SCHEMAGATE_CATALOG_MAX_AGE, not
+   the next call. Its tests are tests/test_catalog_max_age.py (controlled
+   clock) and tests/freshness_e2e.py (a real GRANT and REVOKE).
 """
 from __future__ import annotations
 
@@ -91,7 +97,11 @@ def _names(sel):
     return sorted(d.name for d in sel.objects)
 
 
-def test_revoking_on_a_reused_catalog_takes_effect_on_the_next_call():
+def test_role_list_revoke_on_a_reused_catalog_takes_effect_on_the_next_call():
+    """Role-list path only: `restrict` changes the catalog in place and
+    visibility is evaluated per call, so the next call sees the revoke. It
+    says nothing about GRANTs read from the database, which are a snapshot
+    bounded by SCHEMAGATE_CATALOG_MAX_AGE (see the module docstring)."""
     q = "pay per employee and invoices"
     cat = Catalog(name="vt-reuse")
     cat.add_all(_docs())
