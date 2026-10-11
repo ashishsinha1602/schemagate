@@ -7,7 +7,8 @@
   `claude mcp add schemagate -- uvx --from "schemagate[mcp]" schemagate-mcp --url demo`.
   `--url` and `--config` are the two environment settings as arguments, for clients that
   pass arguments rather than an environment; keep a URL with a password in
-  `SCHEMAGATE_DATABASE_URL`. Without the `mcp` extra it now exits with one line saying
+  `SCHEMAGATE_DATABASE_URL`, and add the database's driver extra (`schemagate[mcp,postgres]`).
+  Without the `mcp` extra it now exits with one line saying
   what to install, before touching any database. `python -m schemagate.mcp_server` is
   unchanged.
 - `run_query` refusals no longer reveal that a hidden object shares a name. The

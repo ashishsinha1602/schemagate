@@ -976,16 +976,18 @@ Claude Code:
 claude mcp add schemagate -- uvx --from "schemagate[mcp]" schemagate-mcp --url demo
 ```
 
-Any other client (Claude Desktop, Cursor, Windsurf, Zed), with your database:
+Any other client (Claude Desktop, Cursor, Windsurf, Zed), with your database. Add
+your database's driver extra next to `mcp`: `postgres`, `mysql`, `mssql` or `oracle`
+(SQLite needs none):
 
 ```json
 {"mcpServers": {"schemagate": {
-  "command": "uvx", "args": ["--from", "schemagate[mcp]", "schemagate-mcp"],
-  "env": {"SCHEMAGATE_DATABASE_URL": "postgresql://user:password@localhost/app"}}}}
+  "command": "uvx", "args": ["--from", "schemagate[mcp,postgres]", "schemagate-mcp"],
+  "env": {"SCHEMAGATE_DATABASE_URL": "postgresql+psycopg://user:password@localhost/app"}}}}
 ```
 
 Keep a URL with a password in `env`, as above, not in `--url`: command arguments are
-visible to every process on the machine. Without uv: `pip install 'schemagate[mcp]'`,
+visible to every process on the machine. Without uv: `pip install 'schemagate[mcp,postgres]'`,
 then run `schemagate-mcp` (or `python -m schemagate.mcp_server`, which still works).
 
 Seven tools, all read-only: `select_schema` (the DDL for a question, scoped to
