@@ -71,7 +71,7 @@ import os
 import re
 import threading
 import time
-from typing import Annotated, Any, Dict, List, Optional
+from typing import Annotated, Any, Callable, Dict, List, Optional
 
 from . import __version__
 from .catalog import Catalog
@@ -105,7 +105,47 @@ _STATE: Dict[str, Any] = {
     "started_at": None, "url": None, "config": None,
     "last_refresh_at": None, "last_refresh_ok": None, "last_error": None,
     "calls": 0, "errors": 0,
+    # catalogue freshness (SCHEMAGATE_CATALOG_MAX_AGE), on the monotonic clock
+    "max_age": None, "read_at_mono": None, "last_attempt_mono": None,
 }
+
+#: The clock catalogue age is measured on. Monotonic, so a wall-clock change
+#: cannot make a stale catalogue look fresh; tests replace it.
+_clock: Callable[[], float] = time.monotonic
+#: Only one call re-reads an expired catalogue; the others wait for it.
+_REFRESH_LOCK = threading.Lock()
+#: A failed automatic re-read is retried at most this often, so a database
+#: outage is not answered with a reflection storm. Calls in between are
+#: refused straight away.
+STALE_RETRY_SECONDS = 5.0
+
+
+class StaleCatalogError(Exception):
+    """The catalogue is older than ``SCHEMAGATE_CATALOG_MAX_AGE`` and re-reading
+    it failed. Every scoping tool refuses until a re-read succeeds: answering
+    from permissions that may since have been revoked is the failure this
+    setting exists to bound."""
+
+
+def _max_age() -> Optional[float]:
+    """``SCHEMAGATE_CATALOG_MAX_AGE`` in seconds, or None when unset.
+
+    Read at startup and validated there: a typo must stop the server rather
+    than leave it running with no bound the operator believes is in place."""
+    raw = (os.environ.get("SCHEMAGATE_CATALOG_MAX_AGE") or "").strip()
+    if not raw:
+        return None
+    try:
+        value = float(raw)
+    except ValueError:
+        raise SystemExit(f"SCHEMAGATE_CATALOG_MAX_AGE must be a number of seconds, got {raw!r}") from None
+    if not value > 0 or value == float("inf"):
+        raise SystemExit(f"SCHEMAGATE_CATALOG_MAX_AGE must be a positive number of seconds, got {raw!r}")
+    return value
+
+
+def _truthy(name: str) -> bool:
+    return (os.environ.get(name) or "").strip().lower() in ("1", "true", "yes", "on")
 
 #: Hard caps so one pathological request cannot stall the server.
 MAX_QUESTION_CHARS = 2000
@@ -166,6 +206,20 @@ def _reflect(url: str, config_path: Optional[str]) -> Catalog:
         finally:
             engine.dispose()     # the index is in memory; hold nothing open
     _apply_config(cat, config_path)
+    if url != "demo" and _truthy("SCHEMAGATE_RESTRICT_FROM_GRANTS"):
+        # After the config, as in the CLI: the database's own grants are the
+        # source of truth for who may see an object, and a hand-written file
+        # must not quietly re-open something the database has revoked. Then
+        # row-level policies, the half the grants cannot see.
+        from .introspect import engine_from_url
+        from .grants import restrict_from_grants
+        from .rls import restrict_from_policies
+        engine = engine_from_url(url, pool_pre_ping=True)
+        try:
+            log.info("%s", restrict_from_grants(cat, engine, report=True))
+            log.info("%s", restrict_from_policies(cat, engine, report=True))
+        finally:
+            engine.dispose()
     if url != "demo":
         # The catalogue, without being asked for it -- after the config so a
         # hint or a database comment is never overwritten. No key: no-op.
@@ -195,7 +249,8 @@ def build_catalog(url: Optional[str] = None, config_path: Optional[str] = None,
             _GROUPS = groups
             _MEMORY = Memory.from_env(catalog.embedder, catalog.name)
             _STATE.update(url="<provided>", last_refresh_at=time.time(),
-                          last_refresh_ok=True, last_error=None)
+                          last_refresh_ok=True, last_error=None,
+                          read_at_mono=_clock(), last_attempt_mono=None)
             return catalog
 
         url = url or os.environ.get("SCHEMAGATE_DATABASE_URL")
@@ -204,6 +259,7 @@ def build_catalog(url: Optional[str] = None, config_path: Optional[str] = None,
                 "schemagate.mcp_server: set SCHEMAGATE_DATABASE_URL to a SQLAlchemy URL, "
                 "or use SCHEMAGATE_DATABASE_URL=demo for the bundled schema")
         config_path = config_path or os.environ.get("SCHEMAGATE_CATALOG_CONFIG")
+        max_age = _max_age()                 # validated before any database work
         cat = _reflect(url, config_path)
         _CATALOG = cat
         _GROUPS = _groups_from(config_path, url)
@@ -212,7 +268,11 @@ def build_catalog(url: Optional[str] = None, config_path: Optional[str] = None,
         globals()["_ENGINE"] = None
         _STATE.update(url=_redact(url), config=config_path,
                       last_refresh_at=time.time(), last_refresh_ok=True,
-                      last_error=None)
+                      last_error=None, max_age=max_age,
+                      read_at_mono=_clock(), last_attempt_mono=None)
+        if max_age:
+            log.info("catalogue max age %.0f s: an older catalogue is re-read before use, "
+                     "and if that fails the scoping tools refuse", max_age)
         return cat
 
 
@@ -411,7 +471,47 @@ def _check_scope(cat: Catalog, sql: str, who: Optional[Principal]) -> Optional[s
 def _catalog() -> Catalog:
     if _CATALOG is None:
         build_catalog()
+    _ensure_fresh()
     return _CATALOG  # type: ignore[return-value]
+
+
+def _catalog_age() -> Optional[float]:
+    read = _STATE.get("read_at_mono")
+    return None if read is None else max(0.0, _clock() - read)
+
+
+def _ensure_fresh() -> None:
+    """Re-read an expired catalogue before it is used; refuse if that fails.
+
+    Only with ``SCHEMAGATE_CATALOG_MAX_AGE`` set and a database to re-read (a
+    catalogue handed in directly has none). One caller re-reads under
+    `_REFRESH_LOCK`; callers that queued behind it find a fresh catalogue and
+    go on. A failed re-read is retried at most every `STALE_RETRY_SECONDS`;
+    until one succeeds, every call is refused with `StaleCatalogError`. The
+    refusal never carries the database's own error text, which can name hosts
+    and users; that goes to the log and to `health`.
+    """
+    max_age = _STATE.get("max_age")
+    if not max_age or _STATE.get("url") in (None, "<provided>"):
+        return
+    age = _catalog_age()
+    if age is not None and age <= max_age:
+        return
+    with _REFRESH_LOCK:
+        age = _catalog_age()
+        if age is not None and age <= max_age:
+            return                                   # another call re-read it
+        last = _STATE.get("last_attempt_mono")
+        if last is None or _clock() - last >= STALE_RETRY_SECONDS:
+            _STATE["last_attempt_mono"] = _clock()
+            if _reread()["ok"]:
+                return
+        age = _catalog_age() or 0.0
+    raise StaleCatalogError(
+        f"permissions are stale: the catalogue was read {age:.0f} s ago, the limit "
+        f"(SCHEMAGATE_CATALOG_MAX_AGE) is {max_age:.0f} s, and re-reading the database "
+        "failed. Refusing until a re-read succeeds; the operator can see why in health "
+        "and the server log.")
 
 
 def _principal(subject: Optional[str], roles: Optional[List[str]]) -> Optional[Principal]:
@@ -450,6 +550,9 @@ def _guard(fn):
         except IdentityError as e:
             _STATE["errors"] += 1
             result = {"error": str(e)}
+        except StaleCatalogError as e:
+            _STATE["errors"] += 1
+            result = {"error": str(e), "_denied_reason": "stale catalogue"}
         except Exception as e:                       # noqa: BLE001
             _STATE["errors"] += 1
             _STATE["last_error"] = f"{type(e).__name__}: {e}"
@@ -757,10 +860,18 @@ def refresh_catalog() -> Dict[str, Any]:
     the failure is reported here and in ``health`` -- the server never
     drops its last good catalog for a bad one.
     """
+    if not os.environ.get("SCHEMAGATE_DATABASE_URL"):
+        return {"error": "no SCHEMAGATE_DATABASE_URL; catalog was provided directly"}
+    return _reread()
+
+
+def _reread() -> Dict[str, Any]:
+    """Re-reflect and swap the catalogue in. Shared by `refresh_catalog` and the
+    automatic re-read of an expired catalogue. A failure keeps the previous
+    catalogue in memory, but with a max age set `_ensure_fresh` will not serve
+    it past that age."""
     global _CATALOG
     url = os.environ.get("SCHEMAGATE_DATABASE_URL")
-    if not url:
-        return {"error": "no SCHEMAGATE_DATABASE_URL; catalog was provided directly"}
     started = time.time()
     try:
         cat = _reflect(url, os.environ.get("SCHEMAGATE_CATALOG_CONFIG"))
@@ -773,7 +884,7 @@ def refresh_catalog() -> Dict[str, Any]:
     with _LOCK:
         _CATALOG = cat
         _STATE.update(last_refresh_at=time.time(), last_refresh_ok=True,
-                      last_error=None)
+                      last_error=None, read_at_mono=_clock(), last_attempt_mono=None)
         if _GROUPS is not None:
             _GROUPS.forget()        # a refresh is also "re-ask the directory"
     return {"ok": True, "objects": len(cat._docs),
@@ -794,6 +905,9 @@ def health() -> Dict[str, Any]:
         "database": _STATE["url"],
         "last_refresh_ok": _STATE["last_refresh_ok"],
         "last_error": _STATE["last_error"],
+        "catalog_age_seconds": None if _catalog_age() is None else round(_catalog_age(), 1),
+        "catalog_max_age_seconds": _STATE.get("max_age"),
+        "catalog_stale": bool(_STATE.get("max_age") and (_catalog_age() or 0) > _STATE["max_age"]),
         "calls": _STATE["calls"],
         "errors": _STATE["errors"],
         # what the log holds, never what is in it

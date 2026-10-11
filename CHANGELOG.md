@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.4.0
+
+Bounded freshness for permissions, failing closed.
+
+- **`SCHEMAGATE_CATALOG_MAX_AGE`.** A catalogue older than this many seconds is re-read
+  before the MCP server uses it, so a GRANT or REVOKE reaches the server within the window.
+  If the re-read fails, `select_schema`, `list_objects`, `describe_object`, `run_query` and
+  `answer` refuse with "permissions are stale" until a re-read succeeds, instead of
+  answering from the old permissions. One call re-reads while others wait; a failed re-read
+  is retried at most every 5 seconds; the refusal carries no database error text. `health`
+  reports `catalog_age_seconds`, `catalog_max_age_seconds` and `catalog_stale`. Off unless
+  set; an invalid value stops the server at startup.
+- **`SCHEMAGATE_RESTRICT_FROM_GRANTS=1`.** The MCP server can take visibility from the
+  database's GRANTs and row-level policies, as `--restrict-from-grants` does in the CLI
+  (PostgreSQL, MySQL, Oracle).
+- Tested on a controlled clock (`tests/test_catalog_max_age.py`, 18 cases, each of seven
+  deliberate breakages caught), and end to end on real PostgreSQL, MySQL, Oracle and SQL
+  Server with a real GRANT, REVOKE, locked login and recovery (`tests/freshness_e2e.py`).
+
 ## 1.3.2
 
 - **One-line MCP install.** A `schemagate-mcp` command, so an MCP client needs one line:
