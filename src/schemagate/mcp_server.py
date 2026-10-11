@@ -63,6 +63,7 @@ or a person what state the server is in.
 """
 from __future__ import annotations
 
+import argparse
 import functools
 import inspect
 import logging
@@ -916,9 +917,33 @@ def create_server(catalog: Optional[Catalog] = None):
     return app
 
 
-def main() -> None:
+def main(argv: Optional[List[str]] = None) -> None:
+    """``schemagate-mcp`` and ``python -m schemagate.mcp_server``.
+
+    Everything is configured by environment variables, as before; ``--url``
+    and ``--config`` are the same two settings for clients that pass command
+    arguments rather than an environment (``claude mcp add``, a one-line
+    ``uvx`` entry). A URL with a password belongs in the environment variable:
+    command arguments are visible to every process on the machine.
+    """
+    ap = argparse.ArgumentParser(
+        prog="schemagate-mcp",
+        description="schemagate MCP server: the schema an agent may see, filtered by the caller's roles.")
+    ap.add_argument("--url", help="SQLAlchemy database URL, or 'demo' for the bundled sample schema "
+                                  "(overrides SCHEMAGATE_DATABASE_URL; keep passwords in that variable instead)")
+    ap.add_argument("--config", help="JSON file with restrictions and hints (overrides SCHEMAGATE_CATALOG_CONFIG)")
+    ap.add_argument("--version", action="version", version=f"schemagate {__version__}")
+    a = ap.parse_args(argv)
+    if a.url:
+        os.environ["SCHEMAGATE_DATABASE_URL"] = a.url
+    if a.config:
+        os.environ["SCHEMAGATE_CATALOG_CONFIG"] = a.config
     logging.basicConfig(level=os.environ.get("SCHEMAGATE_LOG_LEVEL", "INFO"),
                         format="%(asctime)s %(name)s %(levelname)s %(message)s")
+    try:
+        _server_class()             # fail before reflecting a database if the extra is missing
+    except ImportError as e:
+        raise SystemExit(f"schemagate-mcp: {e}") from None
     build_catalog()
     app = create_server()
     transport = os.environ.get("SCHEMAGATE_MCP_TRANSPORT", "stdio")
