@@ -963,24 +963,40 @@ Model Context Protocol:
 
 <!-- mcp-name: io.github.ashishsinha1602/schemagate -->
 
+One line, nothing to install first (needs [uv](https://docs.astral.sh/uv/)); `demo` is a
+bundled sample schema, so this works before you point it at anything:
+
 ```bash
-pip install 'schemagate[mcp]'
-SCHEMAGATE_DATABASE_URL=postgresql://localhost/app python -m schemagate.mcp_server
+uvx --from "schemagate[mcp]" schemagate-mcp --url demo
 ```
 
-MCP client config:
+Claude Code:
+
+```bash
+claude mcp add schemagate -- uvx --from "schemagate[mcp]" schemagate-mcp --url demo
+```
+
+Any other client (Claude Desktop, Cursor, Windsurf, Zed), with your database. Add
+your database's driver extra next to `mcp`: `postgres`, `mysql`, `mssql` or `oracle`
+(SQLite needs none):
 
 ```json
 {"mcpServers": {"schemagate": {
-  "command": "python", "args": ["-m", "schemagate.mcp_server"],
-  "env": {"SCHEMAGATE_DATABASE_URL": "postgresql://localhost/app"}}}}
+  "command": "uvx", "args": ["--from", "schemagate[mcp,postgres]", "schemagate-mcp"],
+  "env": {"SCHEMAGATE_DATABASE_URL": "postgresql+psycopg://user:password@localhost/app"}}}}
 ```
 
-Three tools: `select_schema` (the DDL for a question, scoped to the caller),
-`list_objects` (what this caller can see), `describe_object` (one object's full
-DDL). All three take `principal` and `roles`. If the client leaves them out,
-the caller is anonymous and sees only unrestricted objects. A restricted
-object and a missing one return the same error, so existence doesn't leak.
+Keep a URL with a password in `env`, as above, not in `--url`: command arguments are
+visible to every process on the machine. Without uv: `pip install 'schemagate[mcp,postgres]'`,
+then run `schemagate-mcp` (or `python -m schemagate.mcp_server`, which still works).
+
+Seven tools, all read-only: `select_schema` (the DDL for a question, scoped to
+the caller), `list_objects` (what this caller can see), `describe_object` (one
+object's full DDL), `run_query` (runs a single read, refused if it names
+anything the caller may not see), `answer`, `refresh_catalog` and `health`.
+They take `principal` and `roles`. If the client leaves them out, the caller
+is anonymous and sees only unrestricted objects. A restricted object and a
+missing one return the same error, so existence doesn't leak.
 
 **Every decision is recorded.** Each call to those tools, and to `run_query`
 and `answer`, writes one line: when, which principal with which roles, what
