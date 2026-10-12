@@ -40,14 +40,14 @@ The selection is a prompt, so the rest follows:
 
 ```bash
 pip install schemagate
-schemagate demo "which customers owe us money" --answer --provider anthropic --model <model-id>
+schemagate demo "which customers owe us money" --answer --provider <provider> --model <model-id>
 ```
 
 ```
 main.crm_customer   main.crm_contact   main.v_customer_balance   (+5)
 8 of 42 objects  ·  ~383 prompt tokens instead of ~2,036
 
--- SQL written by Anthropic / claude-sonnet-5, from 8 tables
+-- SQL written by <provider> / <model-id>, from 8 tables
 SELECT c.id, p.display_name, v.account_number, v.invoiced, v.paid,
        (v.invoiced - v.paid) AS balance_due
 FROM v_customer_balance v
@@ -62,11 +62,13 @@ id  display_name       account_number  invoiced  paid     balance_due
 ```
 
 Rows, from a question, with no database to set up — that runs against a
-bundled 42-object schema. Point it at your own with `--url`:
+bundled 42-object schema. `<provider>` is the model service you choose:
+`openai`, `anthropic`, `gemini`, `oci`, `local` (no key at all), or `auto`
+(whichever key is set). Point it at your own database with `--url`:
 
 ```bash
 schemagate select "which customers owe us money" \
-  --url "postgresql+psycopg://user:pw@host/db" --answer --provider anthropic --model <model-id>
+  --url "postgresql+psycopg://user:pw@host/db" --answer --provider <provider> --model <model-id>
 ```
 
 No key? Drop `--provider` and it prints a prompt to paste into any chat, then
