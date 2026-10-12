@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.1
+
+Documentation only; the code is identical to 1.4.0.
+
+- The README's examples are provider-neutral (`--provider <provider> --model <model-id>`)
+  and list the choices: `openai`, `anthropic`, `gemini`, `oci`, `local`, `auto`.
+- A test name says which permission path it covers (role lists, not database grants).
+
 ## 1.4.0
 
 Bounded freshness for permissions, failing closed.
