@@ -10,6 +10,7 @@ Pages:
   /benchmarks/           BENCHMARKS.md rendered as a page
   /local-models/         docs/local-models.md rendered as a page
   /vanna-alternative/    docs/migrating-from-vanna.md rendered as a page
+  /text-to-sql-business-definitions/  docs/text-to-sql-business-definitions.md
   /cost/                 the token-cost table and a small calculator
   /robots.txt, /sitemap.xml, /llms.txt, /social-preview.png
 
@@ -64,6 +65,7 @@ NAV = ('<nav><a href="/schemagate/">Demo</a><a href="/schemagate/install/">Insta
        '<a href="/schemagate/langchain/">LangChain</a>'
        '<a href="/schemagate/row-level-security/">Row-level security</a><a href="/schemagate/cost/">Cost</a>'
        '<a href="/schemagate/vanna-alternative/">Coming from Vanna</a>'
+       '<a href="/schemagate/text-to-sql-business-definitions/">Business definitions</a>'
        f'<a href="{REPO}">GitHub</a><a href="https://pypi.org/project/schemagate/">PyPI</a></nav>')
 
 
@@ -154,6 +156,19 @@ def build_vanna() -> None:
         "keeping your MIT-licensed fork is a real option, and the one thing none of them do: "
         "apply identity at schema selection rather than at execution.",
         "/vanna-alternative/", body), "utf-8")
+
+
+def build_definitions() -> None:
+    md = (ROOT / "docs" / "text-to-sql-business-definitions.md").read_text("utf-8")
+    body = markdown.markdown(md, extensions=["fenced_code", "tables"])
+    body += (f'<p><a class="cta" href="{REPO}/blob/main/benchmarks/planted_definitions.py">The benchmark</a>'
+             '<a class="cta" href="/schemagate/install/">Install</a></p>')
+    (SITE / "text-to-sql-business-definitions").mkdir(parents=True, exist_ok=True)
+    (SITE / "text-to-sql-business-definitions" / "index.html").write_text(page(
+        "Why text-to-SQL gets business questions wrong (measured) — schemagate",
+        "Text-to-SQL answered 1 of 21 business questions correctly without definitions and 15 of 21 "
+        "with a glossary. The test, the eight planted definitions, and the one pattern it still misses.",
+        "/text-to-sql-business-definitions/", body), "utf-8")
 
 
 def build_benchmarks() -> None:
@@ -355,6 +370,7 @@ PAGES = {
     "/row-level-security/": ["docs/row-level-security.md"],
     "/cost/":               ["scripts/build_site.py"],
     "/vanna-alternative/":  ["docs/migrating-from-vanna.md"],
+    "/text-to-sql-business-definitions/": ["docs/text-to-sql-business-definitions.md"],
 }
 
 
@@ -466,6 +482,7 @@ Oracle 23ai VECTOR store.
 - Row-level security (VPD) and what grant-based scoping misses: {BASE}/row-level-security/
 - Token cost table and calculator: {BASE}/cost/
 - Migrating from Vanna: {BASE}/vanna-alternative/
+- Why text-to-SQL gets business questions wrong, and what a glossary fixes (measured): {BASE}/text-to-sql-business-definitions/
 - What was tested and what broke: {REPO}/blob/main/TESTING.md
 """, "utf-8")
 
@@ -476,7 +493,7 @@ def main() -> None:
     SITE.mkdir()
     build_index(); build_install(); build_benchmarks(); build_local_models()
     build_langchain(); build_rls()
-    build_vanna(); build_cost(); build_misc()
+    build_vanna(); build_definitions(); build_cost(); build_misc()
     for p in sorted(SITE.rglob("*")):
         if p.is_file():
             print(f"{p.stat().st_size:9,d}  {p.relative_to(SITE)}")

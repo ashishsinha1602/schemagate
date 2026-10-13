@@ -26,7 +26,8 @@ SITE = ROOT / "site"
 BUILD = ROOT / "scripts" / "build_site.py"
 
 PAGES = ["/", "/install/", "/benchmarks/", "/local-models/", "/langchain/",
-         "/row-level-security/", "/cost/", "/vanna-alternative/"]
+         "/row-level-security/", "/cost/", "/vanna-alternative/",
+         "/text-to-sql-business-definitions/"]
 
 pytestmark = pytest.mark.skipif(not BUILD.is_file(), reason="no site builder in this tree")
 
@@ -150,7 +151,8 @@ def test_rendered_docs_carry_their_own_content(site: Path):
 def test_no_relative_markdown_link_survived_into_the_html(site: Path):
     """`](benchmarks/)` means GitHub, not this site, and a reader who follows
     it to a 404 has been told something false about the rest."""
-    for path in ("/benchmarks/", "/local-models/", "/vanna-alternative/", "/langchain/"):
+    for path in ("/benchmarks/", "/local-models/", "/vanna-alternative/", "/langchain/",
+                 "/text-to-sql-business-definitions/"):
         f = SITE / path.strip("/") / "index.html"
         for href in re.findall(r'href="([^"]+)"', f.read_text("utf-8")):
             assert href.startswith(("http://", "https://", "/", "#", "mailto:")), (
