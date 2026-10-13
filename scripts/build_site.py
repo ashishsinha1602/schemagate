@@ -132,11 +132,19 @@ def page(title: str, desc: str, path: str, body: str) -> str:
 def build_index() -> None:
     studio = (ROOT / "src" / "schemagate" / "studio.html").read_text("utf-8")
     studio = re.sub(r"<title>.*?</title>\s*", "", studio, count=1)   # head() sets it
-    # a crawlable summary above the app, invisible in the app's own layout
-    intro = ('<div style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden">'
-             '<h1>schemagate: identity-scoped schema selection for text-to-SQL</h1>'
-             f'<p>{html.escape(DESC)}</p></div>')
-    html_ = (head(TITLE, DESC, "/", "<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>")
+    # The page's heading and summary, visible above the app. It used to sit off-screen
+    # (left:-9999px) for crawlers only; text a reader cannot see and a crawler can is
+    # what Google's spam policies call hidden text, on the one page meant to rank.
+    intro = ('<header class="sg-intro"><h1>schemagate: schema selection for text-to-SQL</h1>'
+             f'<p>{html.escape(DESC)} '
+             '<a href="/schemagate/install/">Install</a> · <a href="/schemagate/benchmarks/">Benchmarks</a> · '
+             f'<a href="{REPO}">GitHub</a></p></header>')
+    intro_css = (".sg-intro{padding:10px 16px;border-bottom:1px solid rgba(127,127,127,.25);"
+                 "font:14px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}"
+                 ".sg-intro h1{font-size:17px;margin:0 0 2px;font-weight:600}"
+                 ".sg-intro p{margin:0;opacity:.8;max-width:75ch}.sg-intro a{color:inherit}")
+    html_ = (head(TITLE, DESC, "/", "<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}"
+                  + intro_css + "</style>")
              + "<body>" + intro + studio + NAV + "</body></html>")
     (SITE / "index.html").write_text(html_, "utf-8")
 
