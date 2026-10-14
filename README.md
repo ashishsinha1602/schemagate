@@ -711,6 +711,7 @@ and Microsoft Purview exports work as they are.
 |---|---|---|---|
 | Concepts learned from history (`benchmarks/learn_concepts.py`) | Spider dev, 166 databases pooled (876 tables), learned from half of each database's questions, scored on the other half: all gold tables in the top 5 | 73.3% | **82.8%** (+49 / −0, p<0.0001; MiniLM 79.1% → 85.9%) |
 | A complete glossary (`benchmarks/bird_ontology.py`, arm D) | BIRD dev, 201 held-out questions asked **without** their evidence, execution accuracy, Claude Sonnet 5 | 44.8% | **54.7%** (+28 / −8, p=0.001) |
+| Planted definitions (`benchmarks/planted_definitions.py`) | a seeded SQLite with 8 business terms whose obvious reading is wrong (revenue net of discounts, refunds and internal SKUs; "active" from recent orders, not a stale flag; churn with a 30-day grace), 21 questions with answers computed from the definitions, execution accuracy, Claude Sonnet 5 | 4.8% | **71.4%** (+14 / −0, p=0.0001) |
 
 For scale on BIRD: pasting each question's own evidence into it (BIRD's usual
 setting) scores 61.2%, so the ontology delivers about 60% of that gain with no
@@ -719,6 +720,13 @@ One result did not hold: concepts built from *other* questions' evidence gave
 46.8% against 44.8% -- inside that noise -- because BIRD's evidence is mostly
 one-off formulas that rarely recur. An ontology helps with the definitions it
 actually holds.
+
+The planted-definition test (suggested in review) writes the definitions first
+and computes every expected answer from them, so it measures whether the SQL is
+*right*, not whether the tables were. A repeat run without the glossary changed
+no answers. All six remaining misses are one pattern: a term defined through
+another ("partner sales is revenue on partner orders") retrieves itself but
+not the term it leans on, so the model guesses what revenue means.
 
 Join-path completion through the schema graph was measured and not built:
 on Spider only 2 of 266 misses at top_k=5 are a missing bridge table, because
