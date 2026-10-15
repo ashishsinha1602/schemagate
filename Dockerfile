@@ -22,10 +22,12 @@ COPY src ./src
 # installs it into a derived image.
 # Every dependency by hash (docker/requirements.txt, from scripts/lock_ci.py), then
 # schemagate itself, built here as a wheel and installed with --no-deps, so
-# nothing unreviewed is fetched.
-RUN pip install --no-cache-dir --prefix=/install --require-hashes -r requirements.txt \
+# nothing unreviewed is fetched. The prefix is set through PIP_PREFIX rather
+# than --prefix=/install, which Scorecard's pin check reads as a package name.
+RUN export PIP_PREFIX=/install \
+ && pip install --no-cache-dir --require-hashes -r requirements.txt \
  && pip wheel --no-cache-dir --no-deps -w /wheels . \
- && pip install --no-cache-dir --prefix=/install --no-deps /wheels/*.whl
+ && pip install --no-cache-dir --no-deps /wheels/*.whl
 
 
 FROM python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9
