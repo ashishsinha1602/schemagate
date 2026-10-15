@@ -492,6 +492,11 @@ class Catalog:
         succeeding quietly. A typo in an ACL that reports success is a
         restriction that silently is not there.
         """
+        if not roles:
+            # an empty list means everyone under `models.allowed`: the opposite
+            # of what a call named "restrict" asks for
+            raise ValueError("restrict_column needs at least one role; an empty list would make "
+                             "the column visible to everyone")
         for qname, doc in self._docs.items():
             if qname == table or doc.name == table:
                 for col in doc.columns:
@@ -646,6 +651,11 @@ class Catalog:
         Visibility is applied at select time, not at index time, so this
         takes effect immediately and needs no reindex.
         """
+        if not roles:
+            # an empty list means everyone under `models.allowed`: the opposite
+            # of what a call named "restrict" asks for
+            raise ValueError("restrict needs at least one role; an empty list would make the "
+                             "object visible to everyone (use exclude= to drop it)")
         for qname, doc in self._docs.items():
             if qname == table or doc.name == table:
                 doc.roles = list(roles)

@@ -77,6 +77,9 @@ class PolicyReport:
     probed: int = 0
     #: "object <- role": the role held the grant and got no rows
     withheld: List[str] = field(default_factory=list)
+    #: objects removed because every granted role was withheld: an empty role
+    #: list would mean everyone, so the object goes instead
+    removed: List[str] = field(default_factory=list)
     #: roles the connection could not act as (SET ROLE, proxy); kept, not withheld
     unprobed_roles: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
@@ -351,6 +354,17 @@ def apply_policies(catalog, policied: Set[Key], bypassing: Set[Key], *,
                         kept.append(role)
                     else:
                         rep.withheld.append(f"{doc.qname} <- {role}")
+                if not kept:
+                    # Every role that held a grant reads zero rows. An empty
+                    # role list means everyone under `models.allowed`, so it
+                    # would turn a restricted object public, anonymous callers
+                    # included. Remove it instead, as hide_bypassing_views does.
+                    del catalog._docs[key]
+                    rep.removed.append(doc.qname)
+                    rep.warnings.append(
+                        f"{doc.qname}: no granted role reads any rows under its "
+                        "row-level policy, so it is withheld from everyone")
+                    continue
                 doc.roles = kept
             elif probe is not None and doc.roles is None:
                 rep.warnings.append(
