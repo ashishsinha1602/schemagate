@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.4.2
+
+Security fix: an empty role list can no longer make a restricted object public
+(GHSA-2mmx-jhwc-7v4g). Reported by tal2k9dev-star.
+
+- **The row-policy probe fails closed.** With `--restrict-from-grants` (CLI) or
+  `SCHEMAGATE_RESTRICT_FROM_GRANTS=1` (MCP server), each granted role on a table under a
+  row-level policy is asked for one row. When *every* granted role got zero rows (an
+  empty policied table at build time, or a policy that admits no granted role), the
+  object was left with an empty role list, which the visibility rule reads as "no
+  restriction": the object, its DDL and, through `run_query`, its rows became visible to
+  every caller, including one with no principal. Such an object is now removed from the
+  catalogue and named in the report (`PolicyReport.removed`). Affected: 1.0.0 to 1.4.1.
+- **No other path writes an empty role list.** The grant reader withholds an object
+  whose grantee set is empty, and `restrict()` / `restrict_column()` (and the
+  `restrict` / `restrict_column` config blocks) refuse an empty list with `ValueError`
+  instead of making the object or column visible to everyone. Use `exclude=` to drop
+  an object.
+- **`run_query` checks withheld columns per table.** A column withheld on one table
+  passed when another referenced table had a visible column of the same name
+  (`SELECT b.salary FROM b CROSS JOIN a`, or `SELECT *`). The check now takes each
+  table's own withheld columns, and naming such a column anywhere in the query is
+  refused while any referenced table withholds it.
+
 ## 1.4.1
 
 Documentation only; the code is identical to 1.4.0.

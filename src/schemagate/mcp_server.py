@@ -455,8 +455,14 @@ def _check_scope(cat: Catalog, sql: str, who: Optional[Principal]) -> Optional[s
     # Column rules. A table the caller may read can still hold a column it
     # may not: `SELECT *` would return it, and so would naming it.
     used = [d for t in refs for d in resolved[t]]
-    shown = {c.name.lower() for d in used for c in d.visible_columns(who)}
-    withheld = {c.name.lower() for d in used for c in d.columns} - shown
+    # Per table, not across them: a column withheld on one table stays
+    # withheld when another referenced table happens to have a visible column
+    # of the same name (`SELECT b.salary FROM b CROSS JOIN a`). Fails closed:
+    # naming it at all is refused while any referenced table withholds it.
+    withheld = set()
+    for d in used:
+        vis = {c.name.lower() for c in d.visible_columns(who)}
+        withheld |= {c.name.lower() for c in d.columns} - vis
     if withheld:
         named = sorted(idents & withheld)
         if named:

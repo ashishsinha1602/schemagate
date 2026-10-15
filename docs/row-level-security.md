@@ -163,7 +163,10 @@ them right after the grants:
    row; on Oracle the client identifier and then proxy authentication, as
    measured above. A role that gets nothing loses the object, exactly as a
    missing grant would: on the fixtures above, `sgrls_r2` and `SGVPD_R2` no
-   longer see the salary table and `sgrls_r1` and `SGVPD_R1` still do. One
+   longer see the salary table and `sgrls_r1` and `SGVPD_R1` still do. When
+   *every* granted role gets nothing (an empty table at bootstrap is enough),
+   the object is removed from the catalogue rather than left with no roles,
+   because no roles means everyone; the report lists it under `removed`. One
    round trip per (object, role) at bootstrap, not per question. When the
    connection cannot act as the role -- not a superuser or member on
    PostgreSQL, not authorised to proxy on Oracle -- the role is *kept* and the

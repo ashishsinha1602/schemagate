@@ -161,7 +161,7 @@ def restrict_from_grants(catalog, engine, *, expand_roles: bool = True,
     folded = {(s.casefold() if s else None, o.casefold()): v
               for (s, o), v in grants.items()}
 
-    for doc in list(catalog._docs.values()):
+    for qkey, doc in list(catalog._docs.items()):
         key = (doc.schema.casefold() if doc.schema else None, doc.name.casefold())
         grantees = folded.get(key)
         if grantees is None and key[0] is not None:
@@ -178,6 +178,12 @@ def restrict_from_grants(catalog, engine, *, expand_roles: bool = True,
             before = len(roles)
             roles = _expand(roles, graph)
             rep.roles_expanded += max(0, len(roles) - before)
+        if not roles:
+            # A grant entry naming nobody. An empty role list means everyone
+            # under `models.allowed`, so never write one: withhold the object.
+            del catalog._docs[qkey]
+            rep.warnings.append(f"{doc.qname}: its grant list is empty, so it is withheld from everyone")
+            continue
         doc.roles = sorted(roles)
         rep.objects_restricted += 1
 
