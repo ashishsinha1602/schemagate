@@ -30,8 +30,24 @@ FROM python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b
 
 # curl for HEALTHCHECK; libaio1 is what oracledb thick mode looks for if
 # anyone switches to it. Thin mode, the default, needs neither.
+#
+# SQL Server: pyodbc needs unixODBC (libodbc.so.2) to import at all, and
+# Microsoft's ODBC Driver 18 to connect -- without both, every mssql+pyodbc
+# URL failed in this image while the other three drivers worked. Same steps as
+# the CI jobs, from Microsoft's Debian repository for this base (trixie),
+# which is signed with the 2025 key; its fingerprint is checked, not trusted.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends curl \
+ && apt-get install -y --no-install-recommends curl gnupg ca-certificates unixodbc \
+ && curl -fsSL https://packages.microsoft.com/keys/microsoft-2025.asc -o /tmp/ms.asc \
+ && gpg --batch --show-keys --with-colons /tmp/ms.asc | grep -q "^fpr:::::::::AA86F75E427A19DD33346403EE4D7792F748182B:" \
+ && gpg --batch --yes --dearmor -o /usr/share/keyrings/microsoft-prod.gpg /tmp/ms.asc && rm /tmp/ms.asc \
+ && . /etc/os-release \
+ && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/${VERSION_ID}/prod ${VERSION_CODENAME} main" \
+      > /etc/apt/sources.list.d/mssql-release.list \
+ && apt-get update \
+ && ACCEPT_EULA=Y apt-get install -y --no-install-recommends msodbcsql18 \
+ && apt-get purge -y gnupg && apt-get autoremove -y \
+ && odbcinst -q -d | grep -qi "ODBC Driver 18 for SQL Server" \
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /install /usr/local
