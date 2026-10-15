@@ -37,7 +37,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
-      - run: pip install -e ".[dev,mcp]" pymysql
+      - run: pip install --require-hashes -r .github/requirements/dev-mysql.txt && pip install --no-deps -e .
 
       - name: wait for the server to accept connections
         # The container reports healthy before mysqld does, so ask the way the

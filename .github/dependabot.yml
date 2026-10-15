@@ -28,6 +28,18 @@ updates:
         patterns: ["*"]
         exclude-patterns: ["SQLAlchemy"]
 
+  # The hash-pinned installs CI and the image read (scripts/lock_ci.py writes
+  # them). A pin by hash never moves by itself, so this is what keeps it current.
+  - package-ecosystem: pip
+    directories: ["/.github/requirements", "/docker"]
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "deps"
+    groups:
+      locks:
+        patterns: ["*"]
+
   - package-ecosystem: docker
     directory: "/"
     schedule:
