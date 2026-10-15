@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.4.3
+
+Security fix: on SQLite, `run_query` no longer lets a single-quoted table name past
+the scope check (GHSA-qhcw-c944-fhq9).
+
+- SQLite reads a single-quoted string as an identifier where only an identifier fits,
+  so `FROM 'payroll'`, `JOIN 'payroll'` and `main.'payroll'` read the table. The scope
+  check emptied every string literal before reading table names, so such a reference
+  named nothing and a restricted table's rows were returned. A string in a table
+  position is now read as the table it names. Only SQLite accepts the syntax; the other
+  dialects reject it, so nothing that worked there changes. Affected: up to 1.4.2.
+- Found by a new fuzz harness, `fuzz/fuzz_run_query_scope.py`, which executes whatever
+  the gate allows against a database holding sentinel values and fails if one comes
+  back.
+
 ## 1.4.2
 
 Security fix: an empty role list can no longer make a restricted object public

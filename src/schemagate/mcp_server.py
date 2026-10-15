@@ -359,9 +359,39 @@ def _sql_body(sql: str) -> str:
     return re.sub(r"'(?:[^']|'')*'", "''", body)
 
 
+#: A single-quoted string. Emptied before table names are read, except where
+#: SQLite reads it as a table name (see `_table_body`).
+_STRING = re.compile(r"'(?:[^']|'')*'")
+#: what may precede a table name: FROM / JOIN, a comma in a FROM list, or the
+#: dot of a schema-qualified name
+_TABLE_BEFORE = re.compile(r"(?:\b(?:from|join)|,|\.)\s*$", re.I)
+
+
+def _table_body(sql: str) -> str:
+    """The statement with comments removed, for reading table names.
+
+    SQLite takes a single-quoted string as an identifier where only an
+    identifier fits: `FROM 'payroll'`, `JOIN 'payroll'`, `main.'payroll'` all
+    read the table. Emptied like any other literal, such a name was invisible
+    to the scope check and the table it named was read without a check. A
+    string in a table position is therefore read as the name it is; every
+    other string is still emptied. The other dialects reject the syntax, so
+    reading it as a name there only refuses what would have failed anyway.
+    """
+    body = re.sub(r"--[^\n]*", " ", sql)
+    body = re.sub(r"/\*.*?\*/", " ", body, flags=re.S)
+
+    def one(m: "re.Match[str]") -> str:
+        before, after = body[:m.start()], body[m.end():]
+        if _TABLE_BEFORE.search(before) or after.lstrip().startswith("."):
+            return '"' + m.group(0)[1:-1].replace("''", "'").replace('"', "") + '"'
+        return "''"
+    return _STRING.sub(one, body)
+
+
 def _referenced_tables(sql: str) -> List[str]:
     """Base tables the statement reads, with CTE and subquery aliases removed."""
-    body = _sql_body(sql)
+    body = _table_body(sql)
     ctes = {_unquote(c).lower() for c in _CTE.findall(body)}
     out, seen = [], set()
     for clause in _REFERENCED.findall(body):
