@@ -19,7 +19,7 @@ jobs:
         env:
           NAMECHECK_TERMS: ${{ secrets.NAMECHECK_TERMS }}
         run: python scripts/check_names.py
-      - run: pip install -e ".[dev]"
+      - run: pip install --require-hashes -r .github/requirements/dev.txt && pip install --no-deps -e .
       - name: tests
         env:
           # the name guard also runs as a test, so it needs the same terms
@@ -47,7 +47,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-      - run: pip install ruff==0.16.8
+      - run: pip install --require-hashes -r .github/requirements/ruff.txt
       - name: ruff
         run: ruff check .
 
@@ -65,7 +65,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-      - run: pip install -e ".[dev,ai]"
+      - run: pip install --require-hashes -r .github/requirements/dev-ai.txt && pip install --no-deps -e .
       - name: provider tests against a real model
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -94,9 +94,8 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
-      - run: pip install -e ".[dev]"
-      - name: pin langchain-core to the declared floor
-        run: pip install 'langchain-core==0.3.*'
+      - name: install, with langchain-core held at the declared floor
+        run: pip install --require-hashes -r .github/requirements/dev-floor.txt && pip install --no-deps -e .
       - name: the floor is what actually got installed
         # without this the job passes vacuously if the pin ever stops taking
         # effect, which is the one way a version-floor test can lie.

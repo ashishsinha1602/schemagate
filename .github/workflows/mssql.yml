@@ -68,7 +68,7 @@ jobs:
           odbcinst -q -d
           odbcinst -q -d | grep -qi "ODBC Driver 18 for SQL Server"
 
-      - run: pip install -e ".[dev]" pyodbc
+      - run: pip install --require-hashes -r .github/requirements/dev-mssql.txt && pip install --no-deps -e .
 
       - name: wait for the server to accept connections
         # The container reports healthy before the database is up, and 2022 no

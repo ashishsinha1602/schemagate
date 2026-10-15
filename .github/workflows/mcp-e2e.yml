@@ -46,7 +46,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-      - run: pip install uv -e ".[mcp,postgres]"
+      - run: pip install --require-hashes -r .github/requirements/e2e-postgres.txt && pip install --no-deps -e .
       - run: python tests/${{ matrix.script }}.py
 
   mysql:
@@ -76,7 +76,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-      - run: pip install uv -e ".[mcp,mysql]"
+      - run: pip install --require-hashes -r .github/requirements/e2e-mysql.txt && pip install --no-deps -e .
       - run: python tests/${{ matrix.script }}.py
 
   mssql:
@@ -119,7 +119,7 @@ jobs:
             sudo ACCEPT_EULA=Y apt-get install -y -qq msodbcsql18
           fi
           odbcinst -q -d | grep -qi "ODBC Driver 18 for SQL Server"
-      - run: pip install uv -e ".[mcp,mssql]"
+      - run: pip install --require-hashes -r .github/requirements/e2e-mssql.txt && pip install --no-deps -e .
       - name: wait for SQL Server
         run: |
           python - <<'PY'
@@ -164,5 +164,5 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-      - run: pip install uv -e ".[mcp,oracle]"
+      - run: pip install --require-hashes -r .github/requirements/e2e-oracle.txt && pip install --no-deps -e .
       - run: python tests/${{ matrix.script }}.py

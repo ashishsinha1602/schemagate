@@ -14,12 +14,16 @@ FROM python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b
 
 WORKDIR /w
 COPY pyproject.toml README.md ./
+COPY docker/requirements.txt ./requirements.txt
 COPY src ./src
 
 # Every driver, MCP, and the model SDKs -- but NOT [huggingface]: torch is two
 # gigabytes and a local model is a choice, not a default. Someone who wants it
 # installs it into a derived image.
-RUN pip install --no-cache-dir --prefix=/install ".[databases,ai,mcp]"
+# Every dependency by hash (docker/requirements.txt, from scripts/lock_ci.py), then
+# schemagate itself with --no-deps, so nothing unreviewed is fetched.
+RUN pip install --no-cache-dir --prefix=/install --require-hashes -r requirements.txt \
+ && pip install --no-cache-dir --prefix=/install --no-deps .
 
 
 FROM python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9
