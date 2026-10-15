@@ -22,6 +22,8 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 OUT = ROOT / ".github" / "requirements"
 #: the image build cannot see .github (.dockerignore), so its lock lives beside the build
 DOCKER = ROOT / "docker" / "requirements.txt"
+#: same reason for ClusterFuzzLite, which builds with the repository root as its context
+FUZZ = ROOT / ".clusterfuzzlite" / "requirements.txt"
 
 #: name -> (pyproject extras, extra requirement lines). Extras None = not from pyproject at all.
 LOCKS = {
@@ -36,6 +38,7 @@ LOCKS = {
     "e2e-mssql":      (["mcp", "mssql"], ["uv"]),
     "e2e-oracle":     (["mcp", "oracle"], ["uv"]),
     "docker":         (["databases", "ai", "mcp"], []),
+    "fuzz":           ([], []),
     "ruff":           (None, ["ruff==0.16.8"]),
     "markdown":       (None, ["markdown"]),
     "build":          (None, ["build"]),
@@ -43,7 +46,7 @@ LOCKS = {
 
 
 def target(name: str) -> pathlib.Path:
-    return DOCKER if name == "docker" else OUT / f"{name}.txt"
+    return {"docker": DOCKER, "fuzz": FUZZ}.get(name, OUT / f"{name}.txt")
 
 
 def lock(name: str, extras, lines) -> None:
