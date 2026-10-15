@@ -8,8 +8,10 @@ Every `pip install` in a workflow or the Dockerfile reads one of these with
 dependency is fetched that a reviewer has not seen the hash of. Each file is
 resolved once for every supported Python (`--universal`, from 3.9.2, as
 cryptography 48 skips 3.9.0 and 3.9.1), so a matrix job on 3.9 and one on 3.13
-read the same file. Run this after changing pyproject.toml's dependencies;
-Dependabot keeps the pins current between runs.
+read the same file. Run it after changing pyproject.toml's dependencies, and
+at least monthly or when Scorecard's Vulnerabilities check flags a pin --
+Dependabot cannot regenerate universal, marker-split locks, so it is not
+pointed at these files.
 """
 from __future__ import annotations
 
