@@ -21,9 +21,11 @@ COPY src ./src
 # gigabytes and a local model is a choice, not a default. Someone who wants it
 # installs it into a derived image.
 # Every dependency by hash (docker/requirements.txt, from scripts/lock_ci.py), then
-# schemagate itself with --no-deps, so nothing unreviewed is fetched.
+# schemagate itself, built here as a wheel and installed with --no-deps, so
+# nothing unreviewed is fetched.
 RUN pip install --no-cache-dir --prefix=/install --require-hashes -r requirements.txt \
- && pip install --no-cache-dir --prefix=/install --no-deps .
+ && pip wheel --no-cache-dir --no-deps -w /wheels . \
+ && pip install --no-cache-dir --prefix=/install --no-deps /wheels/*.whl
 
 
 FROM python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9
@@ -36,13 +38,15 @@ FROM python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b
 # URL failed in this image while the other three drivers worked. Same steps as
 # the CI jobs, from Microsoft's Debian repository for this base (trixie),
 # which is signed with the 2025 key; its fingerprint is checked, not trusted.
+# The architecture is the build's own: the image is published for amd64 and
+# arm64, and a hard-coded amd64 made the arm64 build fail at release.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends curl gnupg ca-certificates unixodbc \
  && curl -fsSL https://packages.microsoft.com/keys/microsoft-2025.asc -o /tmp/ms.asc \
  && gpg --batch --show-keys --with-colons /tmp/ms.asc | grep -q "^fpr:::::::::AA86F75E427A19DD33346403EE4D7792F748182B:" \
  && gpg --batch --yes --dearmor -o /usr/share/keyrings/microsoft-prod.gpg /tmp/ms.asc && rm /tmp/ms.asc \
  && . /etc/os-release \
- && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/${VERSION_ID}/prod ${VERSION_CODENAME} main" \
+ && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/${VERSION_ID}/prod ${VERSION_CODENAME} main" \
       > /etc/apt/sources.list.d/mssql-release.list \
  && apt-get update \
  && ACCEPT_EULA=Y apt-get install -y --no-install-recommends msodbcsql18 \

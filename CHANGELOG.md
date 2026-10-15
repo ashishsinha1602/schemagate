@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.4.4
+
+The Docker image, which 1.4.3 did not publish. No change to the library.
+
+- **SQL Server works in the image.** `pyodbc` could not import in earlier images (no
+  `libodbc.so.2`) and there was no ODBC Driver 18 to connect through, so every
+  `mssql+pyodbc` URL failed. The image now carries unixODBC and Microsoft's ODBC Driver 18
+  from Microsoft's Debian repository, whose 2025 signing key is checked by fingerprint.
+- **Published for amd64 and arm64 again.** The driver repository line named amd64 alone,
+  so the arm64 build failed and 1.4.3 published no image; it now uses the build's own
+  architecture.
+- Every dependency in the image is installed by hash, and schemagate itself from a wheel
+  built in the image, with `--no-deps`.
+
 ## 1.4.3
 
 Security fix: on SQLite, `run_query` no longer lets a single-quoted table name past
