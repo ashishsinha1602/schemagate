@@ -224,6 +224,46 @@ def test_simultaneous_calls_past_the_age_cause_one_reread(server):
     assert len(calls) == 1, f"{len(calls)} re-reads for one expiry"
 
 
+def test_callers_waiting_on_the_reread_never_see_the_expired_catalogue(server):
+    """Coalescing protects the database; this protects the authorization boundary. A revoke lands
+    in the config, the catalogue expires, ten callers arrive together, and the one re-read is held
+    open: while it is in flight no caller may have an answer at all (an answer then could only come
+    from the expired catalogue), and once it publishes, every caller sees the revoke."""
+    clock, cfg, calls, mp = server
+    assert "crm_customer" in json.dumps(mcp_server.list_objects())
+    cfg.write_text(json.dumps({"restrict": {"crm_customer": ["finance"]}}), encoding="utf-8")
+    clock.advance(61)
+
+    counted = mcp_server._reflect                     # the fixture's wrapper: it records the re-read
+    inside, release = threading.Event(), threading.Event()
+
+    def held(url, config_path):
+        inside.set()
+        assert release.wait(30), "the test never released the re-read"
+        return counted(url, config_path)
+
+    mp.setattr(mcp_server, "_reflect", held)
+    results, start = [], threading.Barrier(10)
+
+    def worker():
+        start.wait()
+        results.append(json.dumps(mcp_server.list_objects()))
+
+    threads = [threading.Thread(target=worker) for _ in range(10)]
+    for t in threads:
+        t.start()
+    assert inside.wait(30), "no caller started a re-read"
+    for _ in range(50):                              # give every other caller time to arrive and queue
+        threading.Event().wait(0.01)
+    assert results == [], f"{len(results)} caller(s) answered while the re-read was in flight"
+    release.set()
+    for t in threads:
+        t.join(60)
+    assert len(results) == 10
+    assert all("crm_customer" not in r for r in results), "a caller saw the expired catalogue"
+    assert len(calls) == 1, f"{len(calls)} re-reads for one expiry"
+
+
 def test_a_stale_refusal_is_recorded_as_a_refusal(server):
     clock, cfg, calls, mp = server
     _fail_reflect(mp, calls, clock)
