@@ -387,14 +387,15 @@ scripts in [`benchmarks/`](benchmarks/) and the data downloaded from the
 original sources. The headline is the pooled setting — every Spider database
 merged into one 876-table catalog, no hint about which one to look in:
 
-| Spider dev, 876 tables pooled | all gold tables present |
-|---|---|
-| top_k=5 | 71.4% |
-| top_k=10 | 82.6% |
-| top_k=20 | 92.9% |
+| Spider dev, 876 tables pooled | `pip install schemagate` | `[huggingface]` | `[huggingface]` + `--rerank` |
+|---|---|---|---|
+| top_k=5 | 76.7% | 80.3% | **96.5%** |
+| top_k=10 | 86.1% | 90.7% | |
+| top_k=20 | 94.2% | 97.0% | |
 
-BIRD dev, 1,534 questions: 96.5% per-database at top_k=5, 91.1% pooled at
-top_k=10.
+BIRD dev, 1,534 questions: 96.7% per-database at top_k=5, 91.3% pooled at
+top_k=10; pooled at top_k=5, 83.8% hashed, 88.6% with `[huggingface]`, 96.7% with `--rerank`.
+Re-measured on 1.5.2; reranked with claude-haiku-5-5, one call per question.
 
 And **Spider 2.0-lite**, the benchmark built for real warehouses — 162
 databases, 8,255 tables, a median of 16 per database and a maximum of 785:

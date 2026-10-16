@@ -29,9 +29,15 @@ Two numbers per row:
 
 ```
 PER-DATABASE                    all gold present     per-table recall
-  top_k=3                            98.3%                99.1%
+  top_k=3                            98.5%                99.3%
   top_k=5                           100.0%               100.0%
 ```
+
+Every Spider and BIRD table in this section was re-measured on 2026-10-16
+against 1.5.2 with the default (hashed) embedder, `python benchmarks/spider.py`
+and `python benchmarks/bird.py`. The figures they replace were measured on an
+earlier release and were mostly lower; which change moved them has not been
+isolated, so none is claimed.
 
 **This row is a floor, not a result.** Spider databases have a median of
 three tables and a maximum of eleven. Picking five out of three is not
@@ -45,9 +51,11 @@ in one catalog and stop telling it which one to look in.
 POOLED — all 166 Spider databases, 876 tables, no database hint
 
                       all gold present     per-table recall
-  top_k=5                  71.4%                76.3%
-  top_k=10                 82.6%                86.5%
-  top_k=20                 92.9%                94.7%
+  top_k=5                  76.7%                81.2%
+  top_k=10                 86.1%                89.5%
+  top_k=20                 94.2%                95.6%
+
+  was, before the re-run:  71.4% / 82.6% / 92.9%
 ```
 
 That is 876 tables from 166 unrelated domains, with heavy name collision —
@@ -63,12 +71,12 @@ instead of tidy benchmark naming.
 
 ```
 PER-DATABASE, question only     all gold present     per-table recall
-  top_k=3                            88.3%                94.7%
-  top_k=5                            96.5%                98.5%
+  top_k=3                            90.2%                95.6%
+  top_k=5                            96.7%                98.6%
 
 POOLED (75 tables, no hint)
-  top_k=5                            83.0%                90.6%
-  top_k=10                           91.1%                95.1%
+  top_k=5                            83.8%                91.2%
+  top_k=10                           91.3%                95.2%
 ```
 
 BIRD ships an `evidence` string per question — a human hint like *"eligible
@@ -78,13 +86,16 @@ With it, which is what a real caller would pass through:
 
 ```
 PER-DATABASE, question + evidence
-  top_k=3                            90.7%                96.0%
-  top_k=5                            97.9%                99.1%
+  top_k=3                            92.4%                96.9%
+  top_k=5                            98.0%                99.2%
 
 POOLED, question + evidence
-  top_k=5                            85.7%                92.8%
-  top_k=10                           93.9%                97.0%
+  top_k=5                            86.6%                93.4%
+  top_k=10                           93.7%                97.0%
 ```
+
+BIRD moved less than Spider: up about a point in most cells, and pooled with
+evidence at k=10 is 0.2 points *lower* than before (93.9% then).
 
 ## Spider 2.0-lite: the one built for real schemas
 
@@ -237,11 +248,14 @@ own schemas that was worth +3 questions out of 98, which is thin evidence.
 On Spider pooled:
 
 ```
-876 tables, no hint        hashed      MiniLM
-  top_k=5                   71.4%   →   75.3%
-  top_k=10                  82.6%   →   88.1%
-  top_k=20                  92.9%   →   95.8%
+876 tables, no hint        hashed      MiniLM      (re-measured 2026-10-16, 1.5.2)
+  top_k=5                   76.7%   →   80.3%
+  top_k=10                  86.1%   →   90.7%
+  top_k=20                  94.2%   →   97.0%
 ```
+
+(The MiniLM top_k=5 figure, 80.3%, is the same 830/1034 that the reranker
+section below starts from as its "maths order".)
 
 Consistent, and larger than my own benchmarks suggested. Then Spider 2.0 said
 something different:

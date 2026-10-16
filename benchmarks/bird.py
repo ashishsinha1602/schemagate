@@ -17,6 +17,7 @@ that is what a real caller would pass through.
 Gold tables come from BIRD's reference SQL.
 """
 import json
+import os
 import pathlib
 import re
 import sys
@@ -26,8 +27,10 @@ HERE = pathlib.Path(__file__).resolve().parent
 
 from schemagate import Catalog, Column, ForeignKey, ObjectDoc   # noqa: E402
 
-DEV = HERE / "dev_20240627" / "dev.json"
-TABLES = HERE / "dev_20240627" / "dev_tables.json"
+#: BIRD dev, unpacked beside this file by default; BIRD_DIR points elsewhere
+BIRD = pathlib.Path(os.environ.get("BIRD_DIR", str(HERE / "dev_20240627")))
+DEV = BIRD / "dev.json"
+TABLES = BIRD / "dev_tables.json"
 
 
 def build_docs(spec):
