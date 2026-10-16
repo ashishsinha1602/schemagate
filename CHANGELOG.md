@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.5.1
+
+- **`run_query` reads SQL with a parser as well as its own readers: two locks.** The three
+  bypasses fixed this month (GHSA-c258, GHSA-2mmx, GHSA-qhcw) were each a dialect's own way of
+  writing a name. The scope check now also parses every statement with sqlglot in the connected
+  database's grammar and adds the tables, columns and `SELECT *` it finds to what schemagate's
+  readers find. A statement is refused if either sees a name the caller may not use, or if it
+  cannot be parsed. With schemagate's readers switched off, the parser alone refuses every
+  attack from those advisories (`tests/test_parser_scope_check.py`). `sqlglot` joins the `mcp`
+  and `all` extras.
+
 ## 1.5.0
 
 - **A definition that cites another term brings that term's definition.** "Partner sales is
