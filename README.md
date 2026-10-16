@@ -288,7 +288,7 @@ schemagate select --schema APP --url "oracle+oracledb://ADMIN:pw@/?dsn=(descript
 | `--provider NAME` / `--model ID` | which model to use |
 | `--limit N` | row cap for `--answer` |
 | `--restrict-from-grants` | take visibility from the database's own GRANTs |
-| `--rerank` | let the model reorder the shortlist the maths produced |
+| `--rerank` | let the model reorder the shortlist the maths produced (pooled Spider 80.3% -> 96.5%, BIRD 88.6% -> 96.7% of questions with every gold table in the top 5; [BENCHMARKS.md](BENCHMARKS.md)) |
 | `--values` | sample short, non-personal column values |
 | `--include` / `--exclude PATTERN` | narrow what is reflected (`select` only) |
 | `--schema NAME`, `--no-fk`, `--config JSON`, `--sql SELECT` | `select` only |
