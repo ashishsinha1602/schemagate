@@ -1122,6 +1122,15 @@ def _server_class():
         from mcp.server.fastmcp import FastMCP              # mcp 1.x
         return FastMCP
     except ImportError as e:
+        # The `mcp` extra only installs the MCP SDK on Python 3.10+ (the SDK's own floor),
+        # so on 3.9 "pip install 'schemagate[mcp]'" succeeds and the server still cannot
+        # start. Saying "install the extra" there sends people round in a circle.
+        import sys
+        if sys.version_info < (3, 10):
+            raise ImportError(
+                "the MCP server needs Python 3.10 or newer (the MCP SDK does); this is "
+                f"Python {sys.version.split()[0]}. With uvx: uvx --python 3.12 --from "
+                "'schemagate[mcp]' schemagate-mcp") from e
         raise ImportError("pip install 'schemagate[mcp]' to run the MCP server") from e
 
 

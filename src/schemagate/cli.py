@@ -732,6 +732,15 @@ def main(argv: Optional[List[str]] = None) -> int:
             raise
         print(f"schemagate: {hint}", file=sys.stderr)
         return 2
+    except Exception as e:                       # noqa: BLE001 -- narrowed just below
+        if type(e).__name__ != "ArgumentError" or "URL" not in str(e):
+            raise
+        # A malformed --url used to surface as a SQLAlchemy traceback.
+        bad = getattr(args, "url", None)
+        print(f"schemagate: {bad!r} is not a database URL. Use a SQLAlchemy URL such as "
+              "postgresql://user@host/db or sqlite:///file.db; for the bundled demo "
+              "schema, run `schemagate demo`.", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":
