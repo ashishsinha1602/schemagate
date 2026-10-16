@@ -40,7 +40,7 @@ LOCKS = {
     "e2e-mssql":      (["mcp", "mssql"], ["uv"]),
     "e2e-oracle":     (["mcp", "oracle"], ["uv"]),
     "docker":         (["databases", "ai", "mcp"], []),
-    "fuzz":           ([], []),
+    "fuzz":           ([], ["sqlglot>=25"]),     # run_query's parser layer is under test too
     "ruff":           (None, ["ruff==0.16.8"]),
     "markdown":       (None, ["markdown"]),
     "build":          (None, ["build"]),

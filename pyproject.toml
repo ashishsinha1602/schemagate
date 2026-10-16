@@ -68,12 +68,12 @@ huggingface = ["sentence-transformers>=3.0", "transformers>=4.40", "torch>=2.1"]
 # away: `pip install "schemagate[all,oci]"`.
 all         = ["oracledb>=2.4", "psycopg[binary]>=3.1", "pyodbc>=5.0",
                "PyMySQL>=1.1", "anthropic>=0.40", "openai>=1.40",
-               "google-genai>=1.0", "mcp>=1.2; python_version >= '3.10'"]
+               "google-genai>=1.0", "mcp>=1.2; python_version >= '3.10'", "sqlglot>=25"]
 # quantum-safe signed audit log (ML-DSA-65, FIPS 204) -- PyCA cryptography, OpenSSL-backed;
 # 48 is the first release where ML-DSA works on every platform
 pq          = ["cryptography>=48"]
 # integrations
-mcp         = ["mcp>=1.2; python_version >= '3.10'"]
+mcp         = ["mcp>=1.2; python_version >= '3.10'", "sqlglot>=25"]  # sqlglot: run_query reads SQL with a parser
 langchain   = ["langchain-core>=0.3"]
 dev         = ["pytest>=8", "cryptography>=48", "ruff", "mypy", "sqlglot>=25", "anyio>=4",
                "langchain-core>=0.3",
