@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.5.0
+
+- **A definition that cites another term brings that term's definition.** "Partner sales is
+  revenue on partner orders" now reaches the prompt with revenue's definition attached
+  (`Ontology.with_cited`, three steps deep, on by default; `Catalog.cite_definitions = False`
+  turns it off). Visibility applies to a cited concept as to a matched one. On the
+  planted-definitions benchmark: 15/21 with 6 confidently wrong before, 21/21 with none after.
+- **The LLM reranker works on reasoning models.** It asked for `max_tokens=120`, which a
+  reasoning model spends before writing: on Claude 5 models every call fell back to the maths
+  order and `--rerank` silently did nothing. Now 1024. Measured on Spider and BIRD, pooled,
+  every gold table in the top 5: Spider 80.3% -> 96.5%, BIRD 88.6% -> 96.7%
+  (claude-haiku-5-5; `benchmarks/rerank_public.py`).
+- **The MCP server can rerank.** `SCHEMAGATE_MCP_RERANK=1` lets `select_schema` reorder the top
+  20 with the server's model (`SCHEMAGATE_MCP_PROVIDER` / `SCHEMAGATE_MCP_MODEL`). Off by
+  default; set without a model, the server will not start. `health` reports it.
+- **A stricter permissions-freshness test.** Callers queued behind a catalogue re-read are
+  shown to get no answer while it is in flight, and the revoked view after it.
+- **Supply chain.** Every CI and Docker `pip install` is pinned by hash
+  (`scripts/lock_ci.py`); ClusterFuzzLite fuzzes `run_query`'s gate on every pull request; the
+  Docker image is on Python 3.14 and published for amd64 and arm64.
+
 ## 1.4.4
 
 The Docker image, which 1.4.3 did not publish. No change to the library.
