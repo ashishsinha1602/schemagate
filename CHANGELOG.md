@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.5.2
+
+- **Two startup errors now say what to do.** On Python 3.9 the `mcp` extra installs without the
+  MCP SDK (it needs 3.10+), and the server used to tell you to install the extra you had just
+  installed; it now names the Python version and gives the `uvx --python 3.12` command. A
+  malformed `--url` (for example `--url demo`) printed a SQLAlchemy traceback; it is now one line
+  that points at `schemagate demo`. Both were found by installing from PyPI on a clean machine.
+
 ## 1.5.1
 
 - **`run_query` reads SQL with a parser as well as its own readers: two locks.** The three
