@@ -85,6 +85,23 @@ check on whether the model was re-deriving revenue rather than missing it,
 revenue was also compiled into a view the dependent terms point at, with the
 gross columns still queryable: 19/21, and neither miss involved revenue.
 
+What if the cited definition is simply missing? Revenue's entry was removed
+from the glossary, so partner sales, big account and AOV cite a term that has
+no definition anywhere. On the six questions that depend on it:
+
+| | correct | declined | confidently wrong |
+|---|---|---|---|
+| revenue's entry removed | 0 | 0 | 6 |
+| removed, and the prompt says the cited term has no definition | 0 | **6** | 0 |
+| removed, flagged, and told not to guess | 0 | 6 | 0 |
+| revenue defined, cited definitions followed | **6** | 0 | 0 |
+
+A one-line note that the term is undefined was enough to turn all six
+confident wrong answers back into "these tables cannot answer this"; telling
+the model not to guess added nothing. A flag buys honesty, not answers: only
+the definition itself made them right. (`benchmarks/planted_definitions.py`,
+arms D, F and FS, suggested by Muhammed Rasin.)
+
 ## Writing a definition
 
 In the same `catalog.json` as the access rules:
