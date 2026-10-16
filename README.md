@@ -712,7 +712,7 @@ and Microsoft Purview exports work as they are.
 |---|---|---|---|
 | Concepts learned from history (`benchmarks/learn_concepts.py`) | Spider dev, 166 databases pooled (876 tables), learned from half of each database's questions, scored on the other half: all gold tables in the top 5 | 73.3% | **82.8%** (+49 / −0, p<0.0001; MiniLM 79.1% → 85.9%) |
 | A complete glossary (`benchmarks/bird_ontology.py`, arm D) | BIRD dev, 201 held-out questions asked **without** their evidence, execution accuracy, Claude Sonnet 5 | 44.8% | **54.7%** (+28 / −8, p=0.001) |
-| Planted definitions (`benchmarks/planted_definitions.py`) | a seeded SQLite with 8 business terms whose obvious reading is wrong (revenue net of discounts, refunds and internal SKUs; "active" from recent orders, not a stale flag; churn with a 30-day grace), 21 questions with answers computed from the definitions, execution accuracy, Claude Sonnet 5 | 4.8% | **71.4%** (+14 / −0, p=0.0001) |
+| Planted definitions (`benchmarks/planted_definitions.py`) | a seeded SQLite with 8 business terms whose obvious reading is wrong (revenue net of discounts, refunds and internal SKUs; "active" from recent orders, not a stale flag; churn with a 30-day grace), 21 questions with answers computed from the definitions, execution accuracy, Claude Sonnet 5 | 4.8% | 71.4% (+14 / −0, p=0.0001); **100%** once a definition brings the terms it cites (21/21, +6 / −0) |
 
 For scale on BIRD: pasting each question's own evidence into it (BIRD's usual
 setting) scores 61.2%, so the ontology delivers about 60% of that gain with no
@@ -725,9 +725,16 @@ actually holds.
 The planted-definition test (suggested in review) writes the definitions first
 and computes every expected answer from them, so it measures whether the SQL is
 *right*, not whether the tables were. A repeat run without the glossary changed
-no answers. All six remaining misses are one pattern: a term defined through
-another ("partner sales is revenue on partner orders") retrieves itself but
-not the term it leans on, so the model guesses what revenue means.
+no answers. The six questions the glossary first missed were one pattern: a
+term defined through another ("partner sales is revenue on partner orders")
+retrieved itself but not the term it leans on, so the model guessed what
+revenue means -- confidently, on four questions it had declined without the
+glossary. A matched concept now brings the concepts its definition or filter
+cites (`Ontology.with_cited`, followed three steps, visibility applied to each),
+and the same run scores 21/21. Compiling revenue into a view the dependent
+terms point at, with the gross columns still queryable, scored 19/21, and
+neither of its misses involved revenue: the gap was retrieval, not the model
+re-deriving a definition it had been given.
 
 Join-path completion through the schema graph was measured and not built:
 on Spider only 2 of 266 misses at top_k=5 are a missing bridge table, because

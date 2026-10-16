@@ -389,6 +389,9 @@ class Catalog:
         from .ontology import Ontology
         #: The organisation's vocabulary: concepts, their words, where they live.
         self.ontology = Ontology()
+        #: Follow the terms a concept's definition cites (Ontology.with_cited).
+        #: On by default; off only to measure what it changes.
+        self.cite_definitions = True
 
     # ---------------- build ----------------
 
@@ -1149,7 +1152,11 @@ class Catalog:
 
         # Glossary terms the question uses. Only objects this caller may see
         # count; a term can rank a visible object, never reveal a hidden one.
+        # Plus the concepts those definitions cite: "partner sales is revenue on
+        # partner orders" is unusable without what revenue means.
         _matched = self.ontology.match(question) if self.ontology else []
+        if _matched and getattr(self, "cite_definitions", True):
+            _matched = self.ontology.with_cited(_matched)
         _term_hits = [(c.name, [q for q in c.all_objects() if q in allowed_set])
                       for c, _ in _matched]
         _term_objs = {q for _, qs in _term_hits for q in qs}

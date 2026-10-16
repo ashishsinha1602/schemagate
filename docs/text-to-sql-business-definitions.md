@@ -47,7 +47,8 @@ generate SQL), scored on whether the query returns the right answer:
 |---|---|
 | no glossary | 1 / 21 (4.8%) |
 | no glossary, run again | 1 / 21 (no answer changed) |
-| **with the glossary** | **15 / 21 (71.4%)** |
+| with the glossary | 15 / 21 (71.4%) |
+| **with the glossary, cited definitions followed** | **21 / 21 (100%)** |
 
 Fourteen questions went from wrong to right, none from right to wrong
 (McNemar p = 0.0001).
@@ -62,14 +63,27 @@ On a public benchmark the effect holds too: on BIRD, 201 held-out questions
 asked without their hints, a complete glossary took execution accuracy from
 44.8% to 54.7% (p = 0.001; `benchmarks/bird_ontology.py`).
 
-## What it still gets wrong
+## The six it first got wrong, and the fix
 
-All six remaining misses are one pattern. A term defined through another term
-("partner sales is revenue on partner orders", "AOV is revenue per completed
-order") retrieves its own definition but not the one it leans on. The model gets
-the channel filter right, then guesses what revenue means. If your glossary has
-layered definitions like these, state the base rule inside each one until
-schemagate follows those references itself.
+All six misses of the first glossary run were one pattern. A term defined
+through another term ("partner sales is revenue on partner orders", "AOV is
+revenue per completed order") retrieved its own definition but not the one it
+leans on. The model got the channel filter right, then guessed what revenue
+means -- and four of those were questions it had declined without a glossary,
+so the half-delivered definition turned caution into a confident wrong answer:
+
+| | correct | declined | confidently wrong |
+|---|---|---|---|
+| no glossary | 1 | 4 | 16 |
+| glossary | 15 | 0 | 6 |
+| glossary, cited definitions followed | **21** | 0 | **0** |
+
+schemagate now follows those references: a matched concept brings every concept
+its definition or filter cites, up to three steps, with the same visibility
+rules, so a cited definition never names a table the caller may not see. As a
+check on whether the model was re-deriving revenue rather than missing it,
+revenue was also compiled into a view the dependent terms point at, with the
+gross columns still queryable: 19/21, and neither miss involved revenue.
 
 ## Writing a definition
 

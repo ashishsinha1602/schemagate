@@ -165,6 +165,20 @@ REV_CTE = f"""rev AS (
   FROM orders o WHERE o.status = 'completed')"""
 NAIVE_REV = """SELECT ROUND(SUM(oi.qty * oi.unit_price), 2) FROM order_items oi JOIN orders o ON o.id = oi.order_id"""
 
+# Arm V (suggested by Muhammed Rasin): revenue compiled once into a view, and the terms built on it
+# point at the view. The base tables -- gross amounts included -- stay queryable beside it, so a
+# right answer means the model chose the view, not that the wrong path was taken away.
+VIEW_SQL = "CREATE VIEW net_revenue AS " + REV_CTE.split("AS (", 1)[1].rsplit(")", 1)[0].strip()
+VIEW_NOTE = ("net_revenue has one row per completed order with revenue already net of line discounts, "
+             "internal products and refunds; use net_revenue.revenue, never order_items amounts")
+GLOSSARY_V = [dict(g) for g in GLOSSARY]
+for g in GLOSSARY_V:
+    if g["name"] == "revenue":
+        g.update(maps=["net_revenue"], filter=None, definition="revenue is SUM(net_revenue.revenue). " + VIEW_NOTE)
+    elif g["name"] in ("big account", "partner sales", "AOV"):
+        g["maps"] = ["net_revenue"] + [m for m in g["maps"] if m != "order_items"]
+        g["definition"] = g["definition"].replace("(as revenue is defined)", "(SUM(net_revenue.revenue))")
+
 QUESTIONS = [
     # (question, gold SQL, naive SQL)
     ("What was total revenue?",
@@ -294,14 +308,19 @@ def check(db):
     return kept, dropped
 
 
-def catalog(db, with_glossary):
+def catalog(db, with_glossary, cite=True, glossary=None):
     from schemagate import Catalog
     cat = Catalog(name="planted").bootstrap(f"sqlite:///{db}")
+    cat.cite_definitions = cite          # follow the terms a definition cites (arm C, V); off for arm B
     if with_glossary:
-        for g in GLOSSARY:
+        for g in glossary or GLOSSARY:
             cat.concept(g["name"], synonyms=g.get("synonyms", ()), maps=g["maps"], filter=g.get("filter"),
                         definition=g["definition"], source="planted")
     return cat
+
+
+ARMS = {"A": "no glossary", "A2": "no glossary, repeat", "B": "glossary",
+        "C": "glossary + cited defs", "V": "views + cited defs"}
 
 
 def main():
@@ -319,7 +338,18 @@ def main():
     from schemagate.answer import UnsafeSQL, generate_sql
     from schemagate.ai.providers import AnthropicProvider
     prov = AnthropicProvider(model=MODEL)
-    plain, rich = catalog(db, False), catalog(db, True)
+    vdb = os.path.join(os.path.dirname(db), "company_views.db")
+    import shutil
+    shutil.copyfile(db, vdb)
+    con = sqlite3.connect(vdb)
+    con.execute(VIEW_SQL)
+    con.commit()
+    con.close()
+    cats = {"A": catalog(db, False), "A2": catalog(db, False),
+            "B": catalog(db, True, cite=False),               # glossary as first measured
+            "C": catalog(db, True, cite=True),                # + cited definitions (closure)
+            "V": catalog(vdb, True, cite=True, glossary=GLOSSARY_V)}
+    dbs = {"V": vdb}
     done = {}
     if OUT.exists():
         for line in OUT.read_text("utf-8").splitlines():
@@ -330,13 +360,13 @@ def main():
     def ask(q, gold, arm):
         if (q, arm) in done:
             return done[(q, arm)]["ok"]
-        cat = rich if arm == "B" else plain
+        cat = cats[arm]
         sel = cat.select(q, top_k=TOP_K)
         e = {"q": q, "arm": arm, "ok": False, "meanings": len(sel.meanings), "model": MODEL}
         try:
             sql = generate_sql(prov, q, sel.prompt_fragment(), dialect="SQLite")
             e["sql"] = sql
-            e["ok"] = matches(rows(db, sql), rows(db, gold))
+            e["ok"] = matches(rows(dbs.get(arm, db), sql), rows(db, gold))
         except UnsafeSQL:
             e["err"] = "refused"
         except Exception as ex:                                   # noqa: BLE001
@@ -347,14 +377,29 @@ def main():
         return e["ok"]
 
     t0 = time.time()
-    res = {a: [] for a in ("A", "A2", "B")}
+    res = {a: [] for a in ARMS}
     for q, gold, _ in kept:
         for arm in res:
             res[arm].append(ask(q, gold, arm))
     n = len(kept)
     print(f"\nplanted definitions, n={n}, {MODEL}, top_k {TOP_K}  ({time.time()-t0:.0f}s)")
-    for arm, label in (("A", "no glossary"), ("A2", "no glossary, repeat"), ("B", "glossary")):
+    for arm, label in ARMS.items():
         print(f"  {arm:2} {label:20} {sum(res[arm])}/{n}  ({100*sum(res[arm])/n:.1f}%)")
+
+    # Accuracy alone credits an arm for removing the model's caution: a question it declined
+    # becomes a confident wrong answer and the score cannot tell. So every outcome is one of
+    # four, and a wrong answer that ran costs more than a refusal or a visible error.
+    # (Suggested on dev.to by Muhammed Rasin.)
+    wrong_cost = float(os.environ.get("SG_WRONG_COST", "3"))
+    print(f"\n  outcome per arm (cost: abstained or failed = 1, confidently wrong = {wrong_cost:g}):")
+    print(f"  {'arm':4}{'correct':>9}{'abstained':>11}{'failed':>8}{'conf. wrong':>13}{'cost':>8}")
+    for arm in ARMS:
+        es = [done[(q, arm)] for q, _, _ in kept]
+        ok = sum(e["ok"] for e in es)
+        abst = sum(e.get("err") == "refused" for e in es)
+        failed = sum(bool(e.get("err")) and e.get("err") != "refused" for e in es)
+        wrong = len(es) - ok - abst - failed
+        print(f"  {arm:4}{ok:>9}{abst:>11}{failed:>8}{wrong:>13}{abst + failed + wrong_cost * wrong:>8g}")
 
     def flips(x, y):
         return sum(1 for a, b in zip(x, y) if b and not a), sum(1 for a, b in zip(x, y) if a and not b)
@@ -362,6 +407,9 @@ def main():
     print(f"  noise floor A -> A2: +{nb} / -{nc}  p={mcnemar_p(nb, nc):.3f}")
     fb, fc = flips(res["A"], res["B"])
     print(f"  A -> B (glossary):   +{fb} / -{fc}  p={mcnemar_p(fb, fc):.4f}")
+    for arm in ("C", "V"):
+        b, c = flips(res["B"], res[arm])
+        print(f"  B -> {arm} ({ARMS[arm]}): +{b} / -{c}  p={mcnemar_p(b, c):.4f}")
     print(f"  per-call log: {OUT}")
 
 
