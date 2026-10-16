@@ -147,6 +147,48 @@ def _max_age() -> Optional[float]:
 def _truthy(name: str) -> bool:
     return (os.environ.get(name) or "").strip().lower() in ("1", "true", "yes", "on")
 
+
+#: Rerank candidates: the maths shortlists this many, the model picks top_k
+#: from them. Measured at 20 (BENCHMARKS.md, "The reranker, measured").
+RERANK_CANDIDATES = 20
+
+
+def _server_provider():
+    """The model this server is configured with, or None.
+
+    ``SCHEMAGATE_MCP_PROVIDER`` and ``SCHEMAGATE_MCP_MODEL``, the key from the
+    provider's usual environment variable. Shared by `answer` (to write SQL)
+    and, with ``SCHEMAGATE_MCP_RERANK``, `select_schema` (to reorder the
+    shortlist), so the two can never be configured differently by accident.
+    Raises ValueError for a provider name it does not know.
+    """
+    name = os.environ.get("SCHEMAGATE_MCP_PROVIDER")
+    model = os.environ.get("SCHEMAGATE_MCP_MODEL")
+    if not name or not model:
+        return None
+    from .ai import providers as _p
+    classes = {"anthropic": _p.AnthropicProvider, "openai": _p.OpenAIProvider,
+               "gemini": _p.GeminiProvider, "oci": _p.OCIGenAIProvider,
+               "local": _p.LocalProvider}
+    cls = classes.get(name.lower())
+    if cls is None:
+        raise ValueError(f"unknown provider {name!r}")
+    return cls(model=model)
+
+
+def _rerank_check() -> bool:
+    """Whether `select_schema` reranks. Read at startup and validated there:
+    ``SCHEMAGATE_MCP_RERANK=1`` without a usable model stops the server rather
+    than quietly selecting without the reranker someone asked for."""
+    if not _truthy("SCHEMAGATE_MCP_RERANK"):
+        return False
+    try:
+        if _server_provider() is None:
+            raise ValueError("SCHEMAGATE_MCP_PROVIDER and SCHEMAGATE_MCP_MODEL are not both set")
+    except ValueError as e:
+        raise SystemExit(f"schemagate.mcp_server: SCHEMAGATE_MCP_RERANK=1 needs a model: {e}")
+    return True
+
 #: Hard caps so one pathological request cannot stall the server.
 MAX_QUESTION_CHARS = 2000
 MAX_TOP_K = 50
@@ -260,6 +302,7 @@ def build_catalog(url: Optional[str] = None, config_path: Optional[str] = None,
                 "or use SCHEMAGATE_DATABASE_URL=demo for the bundled schema")
         config_path = config_path or os.environ.get("SCHEMAGATE_CATALOG_CONFIG")
         max_age = _max_age()                 # validated before any database work
+        _STATE["rerank"] = _rerank_check()   # likewise
         cat = _reflect(url, config_path)
         _CATALOG = cat
         _GROUPS = _groups_from(config_path, url)
@@ -691,9 +734,14 @@ def select_schema(question: Question, principal: PrincipalArg = None,
         top_k = 6
     who = _principal(principal, roles)
     cat = _catalog()
+    # The model only reorders a shortlist of what this caller may already
+    # see, and a reply it cannot parse leaves the maths order: reranking can
+    # neither surface a withheld object nor fail the call.
+    reranker = _server_provider() if _STATE.get("rerank") else None
     sel = cat.select(question, top_k=top_k, principal=who,
                      expand_fks=bool(expand_foreign_keys),
-                     pin=_memory().pins_for(question))
+                     pin=_memory().pins_for(question),
+                     reranker=reranker, rerank_candidates=RERANK_CANDIDATES)
     visible = sum(1 for d in cat.objects() if cat._visible(d, who))
     withheld_cols = sum(len(h.doc.columns) - len(h.doc.visible_columns(who))
                         for h in sel.hits)
@@ -848,30 +896,25 @@ def answer(question: Question, principal: PrincipalArg = None,
     if "error" in picked:
         return picked
 
-    name = os.environ.get("SCHEMAGATE_MCP_PROVIDER")
-    model = os.environ.get("SCHEMAGATE_MCP_MODEL")
-    if not name or not model:
+    try:
+        provider = _server_provider()
+    except ValueError as e:
+        return dict(picked, error=str(e))
+    if provider is None:
         return dict(picked, sql=None, rows=None,
                     next="no model is configured on this server: write the "
                          "SELECT yourself from prompt_fragment, then call "
                          "run_query with it. Set SCHEMAGATE_MCP_PROVIDER and "
                          "SCHEMAGATE_MCP_MODEL to have the server write it.")
 
-    from .ai import providers as _p
     from .answer import UnsafeSQL, generate_sql
-    classes = {"anthropic": _p.AnthropicProvider, "openai": _p.OpenAIProvider,
-               "gemini": _p.GeminiProvider, "oci": _p.OCIGenAIProvider,
-               "local": _p.LocalProvider}
-    cls = classes.get(name.lower())
-    if cls is None:
-        return dict(picked, error=f"unknown provider {name!r}")
     # `select_schema` returns the DDL under "ddl". This used to read
     # "prompt_fragment", a key nothing sets, so the model was handed an
     # empty table list and every answer was INSUFFICIENT or invented. The
     # only test of this tool covered the no-model path, which is how it
     # stayed that way.
     try:
-        sql = generate_sql(cls(model=model), question, picked["ddl"],
+        sql = generate_sql(provider, question, picked["ddl"],
                            dialect=_dialect_name(),
                            # only pairs whose every table this caller may see
                            examples=_memory().examples_for(
@@ -943,6 +986,7 @@ def health() -> Dict[str, Any]:
         "last_error": _STATE["last_error"],
         "catalog_age_seconds": None if _catalog_age() is None else round(_catalog_age(), 1),
         "catalog_max_age_seconds": _STATE.get("max_age"),
+        "rerank": bool(_STATE.get("rerank")),
         "catalog_stale": bool(_STATE.get("max_age") and (_catalog_age() or 0) > _STATE["max_age"]),
         "calls": _STATE["calls"],
         "errors": _STATE["errors"],

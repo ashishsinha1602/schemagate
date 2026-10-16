@@ -362,6 +362,7 @@ run before trusting a new database or driver.
 | `SCHEMAGATE_VALUES=1` | MCP server: read column values at startup, like `--values` (`SCHEMAGATE_VALUES_BUDGET` = seconds, default 30) |
 | `SCHEMAGATE_RESTRICT_FROM_GRANTS=1` | MCP server: take visibility from the database's GRANTs, like `--restrict-from-grants` (PostgreSQL, MySQL, Oracle) |
 | `SCHEMAGATE_CATALOG_MAX_AGE` | MCP server: seconds a catalogue may be used before it is re-read; if the re-read fails, the scoping tools refuse until one succeeds (see below) |
+| `SCHEMAGATE_MCP_RERANK=1` | MCP server: `select_schema` lets the server's model (`SCHEMAGATE_MCP_PROVIDER` + `SCHEMAGATE_MCP_MODEL`) reorder the top 20, like `--rerank`; one model call per question; set without a model, the server will not start |
 
 ## How it picks
 

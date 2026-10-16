@@ -123,3 +123,30 @@ def test_a_restricted_object_cannot_be_promoted_into_an_answer():
                      principal=Principal("demo:analyst"),
                      reranker=GrabsEverything())
     assert "hr_compensation" not in [d.name for d in sel.objects]
+
+
+def test_a_reasoning_model_gets_enough_tokens_to_answer():
+    """A reasoning model spends tokens before it writes. At the old max_tokens of 120 every call
+    on claude-haiku-5-5 / claude-sonnet-5-5 ran out, fell back to the maths order, and reranking
+    silently did nothing. This model behaves the same way: below 512 tokens it raises the
+    provider's "all reasoning" error; with enough it answers."""
+    from types import SimpleNamespace as NS
+
+    from schemagate.ai.providers import ProviderError
+    from schemagate.rerank import rerank
+
+    class Reasoner:
+        def __init__(self):
+            self.budgets = []
+
+        def complete(self, system, prompt, max_tokens=1024):
+            self.budgets.append(max_tokens)
+            if max_tokens < 512:
+                raise ProviderError("hit max_tokens before writing any text")
+            return "3, 1"
+
+    docs = [NS(qname=f"main.t{i}", hint=f"table {i}", columns=[]) for i in range(1, 6)]
+    model = Reasoner()
+    out = rerank(model, "q", docs, top_k=2)
+    assert [d.qname for d in out[:2]] == ["main.t3", "main.t1"], "the model's answer was not used"
+    assert model.budgets and model.budgets[0] >= 512
