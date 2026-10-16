@@ -524,6 +524,42 @@ the machine that ran this.
 Cost, since it is not free: one API call and roughly two seconds per question
 (58 selections in 115s).
 
+## The reranker on Spider and BIRD
+
+The numbers above are the reranker on this repository's own invented schemas. This measures it on the
+public benchmarks, in the setting where the order inside the shortlist decides the answer: POOLED,
+every database in one catalogue and no hint which one a question belongs to
+(`benchmarks/rerank_public.py`). Each question is scored twice on the same catalogue, embedder and
+`top_k`: the maths order (RRF of the lexical, vector, name and prose rankings), and a model reordering
+the top 20. Metric: every table the gold SQL reads is in the top 5. Paired, McNemar's exact test.
+
+claude-haiku-5-5, default embedder, top_k=5, candidates=20, all of Spider dev and BIRD dev:
+
+```
+set     tables   n      maths order       reranked          b     c    p
+spider  876      1034   830  (80.3%)      998  (96.5%)      169   1    2.3e-49
+bird    75       1534   1359 (88.6%)      1483 (96.7%)      125   1    3.0e-36
+```
+
+The model answered every one of the 2,568 calls -- this is counted, not assumed, because until the
+fix below a reasoning model answered none of them and the result would have read as "no effect".
+
+**What this is and is not.** It is table retrieval, not execution accuracy: the right tables in the
+prompt, not the right answer. One model; Spider and BIRD questions are public and may be in its
+training data, which would flatter a reranker that reads them -- though it only reorders candidates
+the maths already shortlisted and sees table names and summaries, not the gold SQL. About one call
+and a few hundred tokens per question.
+
+**The fix that made this measurable.** `rerank()` asked for `max_tokens=120`. Claude 5 models spend
+that on reasoning before writing, so every call raised, the reranker fell back to the maths order as
+designed, and `--rerank` silently did nothing. It is now 1024, and `tests/test_rerank.py` holds a model
+that fails below 512 tokens. A fallback that is safe by design also hides total failure: the
+benchmark logs whether the model answered for exactly that reason.
+
+The reranker stays opt-in -- picking tables needs no API key, and that is the default -- but with a
+key available it is the largest single gain measured in this file. The MCP server takes it with
+`SCHEMAGATE_MCP_RERANK=1`.
+
 ## Column ranking, and why this file reports no gain for it
 
 `render_ddl` kept `visible[:max_columns]` -- the first 40 columns in
