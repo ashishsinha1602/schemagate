@@ -13,7 +13,14 @@ evidence for each claim. To report a problem, see [SECURITY.md](../SECURITY.md).
 2. **SQL that names a hidden object does not run.** The MCP server's
    `run_query` parses the statement and checks every table and column against
    the same visibility before the database sees it, including quoted,
-   bracketed and schema-qualified names, comma joins and `SELECT *`.
+   bracketed and schema-qualified names, comma joins and `SELECT *`. Names are
+   read twice, independently -- by schemagate's own readers and by a SQL
+   parser that knows the connected dialect's grammar (`sqlglot`) -- and the
+   statement is refused if either finds one this caller may not use, or if it
+   cannot be parsed at all. Each of the three bypasses fixed in October 2026
+   (GHSA-c258, GHSA-2mmx, GHSA-qhcw) is refused by the parser alone
+   (`tests/test_parser_scope_check.py`), and `fuzz/fuzz_run_query_scope.py`
+   checks both together on every pull request by running what they allow.
 3. **SQL that writes does not run.** `run_query` accepts one read statement.
    Writes, DDL, and a second statement hidden in a comment or a string literal
    are refused (`answer.check_read_only`). Results are capped (`max_rows`).

@@ -461,6 +461,55 @@ _STAR = re.compile(r"\bselect\s+(?:distinct\s+|all\s+|top\s*\(?\s*\d+\s*\)?\s+)?
                    r"(?:\w|\"|\]|`)\s*\.\s*\*", re.I)
 
 
+#: SQLAlchemy dialect name -> sqlglot's.
+_SQLGLOT_DIALECT = {"postgresql": "postgres", "mssql": "tsql", "mysql": "mysql",
+                    "mariadb": "mysql", "oracle": "oracle", "sqlite": "sqlite"}
+
+
+class _Unparsed(Exception):
+    """sqlglot could not read the statement."""
+
+
+def _parsed_refs(sql: str):
+    """(tables, columns, star) as a real SQL parser reads ``sql``, or None without sqlglot.
+
+    The pattern-based readers above found three bypasses in a week, each a
+    dialect's own way of writing a name (a schema-qualified twin, a shadowed
+    column, SQLite's single-quoted table). A parser that knows each dialect's
+    grammar reads those as what they are. Its findings are *added* to the
+    pattern readers' -- a statement is refused if either sees a name this
+    caller may not use -- so this can only make the check stricter. Raises
+    `_Unparsed` when the statement cannot be parsed: fail closed.
+    """
+    try:
+        import sqlglot
+        from sqlglot import exp
+    except ImportError:
+        return None
+    try:
+        trees = [t for t in sqlglot.parse(sql, read=_SQLGLOT_DIALECT.get(_dialect_name()))
+                 if t is not None]
+    except Exception as e:                               # noqa: BLE001 -- any parse failure
+        raise _Unparsed(str(e).splitlines()[0][:160] if str(e) else type(e).__name__) from e
+    tables: List[str] = []
+    seen = set()
+    cols, star = set(), False
+    for t in trees:
+        ctes = {(c.alias_or_name or "").lower() for c in t.find_all(exp.CTE)}
+        for x in t.find_all(exp.Table):
+            if not x.name:
+                continue
+            if not (x.db or x.catalog) and x.name.lower() in ctes:
+                continue
+            name = ".".join(part for part in (x.catalog, x.db, x.name) if part)
+            if name.lower() not in seen:
+                seen.add(name.lower())
+                tables.append(name)
+        cols |= {c.name.lower() for c in t.find_all(exp.Column) if c.name and c.name != "*"}
+        star = star or any(not isinstance(st.parent, exp.Count) for st in t.find_all(exp.Star))
+    return tables, cols, star
+
+
 def _check_scope(cat: Catalog, sql: str, who: Optional[Principal]) -> Optional[str]:
     """Refuse SQL that reads anything this caller may not see.
 
@@ -504,7 +553,15 @@ def _check_scope(cat: Catalog, sql: str, who: Optional[Principal]) -> Optional[s
             return []
         return vis_bare.get(r, [])
 
+    try:
+        parsed = _parsed_refs(sql)
+    except _Unparsed as e:
+        return ("not available to this caller: the statement could not be parsed to check "
+                "which tables and columns it reads (%s). Write it as a plain SELECT." % e)
     refs = _referenced_tables(sql)
+    if parsed:
+        known = {r.lower() for r in refs}
+        refs += [t for t in parsed[0] if t.lower() not in known]
     resolved = {t: resolve(t) for t in refs}
     unknown = [t for t in refs if not resolved[t]]
     # Backstop, whatever the syntax: a name this caller may not see, anywhere
@@ -512,6 +569,8 @@ def _check_scope(cat: Catalog, sql: str, who: Optional[Principal]) -> Optional[s
     # know, a LATERAL, a dialect's own table function. A hidden table whose
     # name is also a visible object's name is left to the check above.
     idents = _identifiers(sql)
+    if parsed:
+        idents |= parsed[1]
     visible_names = set(vis_q) | set(vis_bare)
     unknown += sorted(n for n in (idents & (hid_q | hid_bare)) - visible_names
                       if n not in {u.lower() for u in unknown})
@@ -541,7 +600,7 @@ def _check_scope(cat: Catalog, sql: str, who: Optional[Principal]) -> Optional[s
         if named:
             return ("not available to this caller: column %s. Call select_schema and "
                     "use only the columns it returns." % ", ".join(named))
-        if _STAR.search(_sql_body(sql)):
+        if _STAR.search(_sql_body(sql)) or (parsed and parsed[2]):
             return ("not available to this caller: SELECT * would include columns this "
                     "caller may not see. Name the columns select_schema returned.")
     return None
