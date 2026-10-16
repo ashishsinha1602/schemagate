@@ -1077,11 +1077,18 @@ TOOL_DESCRIPTIONS = {
     "select_schema": (
         "Start here for any question about the data. Returns the few tables and views the question needs, as "
         "compact DDL to write SQL against, scoped to the caller: objects and columns they may not read are "
-        "absent, not ranked low. Also returns each object's name and why it was picked. Pass principal and "
-        "roles whenever you know who is asking."),
+        "absent, not ranked low. Pass principal and roles whenever you know who is asking. Returns 'ddl' (put "
+        "it in your SQL prompt), 'objects' (the names chosen), 'explain' (score and reason per object) and "
+        "'selected' / 'total_objects'. Reads table structure only, never rows. Next: write one SELECT against "
+        "'ddl' and call run_query with the same principal and roles; call describe_object if a table needs "
+        "more columns than the compact DDL shows. If the right table is missing, raise top_k or rephrase "
+        "rather than writing SQL against a table that was not returned."),
     "list_objects": (
-        "List every table and view this caller may read, with its kind and column count. Use it to see what "
-        "exists before asking, or when select_schema did not return what you expected."),
+        "List every table and view this caller may read: 'objects' holds each one's name, kind (table or "
+        "view), column count and description, with 'count' visible out of 'total_objects'. Use it to show "
+        "what data exists, or when select_schema did not return what you expected. It returns no DDL and no "
+        "rows, and on a large database it is long: to answer a question, call select_schema instead. Pass "
+        "principal and roles; restricted objects are absent for callers without the role."),
     "describe_object": (
         "Full DDL (all visible columns, keys, comments) for one table or view, if the caller may read it. Use "
         "it when select_schema's compact DDL is not enough. A restricted or missing object returns the same "
@@ -1097,7 +1104,10 @@ TOOL_DESCRIPTIONS = {
         "clients should use select_schema then run_query with their own model instead."),
     "refresh_catalog": (
         "Re-read the database structure (new tables, changed columns, changed grants) and swap the index in. "
-        "If the database is unreachable the previous catalog stays in service and the failure is reported."),
+        "Call it after a migration or a permission change, or when health shows the catalog is stale; it is "
+        "not needed before ordinary questions. Takes no arguments, never changes the database, and can take "
+        "seconds on a large schema. Returns {ok: true, objects, seconds}. If the database is unreachable it "
+        "returns {ok: false, kept_previous: true, error}: the previous catalog stays in service."),
     "health": (
         "Server status: whether the catalog is loaded, how many objects it holds, the database dialect, and "
         "audit-log counts. Takes no arguments; safe to call any time."),
