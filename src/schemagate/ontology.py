@@ -159,6 +159,35 @@ class Ontology:
                 out.append((self.concepts[ck], phrase))
         return out
 
+    def with_cited(self, matched: List[Tuple[Concept, str]],
+                   depth: int = 3) -> List[Tuple[Concept, str]]:
+        """``matched`` plus every concept their definitions or filters cite.
+
+        "partner sales is revenue on partner orders" names another term; with
+        only its own line in the prompt the model gets the channel filter right
+        and then invents what revenue means. Measured on the planted-definitions
+        benchmark: all six questions a full glossary still missed were this
+        shape. A cited concept is added once, after the ones that cite it, and
+        the chain is followed ``depth`` steps (revenue -> net of refunds -> ...).
+        The caller still applies visibility to every one of them.
+        """
+        out = list(matched)
+        seen = {self.key(c.name) for c, _ in out}
+        frontier = [c for c, _ in out]
+        for _ in range(depth):
+            nxt = []
+            for c in frontier:
+                for d, _ in self.match(f"{c.definition or ''} {c.filter or ''}"):
+                    k = self.key(d.name)
+                    if k not in seen:
+                        seen.add(k)
+                        out.append((d, f"cited by {c.name}"))
+                        nxt.append(d)
+            if not nxt:
+                break
+            frontier = nxt
+        return out
+
     def neighbours(self, concept: Concept) -> List[Concept]:
         """Concepts one step away: its broader ones and the ones narrower than it."""
         out = []
