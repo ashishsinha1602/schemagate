@@ -22,6 +22,8 @@ write without it. A question is kept only if the two disagree on this data -- ot
 a glossary from no glossary. Arms, through the shipped pipeline (select -> prompt_fragment -> generate_sql):
 
   A   no glossary          A2  no glossary again (the noise floor)          B   the glossary
+  C   glossary + cited definitions        V   revenue as a view
+  D   revenue's entry dropped     F   dropped, and the gap flagged     FS  flagged, and told not to guess
 
     SG_MODEL=claude-sonnet-5 python benchmarks/planted_definitions.py          (needs ANTHROPIC_API_KEY)
     python benchmarks/planted_definitions.py --check                           (data and gold only, no model)
@@ -35,6 +37,7 @@ import math
 import os
 import pathlib
 import random
+import re
 import sqlite3
 import sys
 import tempfile
@@ -179,6 +182,34 @@ for g in GLOSSARY_V:
         g["maps"] = ["net_revenue"] + [m for m in g["maps"] if m != "order_items"]
         g["definition"] = g["definition"].replace("(as revenue is defined)", "(SUM(net_revenue.revenue))")
 
+# Arms D, F, FS (also suggested by Muhammed Rasin): the dependency dropped. Revenue's own entry is
+# removed, so "partner sales", "big account" and "AOV" reach the model citing a term it was never
+# given. D says nothing about the gap. F flags it, as a retriever could: the definition names a term
+# with no entry here. FS flags it and says not to guess. The question is whether a flag is enough to
+# bring back the abstentions that a definition which is only half there removes.
+GLOSSARY_D = [g for g in GLOSSARY if g["name"] != "revenue"]
+_CITE = re.compile(r"\(as ([a-z][a-z ]*?) is defined\)")
+
+
+def gaps(meanings, known):
+    """Terms a matched definition cites that have no entry of their own: (citing line, missing term)."""
+    return [(m, t) for m in meanings for t in _CITE.findall(m) if t not in known]
+
+
+def flag(meanings, strict):
+    known = {g["name"] for g in GLOSSARY_D}
+    notes = []
+    for _, term in gaps(meanings, known):
+        note = (f"-- NOTE: a definition above uses '{term}', and this catalogue has no definition of "
+                f"'{term}'.")
+        if strict:
+            note += (f" Do not assume one: if the answer depends on how {term} is calculated, reply "
+                     "INSUFFICIENT.")
+        if note not in notes:
+            notes.append(note)
+    return list(meanings) + notes
+
+
 QUESTIONS = [
     # (question, gold SQL, naive SQL)
     ("What was total revenue?",
@@ -320,7 +351,9 @@ def catalog(db, with_glossary, cite=True, glossary=None):
 
 
 ARMS = {"A": "no glossary", "A2": "no glossary, repeat", "B": "glossary",
-        "C": "glossary + cited defs", "V": "views + cited defs"}
+        "C": "glossary + cited defs", "V": "views + cited defs",
+        "D": "revenue dropped", "F": "dropped + flagged", "FS": "dropped + flag, no guess"}
+FLAGGED = {"F": False, "FS": True}         # arm -> strict
 
 
 def main():
@@ -348,7 +381,9 @@ def main():
     cats = {"A": catalog(db, False), "A2": catalog(db, False),
             "B": catalog(db, True, cite=False),               # glossary as first measured
             "C": catalog(db, True, cite=True),                # + cited definitions (closure)
-            "V": catalog(vdb, True, cite=True, glossary=GLOSSARY_V)}
+            "V": catalog(vdb, True, cite=True, glossary=GLOSSARY_V),
+            "D": catalog(db, True, cite=True, glossary=GLOSSARY_D)}
+    cats["F"] = cats["FS"] = cats["D"]
     dbs = {"V": vdb}
     done = {}
     if OUT.exists():
@@ -362,7 +397,10 @@ def main():
             return done[(q, arm)]["ok"]
         cat = cats[arm]
         sel = cat.select(q, top_k=TOP_K)
-        e = {"q": q, "arm": arm, "ok": False, "meanings": len(sel.meanings), "model": MODEL}
+        if arm in FLAGGED:
+            sel.meanings = flag(sel.meanings, FLAGGED[arm])
+        e = {"q": q, "arm": arm, "ok": False, "meanings": len(sel.meanings), "model": MODEL,
+             "flagged": any(m.startswith("-- NOTE") for m in sel.meanings)}
         try:
             sql = generate_sql(prov, q, sel.prompt_fragment(), dialect="SQLite")
             e["sql"] = sql
@@ -410,6 +448,17 @@ def main():
     for arm in ("C", "V"):
         b, c = flips(res["B"], res[arm])
         print(f"  B -> {arm} ({ARMS[arm]}): +{b} / -{c}  p={mcnemar_p(b, c):.4f}")
+    # The arms that matter for D/F/FS are the questions whose definition cites revenue: elsewhere
+    # dropping revenue changes nothing, or (for revenue itself) leaves the term with no entry at all.
+    cited = [q for q, _, _ in kept if done[(q, "F")].get("flagged")]
+    print(f"\n  the {len(cited)} questions where a definition cites the dropped term:")
+    print(f"  {'arm':4}{'correct':>9}{'abstained':>11}{'failed':>8}{'conf. wrong':>13}")
+    for arm in ("B", "C", "D", "F", "FS"):
+        es = [done[(q, arm)] for q in cited]
+        ok = sum(e["ok"] for e in es)
+        abst = sum(e.get("err") == "refused" for e in es)
+        failed = sum(bool(e.get("err")) and e.get("err") != "refused" for e in es)
+        print(f"  {arm:4}{ok:>9}{abst:>11}{failed:>8}{len(es) - ok - abst - failed:>13}")
     print(f"  per-call log: {OUT}")
 
 
