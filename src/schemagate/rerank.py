@@ -92,13 +92,19 @@ def parse_choice(reply: str, n: int, top_k: int) -> List[int]:
 
 
 def rerank(provider, question: str, docs: Sequence, top_k: int = 6,
-           candidates: int = 20, max_tokens: int = 120) -> List:
+           candidates: int = 20, max_tokens: int = 1024) -> List:
     """Reorder ``docs`` by asking a model, falling back to the order given.
 
     ``docs`` must already be the caller's allowed set, in the order the maths
     produced. Only the first ``candidates`` are shown to the model; anything
     below that keeps its place, so a reply that omits a table demotes it
     rather than dropping it from the catalog.
+
+    ``max_tokens`` covers the model's reasoning as well as the few numbers it
+    writes. It was 120, which a reasoning model spends before it answers: on
+    claude-haiku-5-5 and claude-sonnet-5-5 every call ran out, the failure
+    fell back to the maths order as designed, and reranking silently did
+    nothing. The reply itself is still a handful of digits.
     """
     head = list(docs[:candidates])
     tail = list(docs[candidates:])
