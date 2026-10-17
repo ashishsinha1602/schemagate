@@ -396,6 +396,17 @@ refusing with its authors' own evaluator. With claude-sonnet-4-5, five trials:
 The model never sees the restricted part of the schema. Caveats and every column are in
 [BENCHMARKS.md](BENCHMARKS.md#access-control-scored-by-someone-else-the-rbac-text-to-sql-benchmark).
 
+**And on a second one.** Spider-ACL (EACL 2026) labels each of 19,624 question-and-role pairs with what
+PostgreSQL itself allowed. With claude-sonnet-5-5, all 19,624:
+
+| | refusal F1 | false permits | queries that read data the role was not granted |
+|---|---|---|---|
+| schemagate | **0.984** | **1.8%** | **0 of 8,128 answered** |
+| paper's best (LoRA-tuned Mistral-7B) | 0.933 | -- | not reported |
+
+The paper's systems are 2024-25 models; details and limits in
+[BENCHMARKS.md](BENCHMARKS.md#access-control-a-second-benchmark-spider-acl).
+
 **On public benchmarks, so you can check them without trusting me:**
 [BENCHMARKS.md](BENCHMARKS.md) has schemagate on Spider and BIRD, with the
 scripts in [`benchmarks/`](benchmarks/) and the data downloaded from the
