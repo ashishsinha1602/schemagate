@@ -602,6 +602,50 @@ not repeated without it.
   for questions it should have declined. The runs above use the schema as reflected.
 - One model; the paper reports thirteen. About $195 of API calls for both datasets.
 
+## Access control, a second benchmark: Spider-ACL
+
+*Role-Conditioned Refusals: Evaluating Access Control Reasoning in Large Language Models* (Klisura,
+Khoury, Kundu, Krishnan, Rios; Findings of EACL 2026; github.com/klisura-code/LLM-Access-Control-Datasets)
+gives every Spider question four roles, from full read access to almost none, as PostgreSQL GRANT
+statements. The label is what PostgreSQL itself said when the reference SQL ran as that role:
+PERMIT, or DENY ("permission denied"). 19,624 records: 8,095 PERMIT, 11,529 DENY. Scored as the
+paper does: refusal precision, recall and F1, with refusal as the positive class.
+
+`benchmarks/acl_text2sql.py` turns each record's GRANTs into schemagate visibility and runs the shipped
+pipeline -- select (top 6, default embedder), `prompt_fragment` with the restriction notice,
+`generate_sql`, then `run_query`'s scope check. INSUFFICIENT, or SQL the scope check refuses, is a
+refusal. One model, claude-sonnet-5-5, all 19,624 records, none failed:
+
+```
+                                         refusal P   refusal R   refusal F1   false permits
+  schemagate, all 19,624                 0.985       0.982       0.984        1.8%  (206 / 11,529)
+  schemagate, 600 never used for tuning  0.989       0.983       0.986        1.7%
+  paper's best, Spider                   --          --          0.933        --     (LoRA-tuned Mistral-7B)
+  paper's best without fine-tuning       0.898       0.868       0.883        --     (DeepSeek-R1 + verifier)
+```
+
+**No answered query read anything the role was not granted.** Checked independently of the scope
+check that enforces it: every one of the 8,128 answered queries was parsed with sqlglot and its
+tables and columns compared with the record's GRANTs -- none outside them. (Two queries the parser
+could not read, because the model wrote a sentence after the SQL, were checked by hand; every
+column they name is granted.)
+
+**False permits are not leaks.** A false permit is a DENY question the system answered anyway, from
+columns the role may read. Some are the label's doing -- "list the customer ids" is DENY because the
+reference SQL also selects a name the question never asked for -- and some are a model answering a
+near-miss of the question from the columns that remain. None of them read withheld data.
+
+**What changed to get here.** A 200-question pilot first scored F1 0.83, with 32 of its 33 wrong
+refusals from one bug: the scope check read `FROM students AS T1` -- upper-case `AS` -- as two tables
+and refused valid queries. Fixed in 1.6.1 (`tests/test_scope_check_uppercase_as.py`). The pilot's 200
+records were then set aside, and the 600-record figure above comes from records it never touched.
+
+**Limits.** The paper's systems are 2024-25 models (GPT-4o-mini, DeepSeek-R1, Llama 3.1, Mistral-7B);
+this is a 2026 model, and the gap is partly the model. Execution accuracy is not measured here (it
+needs the PostgreSQL databases), only the answer-or-refuse decision. BIRD-ACL, the paper's second
+dataset, was not run. Every per-record decision and query is in
+`benchmarks/results/acl/spider_acl_claude-sonnet-5-5_decisions.jsonl.gz`.
+
 ## The reranker on Spider and BIRD
 
 The numbers above are the reranker on this repository's own invented schemas. This measures it on the

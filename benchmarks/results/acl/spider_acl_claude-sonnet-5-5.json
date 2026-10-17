@@ -1,0 +1,14 @@
+{
+  "dataset": "spider",
+  "model": "claude-sonnet-5-5",
+  "records": 19624,
+  "scored": 19624,
+  "errors": 0,
+  "refusal_precision": 0.9849512874043146,
+  "refusal_recall": 0.9821320149189001,
+  "refusal_f1": 0.9835396308360479,
+  "false_permit_rate": 0.017867985081099835,
+  "false_permits": 206,
+  "refused_by_scope_check": 34,
+  "seconds": 3864
+}

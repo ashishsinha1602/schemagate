@@ -86,6 +86,26 @@ The paper's best configuration instead shows the model the full schema with the 
 - Not yet reproduced by the benchmark's authors; the result has been
   [sent to them for verification](https://github.com/2020dfff/RBAC-Text2SQL-Benchmark/issues/2).
 
+## A second benchmark: Spider-ACL
+
+*Role-Conditioned Refusals* (Klisura et al., Findings of EACL 2026) gives each Spider question four
+roles as PostgreSQL GRANTs and labels it with what PostgreSQL allowed: 19,624 records, 11,529 of them
+DENY. Scored as that paper does (refusal as the positive class), claude-sonnet-5-5, all 19,624:
+
+| | refusal F1 | false permits | queries reading data the role was not granted |
+|---|---|---|---|
+| **schemagate** | **0.984** (P 0.985, R 0.982) | **1.8%** | **0 of 8,128 answered** |
+| schemagate, 600 records never used for tuning | 0.986 | 1.7% | 0 |
+| paper's best (LoRA-tuned Mistral-7B) | 0.933 | not reported | not reported |
+
+The zero was checked independently of the scope check that enforces it: every answered query was
+parsed with sqlglot and compared with the role's GRANTs. A false permit is a forbidden question
+answered from columns the role may read, never a read of withheld data. The paper's systems are
+2024-25 models; execution accuracy and BIRD-ACL were not run. Full write-up in
+[BENCHMARKS.md](https://github.com/ashishsinha1602/schemagate/blob/main/BENCHMARKS.md#access-control-a-second-benchmark-spider-acl);
+every decision and query in
+[`benchmarks/results/acl/`](https://github.com/ashishsinha1602/schemagate/tree/main/benchmarks/results/acl).
+
 ## Reproduce it
 
 ```

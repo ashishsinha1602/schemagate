@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.6.1
+
+- **`run_query` no longer refuses queries that alias a table with upper-case `AS`.** The FROM-list
+  reader matched its alias pattern case-sensitively: `students as t1` worked, `students AS T1` read
+  `T1` as a second table, and an ordinary query was refused as "not available to this caller: T1".
+  Security is unchanged -- a withheld table's name anywhere in the statement, alias included, is
+  still refused (`tests/test_scope_check_uppercase_as.py`).
+- **Spider-ACL (EACL 2026), all 19,624 records, claude-sonnet-5-5: refusal F1 0.984**, against 0.933
+  for the paper's best system, and no answered query read data the role was not granted (0 of 8,128,
+  checked independently with sqlglot). Found the bug above. `benchmarks/acl_text2sql.py`; details and
+  limits in BENCHMARKS.md.
+
 ## 1.6.0
 
 - **A caller who sees part of the database is told so.** When the principal cannot see some table
