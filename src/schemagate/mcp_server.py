@@ -438,7 +438,9 @@ def _referenced_tables(sql: str) -> List[str]:
     ctes = {_unquote(c).lower() for c in _CTE.findall(body)}
     out, seen = [], set()
     for clause in _REFERENCED.findall(body):
-        for item in re.findall(_ITEM, clause):
+        # Case-insensitive like _REFERENCED: matched case-sensitively, `students AS T1`
+        # read `AS` as the alias and `T1` as a second table, and refused the query.
+        for item in re.findall(_ITEM, clause, re.I):
             ref = re.match(_REF, item.strip())
             if not ref:
                 continue
