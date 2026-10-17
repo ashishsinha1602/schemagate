@@ -350,6 +350,14 @@ class Scored:
     reason: str = "vector"     # hybrid | vector | lexical | fk | pinned | covers | term
 
 
+#: The first line of a fragment rendered for a caller who cannot see everything. It names nothing
+#: withheld. Worded exactly as measured on the RBAC Text-to-SQL benchmark (benchmarks/rbac_text2sql.py).
+RESTRICTED_NOTICE = (
+    "-- This caller may read only part of this database: some tables and columns are not shown. "
+    "Answer only if the tables and columns below directly hold what the question asks for. If it "
+    "would need data that is not shown, reply INSUFFICIENT; do not approximate it from other columns.")
+
+
 @dataclass
 class Selection:
     """Result of Catalog.select()."""
@@ -366,6 +374,10 @@ class Selection:
     #: Already filtered for this caller -- a line that would name a table or
     #: column the caller may not see is never here.
     meanings: List[str] = field(default_factory=list)
+    #: True when this caller cannot see some table or column of the catalog. The fragment then
+    #: says so -- that something is withheld, not what -- so a model given a partial schema
+    #: declines a question that needs the rest instead of approximating it from what is left.
+    restricted: bool = False
 
     @property
     def objects(self) -> List[ObjectDoc]:
@@ -396,11 +408,13 @@ class Selection:
             d.render_ddl(max_columns, principal=self.principal,
                          question=self.question)
             for d in self.objects)
-        if not self.meanings:
-            return ddl
-        # Above the DDL, so the model reads what "revenue" means before it
-        # reads the columns it might otherwise guess from.
-        return "-- What the business terms in this question mean:\n" + "\n".join(self.meanings) + "\n\n" + ddl
+        body = ddl
+        if self.meanings:
+            # Above the DDL, so the model reads what "revenue" means before it
+            # reads the columns it might otherwise guess from.
+            body = "-- What the business terms in this question mean:\n" + "\n".join(self.meanings) + "\n\n" + ddl
+        # Only above a schema: a caller shown nothing gets nothing, not a notice alone.
+        return RESTRICTED_NOTICE + "\n" + body if self.restricted and body else body
 
     def to_dict(self) -> Dict[str, Any]:
         """A record of what was shown to whom, and what was held back.

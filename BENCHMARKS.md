@@ -29,9 +29,15 @@ Two numbers per row:
 
 ```
 PER-DATABASE                    all gold present     per-table recall
-  top_k=3                            98.3%                99.1%
+  top_k=3                            98.5%                99.3%
   top_k=5                           100.0%               100.0%
 ```
+
+Every Spider and BIRD table in this section was re-measured on 2026-10-16
+against 1.5.2 with the default (hashed) embedder, `python benchmarks/spider.py`
+and `python benchmarks/bird.py`. The figures they replace were measured on an
+earlier release and were mostly lower; which change moved them has not been
+isolated, so none is claimed.
 
 **This row is a floor, not a result.** Spider databases have a median of
 three tables and a maximum of eleven. Picking five out of three is not
@@ -45,9 +51,11 @@ in one catalog and stop telling it which one to look in.
 POOLED — all 166 Spider databases, 876 tables, no database hint
 
                       all gold present     per-table recall
-  top_k=5                  71.4%                76.3%
-  top_k=10                 82.6%                86.5%
-  top_k=20                 92.9%                94.7%
+  top_k=5                  76.7%                81.2%
+  top_k=10                 86.1%                89.5%
+  top_k=20                 94.2%                95.6%
+
+  was, before the re-run:  71.4% / 82.6% / 92.9%
 ```
 
 That is 876 tables from 166 unrelated domains, with heavy name collision —
@@ -63,12 +71,12 @@ instead of tidy benchmark naming.
 
 ```
 PER-DATABASE, question only     all gold present     per-table recall
-  top_k=3                            88.3%                94.7%
-  top_k=5                            96.5%                98.5%
+  top_k=3                            90.2%                95.6%
+  top_k=5                            96.7%                98.6%
 
 POOLED (75 tables, no hint)
-  top_k=5                            83.0%                90.6%
-  top_k=10                           91.1%                95.1%
+  top_k=5                            83.8%                91.2%
+  top_k=10                           91.3%                95.2%
 ```
 
 BIRD ships an `evidence` string per question — a human hint like *"eligible
@@ -78,13 +86,16 @@ With it, which is what a real caller would pass through:
 
 ```
 PER-DATABASE, question + evidence
-  top_k=3                            90.7%                96.0%
-  top_k=5                            97.9%                99.1%
+  top_k=3                            92.4%                96.9%
+  top_k=5                            98.0%                99.2%
 
 POOLED, question + evidence
-  top_k=5                            85.7%                92.8%
-  top_k=10                           93.9%                97.0%
+  top_k=5                            86.6%                93.4%
+  top_k=10                           93.7%                97.0%
 ```
+
+BIRD moved less than Spider: up about a point in most cells, and pooled with
+evidence at k=10 is 0.2 points *lower* than before (93.9% then).
 
 ## Spider 2.0-lite: the one built for real schemas
 
@@ -237,11 +248,14 @@ own schemas that was worth +3 questions out of 98, which is thin evidence.
 On Spider pooled:
 
 ```
-876 tables, no hint        hashed      MiniLM
-  top_k=5                   71.4%   →   75.3%
-  top_k=10                  82.6%   →   88.1%
-  top_k=20                  92.9%   →   95.8%
+876 tables, no hint        hashed      MiniLM      (re-measured 2026-10-16, 1.5.2)
+  top_k=5                   76.7%   →   80.3%
+  top_k=10                  86.1%   →   90.7%
+  top_k=20                  94.2%   →   97.0%
 ```
+
+(The MiniLM top_k=5 figure, 80.3%, is the same 830/1034 that the reranker
+section below starts from as its "maths order".)
 
 Consistent, and larger than my own benchmarks suggested. Then Spider 2.0 said
 something different:
@@ -523,6 +537,64 @@ the machine that ran this.
 
 Cost, since it is not free: one API call and roughly two seconds per question
 (58 selections in 115s).
+
+## Access control, scored by someone else: the RBAC Text-to-SQL benchmark
+
+Everything above scores retrieval. This scores the thing schemagate exists for, on a benchmark
+it did not write: *Benchmarking Text-to-SQL under Role-Based Access Control* (Fei, Jiang, Yang,
+Xiao; SIGMOD'27, arXiv 2607.22115, github.com/2020dfff/RBAC-Text2SQL-Benchmark). Each row is a
+question, a role and a column-level policy. The system must answer, or refuse when the role cannot
+read what the answer needs. Scoring is the authors' own evaluator, unchanged
+(`evaluate_protocol_v2.py --fair_comparison --num_trials 5 --execute_sql`): five passes, each
+pairing every question with one random role.
+
+`benchmarks/rbac_text2sql.py` turns each policy into schemagate visibility and runs the shipped
+pipeline: select (top_k 6, hashed embedder, no reranker), `prompt_fragment`, `generate_sql`, then
+`run_query`'s scope check. INSUFFICIENT, or SQL the scope check refuses, becomes the benchmark's
+refusal. claude-sonnet-4-5, the model behind the paper's best results; mean ± std over 5 trials:
+
+```
+BIRD dev (10,175 rows)            AC-F1          SafeEX        violation      over-refusal   SQL read forbidden data
+  schemagate                      90.14 ± 0.32   68.38 ± 1.07   5.44 ± 0.19    1.98          0.00
+  schemagate, no scope check      84.69 ± 0.69   69.14 ± 0.85  11.25 ± 0.44    1.23          3.78
+  paper: policy in the prompt     88.12 ± 0.90   65.02 ± 0.89   7.37 ± 0.49    1.81           --
+  paper: role-schema, best model  72.46 (GPT-5-mini)             26.72          0.33           --
+
+Spider dev (6,926 rows)
+  schemagate                      93.02 ± 0.37   78.87 ± 1.05   5.05 ± 0.49    2.59          0.00
+  schemagate, no scope check      90.68 ± 0.31   79.56 ± 1.05   8.67 ± 0.57    1.91          2.01
+  paper: policy in the prompt     93.03 ± 0.48   80.99 ± 0.86   4.55 ± 0.22    3.01           --
+```
+
+"Violation" is the benchmark's: any answer to a question the role may not ask, even one that reads
+only permitted columns. "SQL read forbidden data" is the stricter thing a database cares about,
+the SQL touching a table or column outside the policy, and it is zero by construction: that is
+what the scope check refuses.
+
+**What it shows.** On BIRD schemagate beats the paper's best configuration on AC-F1, SafeEX and
+violations, without showing the model the restricted part of the schema at all; the paper's
+prompt shows the full schema and the policy beside it. On Spider it ties on AC-F1 and is slightly
+behind on violations and SafeEX. The paper's own schema-restriction baseline -- the model sees only
+what the role may read -- fails because models "rarely refuse" and approximate from the columns that
+are left. Two things fix that here. The scope check turns a reach for anything outside the policy
+into a refusal; the table isolates it (with vs without, both with the notice). And
+`Catalog.restriction_notice` (on by default from 1.6.0) adds one line saying the view is partial,
+never naming what is withheld. The notice was isolated only on the 100-question BIRD pilot, with
+the scope check on: violations 16% without it, 5% with it, AC-F1 0.82 to 0.92. The full runs were
+not repeated without it.
+
+**What it does not show, and the caveats.**
+- The notice's wording was chosen on a 100-question pilot drawn from the start of the BIRD
+  evaluation set, so it was tuned on 100 of BIRD's 1,534 questions. Spider was not used for any
+  choice and is the cleaner of the two.
+- Same model name as the paper, not necessarily the same API snapshot. The prompts differ by
+  design: the paper's is theirs, this is schemagate's.
+- BIRD databases are the 2024-06-27 dev release; the paper used 2025-11-06. Gold SQL comes from the
+  benchmark's own file, unchanged.
+- Loading BIRD's column descriptions as comments made it **worse** on the pilot (violations 16% to
+  26% without the notice): richer notes on the visible columns helped the model find workarounds
+  for questions it should have declined. The runs above use the schema as reflected.
+- One model; the paper reports thirteen. About $195 of API calls for both datasets.
 
 ## The reranker on Spider and BIRD
 

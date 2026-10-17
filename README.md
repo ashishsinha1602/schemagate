@@ -381,20 +381,35 @@ run before trusting a new database or driver.
 
 ## Numbers
 
+**On access control, scored by someone else's benchmark.** The RBAC Text-to-SQL benchmark
+(SIGMOD'27) gives each question a role and a column-level policy and scores answering versus
+refusing with its authors' own evaluator. With claude-sonnet-4-5, five trials:
+
+| | AC-F1 | violations | SQL that read forbidden data |
+|---|---|---|---|
+| BIRD, schemagate | **90.1** | **5.4%** | **0** |
+| BIRD, paper's best (same model, policy in the prompt) | 88.1 | 7.4% | not reported |
+| Spider, schemagate | 93.0 | 5.1% | **0** |
+| Spider, paper's best (same model) | 93.0 | 4.6% | not reported |
+
+The model never sees the restricted part of the schema. Caveats and every column are in
+[BENCHMARKS.md](BENCHMARKS.md#access-control-scored-by-someone-else-the-rbac-text-to-sql-benchmark).
+
 **On public benchmarks, so you can check them without trusting me:**
 [BENCHMARKS.md](BENCHMARKS.md) has schemagate on Spider and BIRD, with the
 scripts in [`benchmarks/`](benchmarks/) and the data downloaded from the
 original sources. The headline is the pooled setting — every Spider database
 merged into one 876-table catalog, no hint about which one to look in:
 
-| Spider dev, 876 tables pooled | all gold tables present |
-|---|---|
-| top_k=5 | 71.4% |
-| top_k=10 | 82.6% |
-| top_k=20 | 92.9% |
+| Spider dev, 876 tables pooled | `pip install schemagate` | `[huggingface]` | `[huggingface]` + `--rerank` |
+|---|---|---|---|
+| top_k=5 | 76.7% | 80.3% | **96.5%** |
+| top_k=10 | 86.1% | 90.7% | |
+| top_k=20 | 94.2% | 97.0% | |
 
-BIRD dev, 1,534 questions: 96.5% per-database at top_k=5, 91.1% pooled at
-top_k=10.
+BIRD dev, 1,534 questions: 96.7% per-database at top_k=5, 91.3% pooled at
+top_k=10; pooled at top_k=5, 83.8% hashed, 88.6% with `[huggingface]`, 96.7% with `--rerank`.
+Re-measured on 1.5.2; reranked with claude-haiku-5-5, one call per question.
 
 And **Spider 2.0-lite**, the benchmark built for real warehouses — 162
 databases, 8,255 tables, a median of 16 per database and a maximum of 785:
