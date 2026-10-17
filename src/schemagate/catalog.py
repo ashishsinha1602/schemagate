@@ -392,6 +392,11 @@ class Catalog:
         #: Follow the terms a concept's definition cites (Ontology.with_cited).
         #: On by default; off only to measure what it changes.
         self.cite_definitions = True
+        #: Tell the model when this caller sees only part of the database (never what is withheld),
+        #: so a question that needs the hidden part is declined instead of approximated from the
+        #: columns that are left. On a 100-question BIRD pilot of the RBAC Text-to-SQL benchmark
+        #: this took answers to denied questions from 16% to 5% (BENCHMARKS.md). Off only to measure it.
+        self.restriction_notice = True
 
     # ---------------- build ----------------
 
@@ -1393,9 +1398,14 @@ class Catalog:
                             chosen.append(Scored(d, 0.0, "fk"))
                             taken.add(q)
 
+        # Whether anything at all is withheld from this caller -- a yes/no, never which object.
+        restricted = self.restriction_notice and any(
+            not self._visible(d, principal) or len(d.visible_columns(principal)) < len(d.columns)
+            for d in self._docs.values())
         return Selection(question=question, hits=chosen,
                          total_objects=len(order), principal=principal,
-                         meanings=self._meanings(_matched, {sc.doc.qname for sc in chosen}, principal))
+                         meanings=self._meanings(_matched, {sc.doc.qname for sc in chosen}, principal),
+                         restricted=restricted)
 
     def _meanings(self, matched, selected, principal) -> List[str]:
         """Meaning lines for the concepts this question used, for this caller.

@@ -381,6 +381,20 @@ run before trusting a new database or driver.
 
 ## Numbers
 
+**On access control, scored by someone else's benchmark.** The RBAC Text-to-SQL benchmark
+(SIGMOD'27) gives each question a role and a column-level policy and scores answering versus
+refusing with its authors' own evaluator. With claude-sonnet-4-5, five trials:
+
+| | AC-F1 | violations | SQL that read forbidden data |
+|---|---|---|---|
+| BIRD, schemagate | **90.1** | **5.4%** | **0** |
+| BIRD, paper's best (same model, policy in the prompt) | 88.1 | 7.4% | not reported |
+| Spider, schemagate | 93.0 | 5.1% | **0** |
+| Spider, paper's best (same model) | 93.0 | 4.6% | not reported |
+
+The model never sees the restricted part of the schema. Caveats and every column are in
+[BENCHMARKS.md](BENCHMARKS.md#access-control-scored-by-someone-else-the-rbac-text-to-sql-benchmark).
+
 **On public benchmarks, so you can check them without trusting me:**
 [BENCHMARKS.md](BENCHMARKS.md) has schemagate on Spider and BIRD, with the
 scripts in [`benchmarks/`](benchmarks/) and the data downloaded from the
