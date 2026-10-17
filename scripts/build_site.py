@@ -61,6 +61,7 @@ input{font:inherit;padding:4px 8px;width:7em;border:1px solid var(--line);border
 
 NAV = ('<nav><a href="/schemagate/">Demo</a><a href="/schemagate/install/">Install</a>'
        '<a href="/schemagate/benchmarks/">Benchmarks</a>'
+       '<a href="/schemagate/rbac-benchmark/">RBAC benchmark</a>'
        '<a href="/schemagate/local-models/">Local models</a>'
        '<a href="/schemagate/langchain/">LangChain</a>'
        '<a href="/schemagate/row-level-security/">Row-level security</a><a href="/schemagate/cost/">Cost</a>'
@@ -189,6 +190,20 @@ def build_benchmarks() -> None:
         "Measured table recall on Spider (1,034 questions), BIRD (1,534) and Spider 2.0-lite, "
         "end-to-end execution accuracy, and the two corrections to a published figure.",
         "/benchmarks/", body), "utf-8")
+
+
+def build_rbac() -> None:
+    body = render(ROOT / "docs" / "rbac-benchmark.md")
+    body += (f'<p><a class="cta" href="{REPO}/blob/main/benchmarks/rbac_text2sql.py">The harness</a>'
+             f'<a class="cta" href="{REPO}/tree/main/benchmarks/results/rbac">Evaluator reports</a>'
+             '<a class="cta" href="/schemagate/install/">Install</a></p>')
+    (SITE / "rbac-benchmark").mkdir(parents=True, exist_ok=True)
+    (SITE / "rbac-benchmark" / "index.html").write_text(page(
+        "schemagate on the RBAC Text-to-SQL benchmark (SIGMOD 2027)",
+        "On the SIGMOD 2027 RBAC Text-to-SQL benchmark, scored by the authors' own evaluator: "
+        "BIRD AC-F1 90.1 against the paper's best 88.1 with the same model, Spider tied, and no "
+        "query reading data outside the role's policy.",
+        "/rbac-benchmark/", body), "utf-8")
 
 
 def build_local_models() -> None:
@@ -373,6 +388,7 @@ PAGES = {
     "/":                    ["src/schemagate/studio.html", "scripts/build_site.py"],
     "/install/":            ["scripts/build_site.py"],
     "/benchmarks/":         ["BENCHMARKS.md"],
+    "/rbac-benchmark/":     ["docs/rbac-benchmark.md"],
     "/local-models/":       ["docs/local-models.md"],
     "/langchain/":          ["docs/langchain.md", "src/schemagate/integrations/langchain.py"],
     "/row-level-security/": ["docs/row-level-security.md"],
@@ -485,6 +501,7 @@ Oracle 23ai VECTOR store.
 - Demo (runs in the browser, no database): {BASE}/
 - Install, Docker and the OCI stack: {BASE}/install/
 - Benchmarks (Spider, BIRD, Spider 2.0): {BASE}/benchmarks/
+- RBAC Text-to-SQL benchmark (SIGMOD 2027), scored by the authors' evaluator: {BASE}/rbac-benchmark/
 - Running it with a local model, no API key: {BASE}/local-models/
 - LangChain: a retriever for SQL agents whose schema outgrows the context window: {BASE}/langchain/
 - Row-level security (VPD) and what grant-based scoping misses: {BASE}/row-level-security/
@@ -499,7 +516,7 @@ def main() -> None:
     if SITE.exists():
         shutil.rmtree(SITE)
     SITE.mkdir()
-    build_index(); build_install(); build_benchmarks(); build_local_models()
+    build_index(); build_install(); build_benchmarks(); build_rbac(); build_local_models()
     build_langchain(); build_rls()
     build_vanna(); build_definitions(); build_cost(); build_misc()
     for p in sorted(SITE.rglob("*")):

@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SITE = ROOT / "site"
 BUILD = ROOT / "scripts" / "build_site.py"
 
-PAGES = ["/", "/install/", "/benchmarks/", "/local-models/", "/langchain/",
+PAGES = ["/", "/install/", "/benchmarks/", "/rbac-benchmark/", "/local-models/", "/langchain/",
          "/row-level-security/", "/cost/", "/vanna-alternative/",
          "/text-to-sql-business-definitions/"]
 
@@ -146,12 +146,14 @@ def test_rendered_docs_carry_their_own_content(site: Path):
     assert "Spider" in bench and "BIRD" in bench and len(bench) > 4000
     local = _text(site, "/local-models/")
     assert "Ollama" in local and len(local) > 3000
+    rbac = _text(site, "/rbac-benchmark/")
+    assert "90.14" in rbac and "Spider" in rbac and "SIGMOD" in rbac
 
 
 def test_no_relative_markdown_link_survived_into_the_html(site: Path):
     """`](benchmarks/)` means GitHub, not this site, and a reader who follows
     it to a 404 has been told something false about the rest."""
-    for path in ("/benchmarks/", "/local-models/", "/vanna-alternative/", "/langchain/",
+    for path in ("/benchmarks/", "/rbac-benchmark/", "/local-models/", "/vanna-alternative/", "/langchain/",
                  "/text-to-sql-business-definitions/"):
         f = SITE / path.strip("/") / "index.html"
         for href in re.findall(r'href="([^"]+)"', f.read_text("utf-8")):
