@@ -1,17 +1,18 @@
 # schemagate on the RBAC Text-to-SQL benchmark
 
-On BIRD, schemagate scores **AC-F1 90.1** against **88.1** for the best configuration in
-*Benchmarking Text-to-SQL under Role-Based Access Control* (Fei, Jiang, Yang, Xiao; SIGMOD 2027),
-with the same model and scored by the authors' own evaluator. The model never sees the restricted
-part of the schema, and **no query it produced read data outside the role's policy**. On Spider the
-two are tied.
+On BIRD, schemagate scores **AC-F1 90.1** against **88.1**, the best result of the thirteen models
+in *Benchmarking Text-to-SQL under Role-Based Access Control* (Fei, Jiang, Yang, Xiao; SIGMOD
+2027), with the same model and scored by the authors' own evaluator. The model never sees the
+restricted part of the schema, and **no query it produced read data outside the role's policy**. On
+Spider it ties the same model (93.0) and is behind the paper's best Spider result (95.9, DeepSeek
+V3.2-Reasoning).
 
-| | schemagate | paper's best |
-|---|---|---|
-| BIRD AC-F1 (higher is better) | **90.1** | 88.1 |
-| BIRD: answered a question the role may not ask | **5.4%** | 7.4% |
-| Spider AC-F1 | 93.0 | 93.0 |
-| Queries that read a forbidden table or column | **0** | not reported |
+| | schemagate (Claude Sonnet 4.5) | paper, same model | paper's best model |
+|---|---|---|---|
+| BIRD AC-F1 (higher is better) | **90.1** | 88.1 | 88.1 (the same model) |
+| BIRD: answered a question the role may not ask | **5.4%** | 7.4% | 7.4% |
+| Spider AC-F1 | 93.0 | 93.0 | **95.9** (DeepSeek V3.2-Reasoning) |
+| Queries that read a forbidden table or column | **0** | not reported | not reported |
 
 ## The benchmark
 
@@ -40,7 +41,8 @@ deviation over the five trials.
 |---|---|---|---|---|---|
 | **schemagate** | **93.02 ± 0.37** | 78.87 ± 1.05 | 5.05 ± 0.49 | **2.59** | **0.00** |
 | schemagate without the scope check | 90.68 ± 0.31 | 79.56 ± 1.05 | 8.67 ± 0.57 | 1.91 | 2.01 |
-| Paper's best: policy in the prompt | 93.03 ± 0.48 | 80.99 ± 0.86 | 4.55 ± 0.22 | 3.01 | not reported |
+| Paper, same model: policy in the prompt | 93.03 ± 0.48 | 80.99 ± 0.86 | 4.55 ± 0.22 | 3.01 | not reported |
+| Paper's best on Spider: DeepSeek V3.2-Reasoning | **95.94 ± 0.37** | 75.73 ± 1.19 | **1.97 ± 0.25** | 2.36 | not reported |
 
 **Violation** is the benchmark's own measure: any answer to a question the role may not ask, even one
 that reads only permitted columns. **Forbidden-data SQL** is stricter: a query that touches a table or

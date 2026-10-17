@@ -564,7 +564,12 @@ Spider dev (6,926 rows)
   schemagate                      93.02 ± 0.37   78.87 ± 1.05   5.05 ± 0.49    2.59          0.00
   schemagate, no scope check      90.68 ± 0.31   79.56 ± 1.05   8.67 ± 0.57    1.91          2.01
   paper: policy in the prompt     93.03 ± 0.48   80.99 ± 0.86   4.55 ± 0.22    3.01           --
+  paper's best Spider model       95.94 ± 0.37   75.73 ± 1.19   1.97 ± 0.25    2.36           --
+    (DeepSeek V3.2-Reasoning)
 ```
+
+The "paper" rows are the paper's Claude Sonnet 4.5, the model used here. On BIRD that is also the
+best of its thirteen models; on Spider the best is DeepSeek V3.2-Reasoning, shown separately.
 
 "Violation" is the benchmark's: any answer to a question the role may not ask, even one that reads
 only permitted columns. "SQL read forbidden data" is the stricter thing a database cares about,
@@ -573,8 +578,9 @@ what the scope check refuses.
 
 **What it shows.** On BIRD schemagate beats the paper's best configuration on AC-F1, SafeEX and
 violations, without showing the model the restricted part of the schema at all; the paper's
-prompt shows the full schema and the policy beside it. On Spider it ties on AC-F1 and is slightly
-behind on violations and SafeEX. The paper's own schema-restriction baseline -- the model sees only
+prompt shows the full schema and the policy beside it. On Spider it ties the same model on AC-F1 and
+is slightly behind it on violations and SafeEX; the paper's best Spider model, DeepSeek
+V3.2-Reasoning, is ahead of it on AC-F1 (95.9) and violations (2.0%), behind on SafeEX. The paper's own schema-restriction baseline -- the model sees only
 what the role may read -- fails because models "rarely refuse" and approximate from the columns that
 are left. Two things fix that here. The scope check turns a reach for anything outside the policy
 into a refusal; the table isolates it (with vs without, both with the notice). And

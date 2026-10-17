@@ -8,7 +8,8 @@
   is withheld. `Catalog.restriction_notice = False` turns it off. On a 100-question BIRD pilot of the
   RBAC Text-to-SQL benchmark (SIGMOD'27) it took answers to questions the role may not ask from 16%
   to 5%. With it, on the full benchmark (claude-sonnet-4-5, 5 trials), schemagate scores AC-F1 90.1
-  on BIRD against the paper's best 88.1, and 93.0 on Spider against 93.0; its SQL read forbidden
+  on BIRD against the paper's best 88.1, and 93.0 on Spider against 93.0 for the same model (the
+  paper's best Spider model, DeepSeek V3.2-Reasoning, reaches 95.9); its SQL read forbidden
   data in no case. BENCHMARKS.md has every column and the caveats; `benchmarks/rbac_text2sql.py`
   reproduces it.
 - **MCP tool descriptions** for `select_schema`, `list_objects` and `refresh_catalog` now say what
