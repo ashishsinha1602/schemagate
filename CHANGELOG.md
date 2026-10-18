@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- `semantic_query` is now checked end to end on PostgreSQL, MySQL, SQL Server and Oracle
+  (`tests/mcp_command_e2e.py`): filter and extract return the right rows, a query on a restricted
+  table is refused on every engine, no prompt is sent for a refused query, and the model never
+  receives a restricted row.
+
 ## 1.7.0
 
 - **Semantic operators: questions about what text says.** `semantic_filter` keeps the rows whose

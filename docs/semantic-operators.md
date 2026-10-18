@@ -32,6 +32,9 @@ SCHEMAGATE_MCP_PROVIDER=anthropic          # or openai, gemini, oci, local
 SCHEMAGATE_MCP_MODEL=claude-haiku-5-5
 ```
 
+For a model you host (vLLM, Ollama, any OpenAI-compatible endpoint), use `SCHEMAGATE_MCP_PROVIDER=openai`
+with `OPENAI_BASE_URL` pointing at it; row text then never leaves your network.
+
 Set without a model, the server refuses to start. `health` reports `semantic: true` when it is on.
 At most 200 rows are judged per call, in batches of 20; rows beyond the cap are reported, never
 silently dropped.
