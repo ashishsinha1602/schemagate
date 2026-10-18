@@ -236,6 +236,5 @@ declare itself synthetic.
 
 ## Counts
 
-470+ tests. Python 3.10, 3.12, 3.13 run in full; 3.9 is checked for syntax
-compatibility. Node is needed only for the parity test, which skips
+800+ tests, run in full on Python 3.10, 3.11, 3.12 and 3.13. Node is needed only for the parity test, which skips
 without it.

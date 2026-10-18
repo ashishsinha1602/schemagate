@@ -33,7 +33,7 @@ updates:
         exclude-patterns: ["SQLAlchemy"]
 
   # Not the hash-pinned locks in .github/requirements and docker/: they are
-  # resolved for every Python from 3.9 with environment markers, which
+  # resolved for every Python from 3.10 with environment markers, which
   # Dependabot cannot regenerate (its first attempt, #127, left conflicting
   # pins, unpinned lines and langchain-core 1.x in the 0.3 floor lock).
   # scripts/lock_ci.py regenerates them; Scorecard's Vulnerabilities check

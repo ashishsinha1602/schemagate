@@ -1,7 +1,12 @@
 # Changelog
 
-## Unreleased
+## 1.8.0
 
+- **Python 3.10 or newer.** Python 3.9 reached end of life in October 2025, and the fixes for the
+  security advisories against its last pytest, requests, urllib3, anyio, orjson, langsmith and
+  langchain-core releases were only published for 3.10+. Every CI lock is regenerated on patched
+  versions. CI now runs the full suite on 3.10, 3.11, 3.12 and 3.13 (3.12 was not in the matrix
+  before). On 3.9, pip keeps installing 1.7.0.
 - `semantic_query` is now checked end to end on PostgreSQL, MySQL, SQL Server and Oracle
   (`tests/mcp_command_e2e.py`): filter and extract return the right rows, a query on a restricted
   table is refused on every engine, no prompt is sent for a refused query, and the model never
