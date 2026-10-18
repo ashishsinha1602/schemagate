@@ -70,5 +70,5 @@ def test_the_console_script_is_declared():
     import pathlib
     import re
     text = (pathlib.Path(__file__).resolve().parent.parent / "pyproject.toml").read_text(encoding="utf-8")
-    scripts = text.split("[project.scripts]", 1)[1].split("\n[", 1)[0]       # tomllib is 3.11+; CI runs 3.9
+    scripts = text.split("[project.scripts]", 1)[1].split("\n[", 1)[0]       # tomllib is 3.11+; CI runs 3.10
     assert re.search(r'^schemagate-mcp\s*=\s*"schemagate\.mcp_server:main"\s*$', scripts, re.M)

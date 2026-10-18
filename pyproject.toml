@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "schemagate"
-version = "1.7.0"
+version = "1.8.0"
 description = "Identity-scoped schema selection for text-to-SQL: give the model only the tables this caller may read, and 75% fewer prompt tokens"
 readme = "README.md"
 license = "Apache-2.0"
 # Apache-2.0 section 4(d): a NOTICE file travels with every redistribution.
 license-files = ["LICENSE", "NOTICE"]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [{name = "Ashish Sinha"}]
 keywords = [
   "nl2sql", "text-to-sql", "text2sql", "sql-generation", "llm", "rag",
@@ -28,7 +28,6 @@ classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -68,23 +67,19 @@ huggingface = ["sentence-transformers>=3.0", "transformers>=4.40", "torch>=2.1"]
 # away: `pip install "schemagate[all,oci]"`.
 all         = ["oracledb>=2.4", "psycopg[binary]>=3.1", "pyodbc>=5.0",
                "PyMySQL>=1.1", "anthropic>=0.40", "openai>=1.40",
-               "google-genai>=1.0", "mcp>=1.2; python_version >= '3.10'", "sqlglot>=25"]
+               "google-genai>=1.0", "mcp>=1.2", "sqlglot>=25"]
 # quantum-safe signed audit log (ML-DSA-65, FIPS 204) -- PyCA cryptography, OpenSSL-backed;
 # 48 is the first release where ML-DSA works on every platform
 pq          = ["cryptography>=48"]
 # integrations
-mcp         = ["mcp>=1.2; python_version >= '3.10'", "sqlglot>=25"]  # sqlglot: run_query reads SQL with a parser
+mcp         = ["mcp>=1.2", "sqlglot>=25"]  # sqlglot: run_query reads SQL with a parser
 langchain   = ["langchain-core>=0.3"]
 dev         = ["pytest>=8", "cryptography>=48", "ruff", "mypy", "sqlglot>=25", "anyio>=4",
                "langchain-core>=0.3",
                # tests/test_oci_stack.py parses cloud-init.yaml; it was relying
                # on whatever the runner happened to have installed.
                "pyyaml>=6",
-               # mcp needs 3.10+ (every published version); on 3.9 its
-               # tests skip. hypothesis resolves fine on 3.9, and a marker
-               # here made hatchling emit a compound marker that pypistats
-               # mis-parses as an unconditional requirement.
-               "mcp>=1.2; python_version >= '3.10'",
+               "mcp>=1.2",
                "hypothesis>=6",
                # tests/test_site.py builds the Pages site and reads it back;
                # without this it skipped in CI, and an assertion about the

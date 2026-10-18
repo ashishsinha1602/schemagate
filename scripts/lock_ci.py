@@ -6,8 +6,8 @@
 Every `pip install` in a workflow or the Dockerfile reads one of these with
 `--require-hashes`, then installs schemagate itself with `--no-deps`, so no
 dependency is fetched that a reviewer has not seen the hash of. Each file is
-resolved once for every supported Python (`--universal`, from 3.9.2, as
-cryptography 48 skips 3.9.0 and 3.9.1), so a matrix job on 3.9 and one on 3.13
+resolved once for every supported Python (`--universal`, from 3.10), so a
+matrix job on 3.10 and one on 3.13
 read the same file. Run it after changing pyproject.toml's dependencies, and
 at least monthly or when Scorecard's Vulnerabilities check flags a pin --
 Dependabot cannot regenerate universal, marker-split locks, so it is not
@@ -63,7 +63,7 @@ def lock(name: str, extras, lines) -> None:
             extra.write_text("\n".join(lines) + "\n", "utf-8")
             inputs.append(str(extra))
         # --no-annotate: the "# via" notes would name machine-local temp files
-        cmd = ["uv", "pip", "compile", *inputs, "--universal", "--python-version", "3.9.2",
+        cmd = ["uv", "pip", "compile", *inputs, "--universal", "--python-version", "3.10",
                "--generate-hashes", "--no-header", "--no-annotate", "--quiet", "-o", str(out)]
         for e in extras or []:
             cmd += ["--extra", e]
