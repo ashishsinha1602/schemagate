@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.7.0
+
+- **Semantic operators: questions about what text says.** `semantic_filter` keeps the rows whose
+  text meets a criterion; `semantic_extract` adds a short answer per row. The MCP tool
+  `semantic_query` runs the SQL through `run_query` first, scope check included, so the model only
+  reads rows the caller may already query. Row text is treated as data and the reply is parsed for
+  row numbers only. Off unless `SCHEMAGATE_MCP_SEMANTIC=1` with a model, because it sends row text to
+  the provider. See `docs/semantic-operators.md`.
+- **jev4pg integration.** `schemagate.integrations.jev4pg.ScopedCatalog` scopes jev4pg's per-tenant
+  catalogue to each caller: hidden datasets, columns, relationships, links and derived features are
+  removed, so jev4pg's planner, validator and semantic operators all see only what that caller may
+  read. Tested against jev4pg's record shape, not yet against a live jev4pg service. See
+  `docs/jev4pg.md`.
+
 ## 1.6.1
 
 - **`run_query` no longer refuses queries that alias a table with upper-case `AS`.** The FROM-list

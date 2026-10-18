@@ -176,6 +176,19 @@ def _server_provider():
     return cls(model=model)
 
 
+def _semantic_check() -> bool:
+    """Whether `semantic_query` is on. Off by default because it sends the text of result rows to
+    the configured model provider; ``SCHEMAGATE_MCP_SEMANTIC=1`` without a model stops the server."""
+    if not _truthy("SCHEMAGATE_MCP_SEMANTIC"):
+        return False
+    try:
+        if _server_provider() is None:
+            raise ValueError("SCHEMAGATE_MCP_PROVIDER and SCHEMAGATE_MCP_MODEL are not both set")
+    except ValueError as e:
+        raise SystemExit(f"schemagate.mcp_server: SCHEMAGATE_MCP_SEMANTIC=1 needs a model: {e}")
+    return True
+
+
 def _rerank_check() -> bool:
     """Whether `select_schema` reranks. Read at startup and validated there:
     ``SCHEMAGATE_MCP_RERANK=1`` without a usable model stops the server rather
@@ -303,6 +316,7 @@ def build_catalog(url: Optional[str] = None, config_path: Optional[str] = None,
         config_path = config_path or os.environ.get("SCHEMAGATE_CATALOG_CONFIG")
         max_age = _max_age()                 # validated before any database work
         _STATE["rerank"] = _rerank_check()   # likewise
+        _STATE["semantic"] = _semantic_check()
         cat = _reflect(url, config_path)
         _CATALOG = cat
         _GROUPS = _groups_from(config_path, url)
@@ -766,6 +780,15 @@ ObjectName = Annotated[str, Field(description=(
 SqlArg = Annotated[str, Field(description=(
     "One read-only SELECT (or WITH ... SELECT) written against the DDL select_schema returned. Writes, DDL "
     "and multiple statements are refused, as is any table or column this caller may not read."))]
+TextColumn = Annotated[str, Field(description=(
+    "The result column whose text the model reads, e.g. 'body' or 'complaint_text'. Must be one of "
+    "the columns the SQL returns."))]
+Criterion = Annotated[Optional[str], Field(description=(
+    "Keep only rows whose text meets this, in plain language, e.g. 'asks for a refund'. Give this "
+    "or extract, not both."))]
+Extract = Annotated[Optional[str], Field(description=(
+    "Add one short answer per row, e.g. 'which product is mentioned'. Give this or criterion, not "
+    "both."))]
 MaxRows = Annotated[int, Field(description=(
     "Most rows to return (default 50, at most 200). The result says when it was truncated."), ge=1, le=200)]
 
@@ -933,6 +956,55 @@ def run_query(sql: SqlArg, principal: PrincipalArg = None,
 
 
 @_guard
+def semantic_query(sql: SqlArg, column: TextColumn, criterion: Criterion = None,
+                   extract: Extract = None, principal: PrincipalArg = None,
+                   roles: RolesArg = None, max_rows: MaxRows = DEFAULT_ROWS) -> Dict[str, Any]:
+    """Run a query, then ask the server's model about a text column of its rows.
+
+    For questions SQL cannot answer from structure alone -- "which complaints are about a refund"
+    when no column says so. Give exactly one of ``criterion`` (keep the rows whose text meets it)
+    or ``extract`` (add a short answer per row). The query goes through `run_query` first, scope
+    check included, so the model only ever sees rows this caller may read. Off unless the server
+    runs with ``SCHEMAGATE_MCP_SEMANTIC=1``: it sends the text of those rows to the model provider.
+    """
+    from . import semantic as S
+
+    if not _STATE.get("semantic"):
+        return {"error": "semantic_query is off on this server: it sends row text to the model "
+                         "provider, so it needs SCHEMAGATE_MCP_SEMANTIC=1 and a configured model"}
+    if bool((criterion or "").strip()) == bool((extract or "").strip()):
+        return {"error": "give exactly one of criterion (filter rows) or extract (one answer per row)"}
+    try:
+        cap = max(1, min(int(max_rows), S.MAX_ROWS))
+    except (TypeError, ValueError):
+        cap = DEFAULT_ROWS
+    out = run_query(sql, principal=principal, roles=roles, max_rows=cap)
+    if "error" in out:
+        return out
+    provider = _server_provider()
+    try:
+        if criterion and criterion.strip():
+            res = S.semantic_filter(provider, out["columns"], out["rows"], column, criterion, max_rows=cap)
+        else:
+            res = S.semantic_extract(provider, out["columns"], out["rows"], column, extract, max_rows=cap)
+    except S.SemanticError as e:
+        return {"error": str(e), "sql": out["sql"]}
+    return {
+        "sql": out["sql"],
+        "columns": res.columns,
+        "rows": res.rows,
+        "row_count": len(res.rows),
+        "judged": res.judged,
+        "query_truncated": out["truncated"],
+        "notes": res.notes,
+        "sent_to_model": f"the text of column {column!r} from {res.judged} rows",
+        "principal": out["principal"],
+        # run_query's wrapper strips its own private keys; recompute for this call's audit record
+        "_tables": _referenced_tables(out["sql"]),
+    }
+
+
+@_guard
 def answer(question: Question, principal: PrincipalArg = None,
            roles: RolesArg = None, top_k: TopK = 6,
            max_rows: MaxRows = DEFAULT_ROWS) -> Dict[str, Any]:
@@ -1048,6 +1120,7 @@ def health() -> Dict[str, Any]:
         "catalog_age_seconds": None if _catalog_age() is None else round(_catalog_age(), 1),
         "catalog_max_age_seconds": _STATE.get("max_age"),
         "rerank": bool(_STATE.get("rerank")),
+        "semantic": bool(_STATE.get("semantic")),
         "catalog_stale": bool(_STATE.get("max_age") and (_catalog_age() or 0) > _STATE["max_age"]),
         "calls": _STATE["calls"],
         "errors": _STATE["errors"],
@@ -1100,6 +1173,14 @@ TOOL_DESCRIPTIONS = {
         "select_schema returned for the same caller. Refuses writes, multiple statements, and any table or "
         "column the caller may not read, with an error that says so ('not available to this caller'), "
         "which you can pass on to the user instead of reporting 'no results'."),
+    "semantic_query": (
+        "For questions about what text says when no column records it, e.g. 'which complaints ask "
+        "for a refund'. Runs one read-only SELECT through the same checks as run_query, then has the "
+        "server's model read one text column of the returned rows and either keep the rows that meet "
+        "a criterion or add a short answer per row. Returns columns, rows, how many rows were judged, "
+        "and which text was sent to the model. Off unless the server enables it "
+        "(SCHEMAGATE_MCP_SEMANTIC=1), because the row text goes to the model provider; at most 200 "
+        "rows are judged. Use plain run_query whenever a column already holds the answer."),
     "answer": (
         "Question in, rows out: selects the schema, writes the SQL with the server's own configured model, "
         "and runs it, all scoped to the caller. Only available when the server has a model configured; most "
@@ -1177,13 +1258,15 @@ def create_server(catalog: Optional[Catalog] = None):
     except ImportError:                               # very old SDKs: descriptions only
         ToolAnnotations = None
     for tool in (select_schema, list_objects, describe_object,
-                 run_query, answer, refresh_catalog, health):
+                 run_query, semantic_query, answer, refresh_catalog, health):
         name = tool.__name__
         kw: Dict[str, Any] = {"description": TOOL_DESCRIPTIONS[name]}
         if ToolAnnotations is not None:
             # Every tool only reads. refresh_catalog changes the server's own index, never the database.
+            # semantic_query also sends row text to an outside model provider, hence openWorld.
             kw["annotations"] = ToolAnnotations(readOnlyHint=True, destructiveHint=False,
-                                                idempotentHint=True, openWorldHint=False)
+                                                idempotentHint=name != "semantic_query",
+                                                openWorldHint=name == "semantic_query")
         try:
             app.tool(**kw)(tool)
         except TypeError:                             # an SDK without annotations=
