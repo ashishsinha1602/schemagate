@@ -115,6 +115,48 @@ def norm(rows) -> list:
     return [[_val(v) for v in r] for r in rows or []]
 
 
+SEEN: list = []        # every prompt the stand-in model received
+
+
+def fake_model() -> str:
+    """An OpenAI-compatible endpoint on loopback that answers `semantic_query` deterministically.
+
+    Filter: keeps the texts containing the criterion. Extract: answers each text upper-cased. Every
+    prompt is kept in SEEN, so the run can show restricted rows never reached a model.
+    """
+    import re
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    class H(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_POST(self):
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            system, prompt = (m["content"] for m in body["messages"])
+            SEEN.append(prompt)
+            items = re.findall(r'^(\d+)\. "(.*)"$', prompt, re.M)
+            if prompt.startswith("Criterion: "):
+                want = prompt.split("\n", 1)[0][len("Criterion: "):].strip().lower()
+                reply = ", ".join(n for n, t in items if want in t.lower()) or "NONE"
+            else:
+                reply = "\n".join(f"{n}: {t.upper()}" for n, t in items)
+            out = json.dumps({"id": "x", "object": "chat.completion", "created": 0, "model": body["model"],
+                              "choices": [{"index": 0, "finish_reason": "stop",
+                                           "message": {"role": "assistant", "content": reply}}],
+                              "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(out)))
+            self.end_headers()
+            self.wfile.write(out)
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return f"http://127.0.0.1:{srv.server_address[1]}/v1"
+
+
 async def drive() -> None:
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
@@ -123,8 +165,11 @@ async def drive() -> None:
     with open(cfg, "w", encoding="utf-8") as f:
         json.dump({"restrict": {"hr.salary": ["payroll"]}}, f)
     env = {k: v for k, v in os.environ.items() if not k.startswith("SCHEMAGATE_")}
-    env.update(SCHEMAGATE_DATABASE_URL=URL, SCHEMAGATE_AUTO_DESCRIBE="0", PYTHONIOENCODING="utf-8")
-    params = StdioServerParameters(command="uvx", args=["--from", f"{ROOT}[mcp,{EXTRA}]", "schemagate-mcp",
+    env.update(SCHEMAGATE_DATABASE_URL=URL, SCHEMAGATE_AUTO_DESCRIBE="0", PYTHONIOENCODING="utf-8",
+               # semantic_query on, against the loopback stand-in model (not a credential)
+               SCHEMAGATE_MCP_SEMANTIC="1", SCHEMAGATE_MCP_PROVIDER="openai", SCHEMAGATE_MCP_MODEL="ci-stand-in",
+               OPENAI_API_KEY="ci-stand-in", OPENAI_BASE_URL=fake_model())
+    params = StdioServerParameters(command="uvx", args=["--from", f"{ROOT}[mcp,openai,{EXTRA}]", "schemagate-mcp",
                                                         "--config", cfg], env=env)
     before = counts()
     async with stdio_client(params) as (r, w):
@@ -176,6 +221,29 @@ async def drive() -> None:
                         f"DROP TABLE {APP}.customers", f"SELECT 1 FROM {APP}.customers; DELETE FROM {APP}.customers"):
                 out = await call("run_query", sql=sql, **pay)
                 rec(f"write refused: {sql[:40]}", "error" in out and "rows" not in out, out)
+
+            # semantic_query: the same scope check first, then the model reads only what came back
+            out = await call("semantic_query", sql=f"SELECT band, note FROM {APP}.salary ORDER BY id",
+                             column="note", criterion="senior", **sales)
+            rec("sales: semantic_query filter keeps the matching row",
+                norm(out.get("rows")) == [["B2", "senior band"]] and out.get("judged") == 2, out)
+            out = await call("semantic_query", sql=f"SELECT name, region FROM {APP}.customers ORDER BY id",
+                             column="region", extract="the region", **sales)
+            rec("sales: semantic_query extract adds one answer per row",
+                norm(out.get("rows")) == [["Acme", "west", "WEST"], ["Globex", "east", "EAST"]], out)
+            n = len(SEEN)
+            for label, sql in (("qualified", "SELECT employee, annual_amount FROM hr.salary"),
+                               ("join", f"SELECT s.employee FROM {APP}.customers c JOIN hr.salary s ON s.id = c.id")):
+                out = await call("semantic_query", sql=sql, column="employee", criterion="alice", **sales)
+                rec(f"sales: semantic_query on hr.salary refused ({label})", "error" in out and "rows" not in out, out)
+            rec("sales: no prompt was sent for the refused queries", len(SEEN) == n, SEEN[n:])
+            out = await call("semantic_query", sql="SELECT employee FROM hr.salary ORDER BY id",
+                             column="employee", criterion="alice", **pay)
+            rec("payroll: semantic_query on hr.salary works", norm(out.get("rows")) == [["alice"]], out)
+            sent = "\n".join(SEEN[:n]).lower()
+            rec("the model never saw hr.salary rows on a sales call", "alice" not in sent and "185000" not in sent, sent)
+            health = await call("health")
+            rec("health reports semantic on", health.get("semantic") is True, health)
     rec("data unchanged after every refused write", counts() == before, (before, counts()))
 
 

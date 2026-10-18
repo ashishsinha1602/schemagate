@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- `semantic_query` is now checked end to end on PostgreSQL, MySQL, SQL Server and Oracle
+  (`tests/mcp_command_e2e.py`): filter and extract return the right rows, a query on a restricted
+  table is refused on every engine, no prompt is sent for a refused query, and the model never
+  receives a restricted row.
+
 ## 1.7.0
 
 - **Semantic operators: questions about what text says.** `semantic_filter` keeps the rows whose
@@ -465,7 +472,7 @@ options are set.
   from a directory (Microsoft Entra ID through Graph, transitive), the
   database's own role graph (`native`, the same views the grant reader
   uses, walked upward from the user), a membership table (`sql`), any HTTP
-  endpoint, or a static map — and the roles in a request are ignored once
+  endpoint, or a static map â€” and the roles in a request are ignored once
   it is configured. Fails closed: a directory that cannot answer is an error
   to that caller, never an anonymous selection. Verified live on PostgreSQL
   16, MySQL 8.4 and Oracle Autonomous Database 26ai. `docs/groups.md`.
@@ -1520,7 +1527,7 @@ After 0.1.9 was tagged, `main.tf` was split into per-concern files
 (`network.tf`, `database.tf`, `compute.tf`, ...) to match the layout Oracle's
 quickstart templates use. Comparing the 0.1.9 tag against this release block
 by block: 37 blocks then, 37 now, none added, none dropped, and every body
-identical once comments and whitespace are normalised — except one `output`
+identical once comments and whitespace are normalised â€” except one `output`
 description, reworded. So it is a pure reorganisation, and `terraform
 validate` passes, `fmt` is clean, the zip still has its `.tf` at the root, and
 `adb_version` still accepts 19c and 26ai while rejecting 23ai and 21c.
@@ -1535,7 +1542,7 @@ passed throughout; none of these were visible without one.
 
 - **Fixed: a cached engine could hand a later engine the wrong database's
   column types.** The per-engine type cache was keyed on `id(engine)`, and
-  CPython reuses the id of a collected object — so an engine opened after an
+  CPython reuses the id of a collected object â€” so an engine opened after an
   earlier one was garbage collected could match that key and be served the
   previous database's types without issuing a query. Reproduced: a fresh
   engine whose column was `integer` came back `geometry(Point,4326)`. The
@@ -1554,7 +1561,7 @@ passed throughout; none of these were visible without one.
 
 - **Fixed: PostgreSQL enums, domains, geometry and geography reached the
   prompt as `NULL` or `VARCHAR(n)`.** The catalog query contained
-  `LIKE 'pg_toast%'`, and psycopg3 reads `%` as a placeholder — the query
+  `LIKE 'pg_toast%'`, and psycopg3 reads `%` as a placeholder â€” the query
   raised and every type fill silently reverted. The query now contains no
   percent sign. `feeling` reads `mood ENUM('sad', 'ok', 'happy')` and `qty`
   reads `positive_int DOMAIN OVER integer`, which is what a model needs to
@@ -1608,10 +1615,10 @@ share nothing but SQLAlchemy and did not diverge.
 
 ## 0.1.9
 
-Stack only — no library change.
+Stack only â€” no library change.
 
 **Certified unattended.** A run went from apply to a serving MCP endpoint with
-nothing typed in between — the port answered 150 seconds after the apply
+nothing typed in between â€” the port answered 150 seconds after the apply
 returned, cataloguing succeeded on its first attempt, and `verify.sh` reached
 `6/6 CERTIFIED` and destroyed everything by itself. 0.1.8 got to 6/6 but needed
 one manual `systemctl kill` to clear a deadlock; that is the caveat this
@@ -1620,14 +1627,14 @@ release removes.
 - **Fixed: the two boot units deadlocked each other.** `resolve-db` wrote the
   connection descriptor and then blocked on `systemctl restart schemagate`.
   The server is ordered `After=` that unit, so systemd would not start it until
-  resolve-db finished — and resolve-db could not finish until the restart
+  resolve-db finished â€” and resolve-db could not finish until the restart
   returned. Each waited for the other and the port never opened. Both in-unit
   restarts are `--no-block` now, which queues the job and returns. The endpoint
   went from never answering to answering in 150 seconds.
 - **`23ai` is no longer an accepted `adb_version`.** It stops being valid in
   December 2026, and a stack that still offered it would begin failing then
-  rather than at a time the operator chose. `19c` remains the default — it is
-  the version this stack has actually applied with, four times — and `26ai` is
+  rather than at a time the operator chose. `19c` remains the default â€” it is
+  the version this stack has actually applied with, four times â€” and `26ai` is
   selectable for anyone who wants it, available in every commercial region
   except Bogota (BOG), Riyadh (RUH) and Singapore West (XSP). Making 26ai the
   default was tried and pulled: no apply with it set was seen through to
@@ -1638,7 +1645,7 @@ release removes.
   already can skip all of this with `pip install schemagate`. A new `next_step`
   output says the same thing at the end of an apply, where someone who just
   deployed will actually read it.
-- `terraform fmt` applied — it had drifted on `main.tf` and `variables.tf` —
+- `terraform fmt` applied â€” it had drifted on `main.tf` and `variables.tf` â€”
   and `terraform validate` passes.
 - The README's caveat is narrowed rather than dropped: `verify.sh` reached
   `6/6 CERTIFIED`, and the one remaining gap is that no run has yet gone from
@@ -1647,9 +1654,9 @@ release removes.
 
 ## 0.1.8
 
-Stack only — no library change.
+Stack only â€” no library change.
 
-**Certified on a live tenancy.** `verify.sh` ran to `6/6 CERTIFIED` — plan,
+**Certified on a live tenancy.** `verify.sh` ran to `6/6 CERTIFIED` â€” plan,
 apply, the MCP endpoint answering, database reachability from the instance, and
 keyless cataloguing through OCI Generative AI (16 objects described by the
 instance principal, no API key). One caveat: the server was started by hand on
@@ -1679,7 +1686,7 @@ catch, and each pinned by a test.
 - **The first boot is faster, and the endpoint check waits long enough.** The
   fourth run applied cleanly and then failed the endpoint check. Oracle spends
   most of ten minutes provisioning the database, and the lookup that waits for
-  it was running *after* the pip install rather than underneath it — the two
+  it was running *after* the pip install rather than underneath it â€” the two
   waits added up. The lookup now starts at the top of `runcmd` and blocks on a
   marker the install writes, so the install is off the critical path; the
   lookup uses the OCI Python SDK already in the venv instead of installing the
@@ -1755,11 +1762,11 @@ catch, and each pinned by a test.
 
 **Applying the stack in a real tenancy for the first time found a bug that no
 `terraform plan` can catch, because only the API rejects it. The apply still
-does not complete** — the fix below moved the failure rather than removing it;
+does not complete** â€” the fix below moved the failure rather than removing it;
 see *Still broken* at the end of this entry.
 
 - **Fixed: the stack could never apply.** 0.1.4 added a service gateway so the
-  database's access-control list could name the VCN — Oracle honours a VCN
+  database's access-control list could name the VCN â€” Oracle honours a VCN
   entry only when traffic arrives through one. The OCI API refuses a route
   table that holds both a service gateway for all services and an internet
   gateway default route: *"Internet Gateway target cannot be used together
@@ -1770,7 +1777,7 @@ see *Still broken* at the end of this entry.
 - With the service gateway goes the VCN-scoped access-control list: naming the
   instance's public IP instead is circular, since cloud-init already carries
   the database's connection descriptor. The demo database this stack creates
-  is therefore reachable over TLS with the ADMIN password and nothing else —
+  is therefore reachable over TLS with the ADMIN password and nothing else â€”
   it is created empty and destroyed with the stack, and the README says so
   plainly. New `adb_allowed_cidrs` narrows it, and `create_adb = false`
   against your own database remains the path for real data.
@@ -1789,7 +1796,7 @@ list, Oracle rejects the create with *"One-way TLS connections require a
 private endpoint or a public IP with an ACL"*. The apply now gets as far as the
 database and fails there. Restoring the list needs the instance's public IP,
 and the instance cannot precede the database because its cloud-init carries the
-connection descriptor — so this needs a real change, not a parameter. Use the
+connection descriptor â€” so this needs a real change, not a parameter. Use the
 Cloud Shell route in `oci/README.md` until then.
 
 ## 0.1.6
@@ -1799,7 +1806,7 @@ there is now a script that proves a deployment works rather than asserting it.
 
 - **Fixed: first-boot cataloguing raced its own IAM policy.** The dynamic
   group's matching rule needs the instance OCID, so Terraform cannot create the
-  group or the Generative AI policy until the instance exists — by which time
+  group or the Generative AI policy until the instance exists â€” by which time
   the instance is already running `catalog-once.sh`. Authorisation also takes
   minutes to propagate after the policy is written. The single attempt on first
   boot usually lost that race and failed with `NotAuthorizedOrNotFound`, which
@@ -1809,7 +1816,7 @@ there is now a script that proves a deployment works rather than asserting it.
 - The MCP endpoint now comes up *before* cataloguing rather than after, so the
   retry window no longer holds the service down.
 - `oci/stack/verify.sh`: end-to-end certification of the stack in your own
-  tenancy, through Resource Manager — the same path the Deploy button takes. It
+  tenancy, through Resource Manager â€” the same path the Deploy button takes. It
   uploads the released zip, plans, applies, then checks the machine rather than
   the plan: the MCP port answers, the instance can reach the database through
   the service gateway, and cataloguing genuinely called OCI Generative AI
@@ -1846,19 +1853,19 @@ there is now a script that proves a deployment works rather than asserting it.
 
 ## 0.1.4
 
-An audit of the OCI stack — which had never been applied — found that its
+An audit of the OCI stack â€” which had never been applied â€” found that its
 headline feature never ran and that a default deploy could not have worked.
 
 - **Fixed: `describe --provider oci` ignored instance-principal auth.** On an
   OCI VM there is no `~/.oci/config`; the machine authenticates as itself. The
   CLI built `OCIGenAIProvider` with the default `auth="config"`, failed with
-  `ConfigFileNotFound`, and the stack's `|| true` swallowed it — so the
+  `ConfigFileNotFound`, and the stack's `|| true` swallowed it â€” so the
   first-boot cataloguing the README promised silently never happened. The CLI
   now honours `OCI_CLI_AUTH`, as every other OCI tool does.
 - **The stack now creates a service gateway.** The database's access-control
   list admits the VCN, and Oracle only honours a VCN entry when traffic arrives
   through a service gateway. Without one the database refused the VM's
-  connections — the stack applied cleanly and never worked.
+  connections â€” the stack applied cleanly and never worked.
 - The DSN is now selected as the LOW, server-authentication profile rather than
   `profiles[0]`, which can be a mutual-TLS profile that thin-mode
   python-oracledb cannot use without a wallet.
@@ -1868,7 +1875,7 @@ headline feature never ran and that a default deploy could not have worked.
 - Database, dynamic-group and policy names are suffixed from the compartment,
   so a second deploy in one tenancy no longer collides.
 - The image lookup asserts it found one instead of indexing an empty list.
-- `allowed_cidr` and `ssh_cidr` are now separate and have **no defaults** — the
+- `allowed_cidr` and `ssh_cidr` are now separate and have **no defaults** â€” the
   MCP endpoint has no authentication of its own, so the stack refuses
   `0.0.0.0/0` rather than shipping an internet-facing schema browser.
 - Password validation matches Oracle's actual rule, including its rejection of
@@ -1889,7 +1896,7 @@ One click onto Oracle Cloud, and the OCI provider no longer truncates.
   tenancy involved. Each release now carries `schemagate-oci-stack.zip` with the
   Terraform at the zip root, which is what Resource Manager reads.
 - `oci/quickstart.sh`: schemagate against an existing Autonomous Database from
-  OCI Cloud Shell in about a minute — no VM, no Terraform, no API key.
+  OCI Cloud Shell in about a minute â€” no VM, no Terraform, no API key.
 - `oci/stack/` catalogues on first boot: a dynamic group and policy let that one
   instance call OCI Generative AI through its instance principal, so
   descriptions are written with no key and no prompt leaving the tenancy.
@@ -1905,15 +1912,15 @@ One click onto Oracle Cloud, and the OCI provider no longer truncates.
 
 ## 0.1.1
 
-Oracle, certified live on Autonomous Database 26ai — and the AI cataloging
+Oracle, certified live on Autonomous Database 26ai â€” and the AI cataloging
 that makes retrieval work on real, cryptic schema names.
 
 - **Oracle certified live** on Oracle AI Database 26ai (Autonomous Database):
   `certify_dialect.py` 10/10, the native `VECTOR(512, FLOAT32)` store
   conformance suite, and the dialect suite. Stress-tested against a live
   127-object, 3-domain schema with ~7M rows.
-- `SCHEMAGATE_CONNECT_ARGS` reaches every entry point — `introspect.reflect()`,
-  the CLI, `Catalog.bootstrap()`, the MCP server and `OracleStore` — so a
+- `SCHEMAGATE_CONNECT_ARGS` reaches every entry point â€” `introspect.reflect()`,
+  the CLI, `Catalog.bootstrap()`, the MCP server and `OracleStore` â€” so a
   wallet-protected ATP connects everywhere, not just in the certify script
   (`introspect.connect_args_from_env` / `engine_from_url`).
 - Per-dialect reflection hooks (`schemagate.dialects`): on Oracle, Autonomous
@@ -1922,9 +1929,9 @@ that makes retrieval work on real, cryptic schema names.
   (XMLTYPE, JSON, VECTOR, object types) are recovered from the data dictionary.
 - Fixed on live 26ai: the JSON payload `OracleStore` reads back can arrive
   already decoded by the driver.
-- **Provider matrix for AI cataloging.** `OCIGenAIProvider` — OCI Generative AI
+- **Provider matrix for AI cataloging.** `OCIGenAIProvider` â€” OCI Generative AI
   with no API key (`~/.oci/config`, resource or instance principal); Cohere and
-  generic chat shapes, dedicated endpoints, embeddings. `LocalProvider` — a
+  generic chat shapes, dedicated endpoints, embeddings. `LocalProvider` â€” a
   small instruct model via `transformers`, fully offline. `schemagate describe
   --provider oci | local` join `anthropic | openai | gemini | auto` and the
   keyless paste-into-any-chat flow.
