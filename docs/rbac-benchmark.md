@@ -2,7 +2,7 @@
 
 *Technical report (4 pages, both benchmarks, method, ablations, limits):
 [PDF](https://github.com/ashishsinha1602/schemagate/blob/main/docs/papers/schemagate_access_control.pdf) ·
-[LaTeX source](https://github.com/ashishsinha1602/schemagate/blob/main/docs/papers/schemagate_access_control.tex).*
+[LaTeX source](https://github.com/ashishsinha1602/schemagate/blob/main/docs/papers/schemagate_access_control.tex) · cite as [DOI 10.5281/zenodo.23446210](https://doi.org/10.5281/zenodo.23446210).*
 
 On BIRD, schemagate scores **AC-F1 90.1** against **88.1**, the best result of the thirteen models
 in *Benchmarking Text-to-SQL under Role-Based Access Control* (Fei, Jiang, Yang, Xiao; SIGMOD

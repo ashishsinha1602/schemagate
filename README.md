@@ -406,7 +406,7 @@ PostgreSQL itself allowed. With claude-sonnet-5-5, all 19,624:
 
 The paper's systems are 2024-25 models; details and limits in
 [BENCHMARKS.md](BENCHMARKS.md#access-control-a-second-benchmark-spider-acl), and both results in one
-[technical report (PDF)](docs/papers/schemagate_access_control.pdf).
+[technical report (PDF)](docs/papers/schemagate_access_control.pdf), [DOI 10.5281/zenodo.23446210](https://doi.org/10.5281/zenodo.23446210).
 
 **On public benchmarks, so you can check them without trusting me:**
 [BENCHMARKS.md](BENCHMARKS.md) has schemagate on Spider and BIRD, with the
