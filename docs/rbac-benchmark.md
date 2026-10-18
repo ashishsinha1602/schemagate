@@ -1,5 +1,9 @@
 # schemagate on the RBAC Text-to-SQL benchmark
 
+*Technical report (4 pages, both benchmarks, method, ablations, limits):
+[PDF](https://github.com/ashishsinha1602/schemagate/blob/main/docs/papers/schemagate_access_control.pdf) ·
+[LaTeX source](https://github.com/ashishsinha1602/schemagate/blob/main/docs/papers/schemagate_access_control.tex).*
+
 On BIRD, schemagate scores **AC-F1 90.1** against **88.1**, the best result of the thirteen models
 in *Benchmarking Text-to-SQL under Role-Based Access Control* (Fei, Jiang, Yang, Xiao; SIGMOD
 2027), with the same model and scored by the authors' own evaluator. The model never sees the
