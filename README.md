@@ -1154,6 +1154,16 @@ chain = retriever | RunnableLambda(prompt_fragment) | your_sql_prompt | llm
 The principal is bound at construction on purpose. Build one retriever per
 caller; a chain can't forget to pass identity if the retriever already has it.
 
+**jev4pg.** `schemagate.integrations.jev4pg.ScopedCatalog` wraps
+[jev4pg](https://github.com/Sheltercosmo/jev4pg)'s per-tenant catalogue so its
+planner, SQL validator and semantic operators see only what each caller may
+read. See [docs/jev4pg.md](docs/jev4pg.md).
+
+**Questions about what text says.** `semantic_query` (MCP, off by default) runs
+your SQL under the same scope check, then asks the model which rows' text meets
+a criterion, or for one short answer per row. See
+[docs/semantic-operators.md](docs/semantic-operators.md).
+
 ## On Oracle Cloud
 
 Certified live on Oracle AI Database 26ai. Two ways in, neither of which needs
