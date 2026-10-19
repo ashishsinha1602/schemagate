@@ -26,14 +26,29 @@ By difficulty (simple / moderate / challenging; 148 / 250 / 102 questions):
 So, with a light model, schemagate is above the best published MySQL result (TA + GPT-4, 49.20). It is
 not first on SQLite or PostgreSQL.
 
-### The same pipeline with a frontier model, for reference
+### With the model the current leaders use
 
 | Setup | SQLite | PostgreSQL | MySQL |
 |---|---|---|---|
-| schemagate + Claude Opus 5.5, one query per question | 81.00 | 72.60 | 72.40 |
+| **schemagate + Claude Opus 5.5, one query per question** | **81.00** | **72.60** | **72.40** |
+| schemagate + Claude Haiku 5.5, one query per question | 61.80 | 55.00 | 54.40 |
 
-This shows how much of the score is the model. The Flash rows are the ones that say something about
-schemagate.
+The #1 entries on 2026-10-19, and the model each used:
+
+| Dialect | #1 | EX | Model |
+|---|---|---|---|
+| SQLite | Jitto Build (JamLabs) | 75.60 | listed as "UNK" on BIRD. JamLabs lists the same product as "Jitto Build (Claude Opus 5.5, high)" on [LiveSQLBench](https://livesqlbench.ai/) |
+| PostgreSQL | Ontology2SQL (DeepLethe) | 65.80 | `deepseek-v4-flash`, as an agent with up to 12 steps per question ([RESULTS.md](https://github.com/deeplethe/ontology2sql/blob/main/RESULTS.md)) |
+| MySQL | TA + GPT-4 (HKU) | 49.20 | GPT-4 |
+
+What that means:
+- **SQLite:** schemagate with the same model as the leader scores 81.00 against 75.60.
+- **MySQL:** schemagate beats the leader even with a lighter model (Flash 54.80–55.60, against GPT-4 at 49.20).
+- **PostgreSQL:** the leader's 65.80 is a light model running as an agent. schemagate's single query beats it with Opus (72.60), but not with a light model (Flash 56.20, Haiku 55.00).
+
+Evaluator variance: `evaluation_ex.py` gives a query 30 s. Scored while other evaluators were running,
+Haiku on PostgreSQL came out 54.60. Scored alone, it came out 55.00, which is what the `.ex.txt` file
+shows. Every number in this page is from a run scored alone.
 
 ## What runs, per question
 
@@ -84,5 +99,5 @@ cd <mini_dev>/evaluation && python evaluation_ex.py --predicted_sql_path <file> 
   evaluator unchanged.
 - **Training-data overlap.** BIRD has been public since 2023, and any LLM may have seen parts of it. That
   holds for every LLM entry on the leaderboard.
-- **Other systems' models are mostly not published.** TA + GPT-4 used GPT-4. The others we could not
-  confirm.
+- **Jitto Build's model is inferred,** from JamLabs' own LiveSQLBench listing for the same product.
+  BIRD's page lists it as "UNK".
