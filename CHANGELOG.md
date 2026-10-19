@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- BIRD Mini-Dev, all 500 questions in SQLite, PostgreSQL and MySQL, scored by BIRD's own evaluator
+  (`benchmarks/bird_minidev.py`, `benchmarks/results/bird_minidev/`). With Gemini 2.5 Flash: 63.6 / 56.2 /
+  55.6 EX at best per setup, above the best published MySQL result (49.2) but not first on SQLite or
+  PostgreSQL. With Claude Opus 5.5: 81.0 / 72.6 / 72.4, shown for reference.
 - OAuth is now tested end to end against a real Keycloak 26.4 in CI (`tests/keycloak_e2e.py`,
   17 checks), driven by the MCP SDK's own OAuth client: discovery from the 401, Dynamic Client
   Registration, authorization code with PKCE, then per-user data. `docs/oauth.md` has the
