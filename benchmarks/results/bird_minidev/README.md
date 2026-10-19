@@ -46,6 +46,11 @@ What that means:
 - **MySQL:** schemagate beats the leader even with a lighter model (Flash 54.80–55.60, against GPT-4 at 49.20).
 - **PostgreSQL:** the leader's 65.80 is a light model running as an agent. schemagate's single query beats it with Opus (72.60), but not with a light model (Flash 56.20, Haiku 55.00).
 
+Reproduction: the script as merged on `main` was re-run with Claude Opus 5.5 on SQLite, and scored
+**80.20** (simple 89.86, moderate 77.60, challenging 72.55) against the 81.00 above. Opus does not
+answer identically run to run. One question in the re-run had no SQL because of a single API error.
+The predictions and evaluator output are `claude-opus-5-5_plain_sqlite_rerun.*`.
+
 Evaluator variance: `evaluation_ex.py` gives a query 30 s. Scored while other evaluators were running,
 Haiku on PostgreSQL came out 54.60. Scored alone, it came out 55.00, which is what the `.ex.txt` file
 shows. Every number in this page is from a run scored alone.
