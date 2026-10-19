@@ -1,0 +1,62 @@
+# UniQL on Oracle, step 0: load BIRD dev into Oracle Free with UniQL's own loader and run every Oracle
+# gold query once. No model is called. Manual only.
+name: uniql-oracle
+on:
+  workflow_dispatch:
+  push:
+    branches: [bench/uniql-oracle]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    services:
+      oracle:
+        image: gvenzl/oracle-free:23-slim-faststart
+        env:
+          # Throwaway: one job long, runner loopback only. Not a credential.
+          ORACLE_PASSWORD: "Sg_CI_throwaway_2026"
+        ports: ["1521:1521"]
+        options: --health-cmd healthcheck.sh --health-interval 10s --health-timeout 5s --health-retries 60
+    env:
+      UNIQL_ORACLE_DSN: "localhost:1521/FREEPDB1"
+      UNIQL_ORACLE_ADMIN_USER: "SYSTEM"
+      UNIQL_ORACLE_ADMIN_PASSWORD: "Sg_CI_throwaway_2026"
+      UNIQL_ORACLE_USER_PASSWORD: "Sg_CI_throwaway_2026"
+      UNIQL_ORACLE_PASSWORD: "Sg_CI_throwaway_2026"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: UniQL and BIRD dev databases
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/JerryGao818/UniQL.git uniql
+          git -C uniql log -1 --format='UniQL %H %cs'
+          curl -fsSL -o minidev.zip https://bird-bench.oss-cn-beijing.aliyuncs.com/minidev.zip
+          unzip -q minidev.zip 'minidev/MINIDEV/dev_databases/*'
+          ls minidev/MINIDEV/dev_databases
+      - run: pip install 'oracledb>=2.4' python-dateutil
+      - name: load all 11 databases with UniQL's loader
+        env:
+          UNIQL_BIRD_DB_ROOT: ${{ github.workspace }}/minidev/MINIDEV/dev_databases
+        run: |
+          set -euo pipefail
+          cd uniql/migration/oracle
+          # the loader lists 7 databases and comments out the other 4; load all 11
+          python - <<'PY'
+          import re, pathlib
+          p = pathlib.Path("insert_to_oracle.py")
+          t = p.read_text()
+          t = re.sub(r"^DATABASES = \[.*\]$", "DATABASES = ['california_schools', 'card_games', 'codebase_community', "
+                     "'debit_card_specializing', 'european_football_2', 'financial', 'formula_1', 'student_club', "
+                     "'superhero', 'thrombosis_prediction', 'toxicology']", t, count=1, flags=re.M)
+          p.write_text(t)
+          PY
+          time python insert_to_oracle.py 2>&1 | tail -30
+      - name: run every gold query
+        run: python benchmarks/uniql_oracle_check.py uniql/data/queries/oracle.json
