@@ -88,7 +88,7 @@ jobs:
         run: |
           cd uniql/evaluation
           python evaluate.py --predicted_sql_path ../../out/oracle_${MODE}.json --dialect oracle \
-            --db_root_path ../../minidev/MINIDEV/dev_databases --num_cpus 4 \
+            --db_root_path ../../minidev/MINIDEV/dev_databases --num_cpus 1 \
             --model "schemagate-${MODE}" --output_dir ../../out/eval 2>&1 | tail -40
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
