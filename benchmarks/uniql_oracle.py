@@ -62,6 +62,7 @@ def main():
     dsn, pw = os.environ.get("UNIQL_ORACLE_DSN", "localhost:1521/FREEPDB1"), os.environ["UNIQL_ORACLE_PASSWORD"]
     root = pathlib.Path(a.bird_db_root)
     out = pathlib.Path(a.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
     done = {r["question_id"]: r for r in json.loads(out.read_text("utf-8"))} if out.exists() else {}
     log = out.with_suffix(".log.jsonl").open("a", encoding="utf-8")
     prov = None
