@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased
+
+- BIRD Mini-Dev, all 500 questions in SQLite, PostgreSQL and MySQL, scored by BIRD's own evaluator
+  (`benchmarks/bird_minidev.py`, `benchmarks/results/bird_minidev/`). With Gemini 2.5 Flash: 63.6 / 56.2 /
+  55.6 EX at best per setup, above the best published MySQL result (49.2) but not first on SQLite or
+  PostgreSQL. With Claude Opus 5.5: 81.0 / 72.6 / 72.4, shown for reference.
+- OAuth is now tested end to end against a real Keycloak 26.4 in CI (`tests/keycloak_e2e.py`,
+  17 checks), driven by the MCP SDK's own OAuth client: discovery from the 401, Dynamic Client
+  Registration, authorization code with PKCE, then per-user data. `docs/oauth.md` has the
+  Keycloak setup, including why the username and role mappers must sit on the `schemagate` scope.
+
+## 1.9.0
+
+- **OAuth 2.1 on the HTTP transport.** Set `SCHEMAGATE_MCP_OAUTH_ISSUER` and
+  `SCHEMAGATE_MCP_OAUTH_AUDIENCE` and the MCP server becomes an OAuth resource server as the MCP
+  authorization specification describes. It publishes Protected Resource Metadata (RFC 9728), and
+  every request needs a JWT signed by your provider (JWKS; `iss`, `aud`, `exp` and scopes checked;
+  asymmetric algorithms only), or it gets a 401 pointing at the metadata. On every tool call,
+  `principal` and `roles` come from the token, and what the client sent is discarded. Until now the
+  HTTP transport believed the client and needed a gateway in front of it; with this it does not.
+  Tested end to end against the real server and a local provider; not yet against a hosted
+  Entra, Okta or Auth0 tenant. See `docs/oauth.md`.
+- `health` reports `auth` (`oauth`, `none` or `stdio`). HTTP on a non-loopback host without OAuth
+  logs a warning.
+
 ## 1.8.0
 
 - **Python 3.10 or newer.** Python 3.9 reached end of life in October 2025, and the fixes for the
