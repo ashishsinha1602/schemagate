@@ -1002,6 +1002,12 @@ pytest tests/test_dialects.py -v
 > client's to claim — they come from the directory or the database and the
 > ones in the request are ignored ([docs/groups.md](docs/groups.md)); the
 > subject is still whatever the transport hands over.
+>
+> **Or turn on OAuth and it is a lock.** Set `SCHEMAGATE_MCP_OAUTH_ISSUER`
+> and `SCHEMAGATE_MCP_OAUTH_AUDIENCE`, and over HTTP every request needs a
+> token signed by your identity provider (Entra ID, Okta, Auth0, Keycloak).
+> Who is asking and which roles they hold come from that token, never from
+> the client. No gateway needed ([docs/oauth.md](docs/oauth.md)).
 
 If you already have an agent that writes SQL, the fastest way in is to let it
 call schemagate as a tool rather than wiring the library into your code.
@@ -1111,6 +1117,16 @@ To host it for a team rather than one desktop:
 
 ```bash
 SCHEMAGATE_MCP_TRANSPORT=streamable-http SCHEMAGATE_MCP_PORT=8765 python -m schemagate.mcp_server
+```
+
+and put your identity provider in front of it, so each person's own token
+decides what they see:
+
+```bash
+SCHEMAGATE_MCP_OAUTH_ISSUER=https://login.microsoftonline.com/<tenant>/v2.0 \
+SCHEMAGATE_MCP_OAUTH_AUDIENCE=api://schemagate \
+SCHEMAGATE_MCP_OAUTH_RESOURCE=https://schemagate.example.com/mcp \
+SCHEMAGATE_MCP_TRANSPORT=streamable-http SCHEMAGATE_MCP_HOST=0.0.0.0 python -m schemagate.mcp_server
 ```
 
 It's built not to die. The index lives in memory after startup, so the

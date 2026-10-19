@@ -40,8 +40,13 @@ network you do not control and rely on ``principal`` to keep people apart.
 It is a scoping mechanism, not a lock.
 
 The OCI stack narrows it to a CIDR you name and refuses ``0.0.0.0/0``, which
-is a network control rather than an identity one. A shared secret is not yet
-implemented.
+is a network control rather than an identity one.
+
+**Or let your identity provider decide.** Set ``SCHEMAGATE_MCP_OAUTH_ISSUER``
+and ``SCHEMAGATE_MCP_OAUTH_AUDIENCE`` and the HTTP transport becomes an OAuth
+resource server (``schemagate.oauth``): every request needs a token signed by
+that provider, and ``principal`` and ``roles`` are taken from the token, never
+from the client. That one is a lock.
 
 Restrictions and hints come from ``SCHEMAGATE_CATALOG_CONFIG``, a JSON file::
 
@@ -1121,6 +1126,8 @@ def health() -> Dict[str, Any]:
         "catalog_max_age_seconds": _STATE.get("max_age"),
         "rerank": bool(_STATE.get("rerank")),
         "semantic": bool(_STATE.get("semantic")),
+        # where identity comes from: "oauth" (a verified token), "none" (HTTP, client-asserted), "stdio"
+        "auth": _STATE.get("auth"),
         "catalog_stale": bool(_STATE.get("max_age") and (_catalog_age() or 0) > _STATE["max_age"]),
         "calls": _STATE["calls"],
         "errors": _STATE["errors"],
@@ -1274,6 +1281,41 @@ def create_server(catalog: Optional[Catalog] = None):
     return app
 
 
+#: the tools whose principal and roles OAuth fills in from the token
+IDENTITY_TOOLS = ("select_schema", "list_objects", "describe_object", "run_query", "semantic_query", "answer")
+
+
+def _oauth_verifier(transport: str):
+    """The token verifier when ``SCHEMAGATE_MCP_OAUTH_ISSUER`` is set, else None. Bad settings stop the server."""
+    from . import oauth
+    try:
+        cfg = oauth.OAuthConfig.from_env()
+        if cfg is None:
+            return None
+        if transport == "stdio":
+            raise ValueError("OAuth applies to the HTTP transports; set SCHEMAGATE_MCP_TRANSPORT=streamable-http")
+        verifier = oauth.Verifier(cfg)
+    except (ValueError, ImportError) as e:
+        raise SystemExit(f"schemagate-mcp: OAuth: {e}") from None
+    log.info("OAuth on: tokens from %s for audience %s; principal and roles come from the token",
+             cfg.issuer, cfg.audience)
+    return verifier
+
+
+def _serve_oauth(app, verifier, transport: str, host: str, port: int) -> None:
+    """Serve the SDK's HTTP app behind `oauth.OAuthMiddleware`, with uvicorn (an mcp dependency)."""
+    import uvicorn
+
+    from .oauth import OAuthMiddleware
+    build = app.sse_app if transport == "sse" else app.streamable_http_app
+    try:
+        asgi = build(host=host)                 # mcp 2.x: host decides the DNS-rebinding defaults
+    except TypeError:
+        asgi = build()                          # mcp 1.x: host was given to the constructor
+    uvicorn.run(OAuthMiddleware(asgi, verifier, IDENTITY_TOOLS), host=host, port=port,
+                log_level=os.environ.get("SCHEMAGATE_LOG_LEVEL", "INFO").lower(), proxy_headers=True)
+
+
 def main(argv: Optional[List[str]] = None) -> None:
     """``schemagate-mcp`` and ``python -m schemagate.mcp_server``.
 
@@ -1301,9 +1343,11 @@ def main(argv: Optional[List[str]] = None) -> None:
         _server_class()             # fail before reflecting a database if the extra is missing
     except ImportError as e:
         raise SystemExit(f"schemagate-mcp: {e}") from None
+    transport = os.environ.get("SCHEMAGATE_MCP_TRANSPORT", "stdio")
+    verifier = _oauth_verifier(transport)       # before reflecting: a bad OAuth setting stops here
     build_catalog()
     app = create_server()
-    transport = os.environ.get("SCHEMAGATE_MCP_TRANSPORT", "stdio")
+    _STATE["auth"] = "oauth" if verifier is not None else ("none" if transport != "stdio" else "stdio")
     log.info("schemagate %s serving %d objects over %s", __version__,
              len(_catalog()._docs), transport)
     if transport == "stdio":
@@ -1311,6 +1355,12 @@ def main(argv: Optional[List[str]] = None) -> None:
         return
     host = os.environ.get("SCHEMAGATE_MCP_HOST", "127.0.0.1")
     port = int(os.environ.get("SCHEMAGATE_MCP_PORT", "8765"))
+    if verifier is not None:
+        _serve_oauth(app, verifier, transport, host, port)
+        return
+    if host not in ("127.0.0.1", "localhost", "::1"):
+        log.warning("HTTP on %s without OAuth: principal and roles are whatever the client sends. "
+                    "Set SCHEMAGATE_MCP_OAUTH_ISSUER, or keep it behind something that authenticates.", host)
     try:
         app.run(transport=transport, host=host, port=port)   # mcp 2.x
     except TypeError:
