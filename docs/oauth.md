@@ -56,6 +56,38 @@ whatever the client sends.
 The provider must issue JWT access tokens. Some do not (Google's are opaque), and those cannot be
 verified here.
 
+### Keycloak, step by step
+
+This is what `tests/keycloak_e2e.py` sets up. CI runs it against Keycloak 26.4.
+
+1. Create realm roles (`sales`, `payroll`) and assign them to users.
+2. Create a client scope `schemagate` with *Include in token scope* on. Give it three mappers:
+   - **Audience**: included custom audience `schemagate`;
+   - **User Attribute**: `username` → `preferred_username`;
+   - **User Realm Role**: claim `realm_access.roles`, multivalued.
+
+   Under its *Scope* tab, add the realm roles schemagate cares about. Make it a realm default client
+   scope.
+3. For MCP clients that register themselves, go to *Clients → Client registration → Anonymous access
+   policies*. Allow the `schemagate` scope under *Allowed Client Scopes*, and set *Trusted Hosts* to
+   the hosts your clients redirect to.
+4. Start schemagate with:
+
+   ```
+   SCHEMAGATE_MCP_OAUTH_ISSUER=https://<host>/realms/<realm>
+   SCHEMAGATE_MCP_OAUTH_AUDIENCE=schemagate
+   SCHEMAGATE_MCP_OAUTH_SCOPES=schemagate
+   SCHEMAGATE_MCP_OAUTH_ROLES_CLAIM=realm_access.roles
+   SCHEMAGATE_MCP_OAUTH_SUBJECT_CLAIM=preferred_username
+   SCHEMAGATE_MCP_OAUTH_NAMESPACE=keycloak
+   ```
+
+Why the mappers live on the `schemagate` scope: a client that registers itself and asks only for
+`schemagate` gets only that scope. Without them, its tokens carry neither the username nor the roles,
+and schemagate refuses them. Keycloak applies a scope with role mappings only to users who hold one of
+those roles. So removing a user's last such role also removes the audience from their next token, and
+schemagate refuses it at the door.
+
 Issuers must match the token's `iss` character for character, trailing slash included.
 
 ## Clients
@@ -77,5 +109,13 @@ local provider with OpenID metadata and keys on loopback. It checks that:
   principal in the tool arguments;
 - a token saying `payroll` can.
 
-Removing the identity rewrite makes these tests fail. They have not been run against a hosted Entra,
-Okta or Auth0 tenant.
+Removing the identity rewrite makes these tests fail.
+
+`tests/keycloak_e2e.py` runs the same server against a real Keycloak 26.4, using the MCP SDK's own
+OAuth client (17 checks, in CI). The client starts from the server URL alone and goes through the
+whole flow: the 401, the metadata, Dynamic Client Registration, and authorization code with PKCE (the
+login is Keycloak's own form). Then two users with different roles see different data. Real tokens
+for another application or from another realm are refused, an edited token is refused, and removing
+a role in Keycloak takes effect on the next token.
+
+Not run against a hosted Entra ID, Okta or Auth0 tenant, or through Claude.ai.
