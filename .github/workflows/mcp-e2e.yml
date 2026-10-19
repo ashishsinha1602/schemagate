@@ -136,6 +136,35 @@ jobs:
           PY
       - run: python tests/${{ matrix.script }}.py
 
+  keycloak:
+    # OAuth end to end against a real identity provider: the MCP SDK's own OAuth client discovers
+    # Keycloak from the server's 401, registers itself, signs a user in with PKCE and calls tools
+    # with the token; the token, not the tool arguments, decides what each user may read
+    # (tests/keycloak_e2e.py).
+    runs-on: ubuntu-latest
+    env:
+      # Throwaway: one job long, runner loopback only. Not a credential.
+      KC_BOOTSTRAP_ADMIN_PASSWORD: "kc-throwaway-2026"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Keycloak 26.4
+        run: |
+          docker run -d --name kc -p 8180:8080 -e KC_BOOTSTRAP_ADMIN_USERNAME=admin \
+            -e KC_BOOTSTRAP_ADMIN_PASSWORD -e KC_HOSTNAME=http://localhost:8180 \
+            quay.io/keycloak/keycloak@sha256:5f3fb534cde6bf006d79f5912473e5d2c828c707cdfc52e16972803aca9d43dd start-dev
+      - run: pip install --require-hashes -r .github/requirements/e2e-postgres.txt && pip install --no-deps -e .
+      - name: wait for Keycloak
+        run: |
+          for i in $(seq 1 60); do
+            curl -fsS http://localhost:8180/realms/master/.well-known/openid-configuration >/dev/null && { echo "up after $((i*5)) s"; exit 0; }
+            sleep 5
+          done
+          docker logs kc | tail -50; exit 1
+      - run: python tests/keycloak_e2e.py
+
   oracle:
     runs-on: ubuntu-latest
     strategy:

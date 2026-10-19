@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- OAuth is now tested end to end against a real Keycloak 26.4 in CI (`tests/keycloak_e2e.py`,
+  17 checks), driven by the MCP SDK's own OAuth client: discovery from the 401, Dynamic Client
+  Registration, authorization code with PKCE, then per-user data. `docs/oauth.md` has the
+  Keycloak setup, including why the username and role mappers must sit on the `schemagate` scope.
+
 ## 1.9.0
 
 - **OAuth 2.1 on the HTTP transport.** Set `SCHEMAGATE_MCP_OAUTH_ISSUER` and
