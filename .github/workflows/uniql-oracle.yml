@@ -77,8 +77,11 @@ jobs:
           OCI_KEY: ${{ secrets.OCI_KEY }}
         run: |
           mkdir -p ~/.oci
-          printf '%s\n' "$OCI_KEY" > ~/.oci/key.pem && chmod 600 ~/.oci/key.pem
-          printf '%s\n' "$OCI_CONFIG" | sed "s|^key_file=.*|key_file=$HOME/.oci/key.pem|" > ~/.oci/config
+          # secrets were saved from Windows: drop a byte-order mark and carriage returns
+          printf '%s\n' "$OCI_KEY" | sed '1s/^\xEF\xBB\xBF//; s/\r$//' > ~/.oci/key.pem && chmod 600 ~/.oci/key.pem
+          printf '%s\n' "$OCI_CONFIG" | sed '1s/^\xEF\xBB\xBF//; s/\r$//' \
+            | sed "s|^key_file\s*=.*|key_file=$HOME/.oci/key.pem|" > ~/.oci/config
+          head -1 ~/.oci/config; grep -c '=' ~/.oci/config
       - name: schemagate writes the SQL
         run: |
           extra=""; [ "$MODE" = "dry" ] && extra="--dry-run"
