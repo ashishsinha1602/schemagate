@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.10.0
 
 - **Oracle rules in the SQL prompt.** `generate_sql` (and so `answer`, the CLI and Studio) now tells the
   model Oracle's rules when the target is Oracle:
