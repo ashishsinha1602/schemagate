@@ -1,0 +1,100 @@
+# schemagate on UniQL's Oracle dialect. A push runs mode=dry: load BIRD dev into Oracle Free with UniQL's
+# loader, run every gold query, then put the gold SQL through the runner and UniQL's evaluator as if it
+# were a prediction -- no model is called. mode=full (manual only) calls Gemini 2.5 Flash on OCI.
+name: uniql-oracle
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry (no model) or full (Gemini 2.5 Flash on OCI, paid)"
+        default: dry
+      limit:
+        description: "only the first N questions (0 = all 1,534)"
+        default: "0"
+  push:
+    branches: [bench/uniql-oracle]
+
+permissions:
+  contents: read
+
+jobs:
+  oracle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    services:
+      oracle:
+        image: gvenzl/oracle-free:23-slim-faststart
+        env:
+          # Throwaway: one job long, runner loopback only. Not a credential.
+          ORACLE_PASSWORD: "Sg_CI_throwaway_2026"
+        ports: ["1521:1521"]
+        options: --health-cmd healthcheck.sh --health-interval 10s --health-timeout 5s --health-retries 60
+    env:
+      MODE: ${{ github.event.inputs.mode || 'dry' }}
+      LIMIT: ${{ github.event.inputs.limit || '0' }}
+      UNIQL_ORACLE_DSN: "localhost:1521/FREEPDB1"
+      UNIQL_ORACLE_ADMIN_USER: "SYSTEM"
+      UNIQL_ORACLE_ADMIN_PASSWORD: "Sg_CI_throwaway_2026"
+      UNIQL_ORACLE_USER_PASSWORD: "Sg_CI_throwaway_2026"
+      UNIQL_ORACLE_PASSWORD: "Sg_CI_throwaway_2026"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: UniQL and BIRD dev databases
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/JerryGao818/UniQL.git uniql
+          git -C uniql log -1 --format='UniQL %H %cs'
+          curl -fsSL -o minidev.zip https://bird-bench.oss-cn-beijing.aliyuncs.com/minidev.zip
+          unzip -q minidev.zip 'minidev/MINIDEV/dev_databases/*'
+      - run: pip install 'oracledb>=2.4' python-dateutil func_timeout && pip install -e .
+      - if: env.MODE == 'full'
+        run: pip install oci
+      - name: load all 11 databases with UniQL's loader
+        env:
+          UNIQL_BIRD_DB_ROOT: ${{ github.workspace }}/minidev/MINIDEV/dev_databases
+        run: |
+          set -euo pipefail
+          cd uniql/migration/oracle
+          # the loader lists 7 databases and comments out the other 4; load all 11
+          python - <<'PY'
+          import re, pathlib
+          p = pathlib.Path("insert_to_oracle.py")
+          t = p.read_text()
+          t = re.sub(r"^DATABASES = \[.*\]$", "DATABASES = ['california_schools', 'card_games', 'codebase_community', "
+                     "'debit_card_specializing', 'european_football_2', 'financial', 'formula_1', 'student_club', "
+                     "'superhero', 'thrombosis_prediction', 'toxicology']", t, count=1, flags=re.M)
+          p.write_text(t)
+          PY
+          python insert_to_oracle.py > load.log 2>&1; tail -3 load.log
+      - run: python benchmarks/uniql_oracle_check.py uniql/data/queries/oracle.json
+      - name: OCI credentials (full mode only)
+        if: env.MODE == 'full'
+        env:
+          OCI_CONFIG: ${{ secrets.OCI_CONFIG }}
+          OCI_KEY: ${{ secrets.OCI_KEY }}
+        run: |
+          mkdir -p ~/.oci
+          # secrets were saved from Windows: drop a byte-order mark and carriage returns
+          printf '%s\n' "$OCI_KEY" | sed '1s/^\xEF\xBB\xBF//; s/\r$//' > ~/.oci/key.pem && chmod 600 ~/.oci/key.pem
+          printf '%s\n' "$OCI_CONFIG" | sed '1s/^\xEF\xBB\xBF//; s/\r$//' \
+            | sed "s|^key_file\s*=.*|key_file=$HOME/.oci/key.pem|" > ~/.oci/config
+          head -1 ~/.oci/config; grep -c '=' ~/.oci/config
+      - name: schemagate writes the SQL
+        run: |
+          extra=""; [ "$MODE" = "dry" ] && extra="--dry-run"
+          python benchmarks/uniql_oracle.py --queries uniql/data/queries/oracle.json \
+            --bird-db-root minidev/MINIDEV/dev_databases --out out/oracle_${MODE}.json --limit "$LIMIT" $extra
+      - name: UniQL's evaluator
+        run: |
+          cd uniql/evaluation
+          python evaluate.py --predicted_sql_path ../../out/oracle_${MODE}.json --dialect oracle \
+            --db_root_path ../../minidev/MINIDEV/dev_databases --num_cpus 1 \
+            --model "schemagate-${MODE}" --output_dir ../../out/eval 2>&1 | tail -40
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: uniql-oracle-${{ env.MODE }}
+          path: out/
