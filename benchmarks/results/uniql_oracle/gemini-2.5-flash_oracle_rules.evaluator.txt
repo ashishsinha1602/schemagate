@@ -1,0 +1,15 @@
+Model: schemagate-full
+Dialect: oracle
+Total number of queries evaluated: 1534
+
+start calculate
+                     simple               moderate             challenging          total               
+count                925                  464                  145                  1534                
+======================================    ACCURACY    =====================================
+accuracy             72.32                61.85                55.86                67.60               
+                    LLM-0shot           LLM-retry           LLM-rule            glot                human               total               
+count               157                 164                 22                  1166                25                  1534                
+========================    ACCURACY by annotation_source    ========================
+accuracy            60.51               46.95               27.27               73.07               28.00               67.60               
+===========================================================================================
+Finished evaluation
