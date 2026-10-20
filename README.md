@@ -4,6 +4,8 @@
 [![Python](https://img.shields.io/pypi/pyversions/schemagate.svg)](https://pypi.org/project/schemagate/)
 [![CI](https://github.com/ashishsinha1602/schemagate/actions/workflows/ci.yml/badge.svg)](https://github.com/ashishsinha1602/schemagate/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![BIRD Mini-Dev EX: SQLite 81.0 · PostgreSQL 72.6 · MySQL 72.4](https://img.shields.io/badge/BIRD%20Mini--Dev%20EX-SQLite%2081.0%20%C2%B7%20PostgreSQL%2072.6%20%C2%B7%20MySQL%2072.4-0F7B6C)](benchmarks/results/bird_minidev/README.md)
+[![UniQL Oracle: 64.5% first try](https://img.shields.io/badge/UniQL%20Oracle-64.5%25%20first%20try-C74634)](benchmarks/results/uniql_oracle/README.md)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15353/badge)](https://www.bestpractices.dev/projects/15353)
 [![REUSE status](https://api.reuse.software/badge/github.com/ashishsinha1602/schemagate)](https://api.reuse.software/info/github.com/ashishsinha1602/schemagate)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/schemagate?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/schemagate)
