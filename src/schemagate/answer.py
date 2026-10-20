@@ -164,11 +164,38 @@ def _prompt_body(question: str, fragment: str,
         fragment, (block + "\n") if block else "", question)
 
 
+#: What a model gets wrong about a dialect, said once in the system prompt.
+#:
+#: Measured, not guessed: on UniQL's Oracle dialect (1,534 BIRD questions), Gemini 2.5 Flash's
+#: first query failed 694 times, and two mistakes were 651 of them -- `FROM t AS x` (ORA-03048,
+#: 551) and a bare reserved word as a column name, `DATE`, `NUMBER` (ORA-03050, 100). The rest of
+#: each entry covers the next most common habits carried over from SQLite and MySQL.
+DIALECT_RULES = {
+    "oracle": (
+        "Oracle rules: never write AS before a table alias (FROM account a, not FROM account AS a); "
+        "AS is only for column aliases. A column named like a reserved word (DATE, NUMBER, LEVEL, SIZE, "
+        "COMMENT, USER, UID, ACCESS, MODE, ROWS, START, TYPE) must be double-quoted in upper case, e.g. "
+        "t.\"DATE\". Write every identifier exactly as the tables show it, quotes and case included. "
+        "No LIMIT: use FETCH FIRST n ROWS ONLY. No boolean literals. Use NVL or COALESCE, not IFNULL; "
+        "|| to concatenate; SUBSTR and INSTR; EXTRACT(YEAR FROM d) or TO_CHAR(d, 'YYYY') for dates; "
+        "TO_DATE('2012-08-23', 'YYYY-MM-DD') for date literals. With DISTINCT, ORDER BY only selected "
+        "expressions. GROUP BY repeats expressions, not column aliases."
+    ),
+}
+
+
+def _flavour(dialect: str) -> str:
+    """The dialect line of the system prompt, plus that dialect's rules if there are any."""
+    if not dialect:
+        return ""
+    rules = DIALECT_RULES.get(dialect.strip().lower().split("+")[0], "")
+    return f" Target dialect: {dialect}." + (f"\n{rules}" if rules else "")
+
+
 def sql_prompt(question: str, fragment: str, dialect: str = "",
                examples: Sequence[Tuple[str, str]] = ()) -> str:
     """The prompt to paste into any chat window when there is no API key."""
-    flavour = f" Target dialect: {dialect}." if dialect else ""
-    return f"{SYSTEM}{flavour}\n\n" + _prompt_body(question, fragment, examples)
+    return f"{SYSTEM}{_flavour(dialect)}\n\n" + _prompt_body(question, fragment, examples)
 
 
 #: How many times to ask before believing "these tables cannot answer this".
@@ -209,7 +236,7 @@ def generate_sql(provider, question: str, fragment: str,
     write, is raised at once. Those are not flakiness, and re-rolling them
     would be asking a model repeatedly until it gets past a safety check.
     """
-    flavour = f" Target dialect: {dialect}." if dialect else ""
+    flavour = _flavour(dialect)
     prompt = _prompt_body(question, fragment, examples)
     tries = max(1, attempts)
     for _ in range(tries):

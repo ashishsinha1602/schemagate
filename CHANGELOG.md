@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Oracle rules in the SQL prompt.** `generate_sql` (and so `answer`, the CLI and Studio) now tells the
+  model Oracle's rules when the target is Oracle:
+  - no `AS` before a table alias;
+  - reserved-word column names such as `"DATE"` quoted;
+  - `FETCH FIRST` instead of `LIMIT`;
+  - `NVL`, `||` and the date functions.
+  These came from measured failures: on UniQL's Oracle dialect, two mistakes were 651 of Gemini 2.5
+  Flash's 694 failed first queries. Other dialects' prompts are unchanged byte for byte
+  (`DIALECT_RULES`).
 - BIRD Mini-Dev, all 500 questions in SQLite, PostgreSQL and MySQL, scored by BIRD's own evaluator
   (`benchmarks/bird_minidev.py`, `benchmarks/results/bird_minidev/`). With Gemini 2.5 Flash: 63.6 / 56.2 /
   55.6 EX at best per setup, above the best published MySQL result (49.2) but not first on SQLite or
