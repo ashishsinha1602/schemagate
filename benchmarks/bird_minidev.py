@@ -201,6 +201,8 @@ def main():
     ap.add_argument("--repairs", type=int, default=3)
     ap.add_argument("--max-tokens", type=int, default=16000)
     ap.add_argument("--workers", type=int, default=6)
+    ap.add_argument("--max-calls", type=int, default=0,
+                    help="stop after this many model calls (0 = no limit); re-run the same command to resume")
     ap.add_argument("--limit", type=int, default=0, help="only the first N questions (a pilot)")
     ap.add_argument("--dialect", choices=list(DIALECTS), default="sqlite")
     ap.add_argument("--url", help="SQLAlchemy URL of the loaded Mini-Dev database (postgresql, mysql)")
@@ -265,8 +267,14 @@ def main():
                 cats[db] = (cat.index(), path, d)
         return cats[db]
 
+    calls = {"n": 0}
+
     def patient(fn, *args, **kw):
         """Call the model, waiting out rate limits (429, an open circuit) instead of scoring a blank."""
+        if a.max_calls and calls["n"] >= a.max_calls:
+            raise SystemExit(f"stopped: --max-calls {a.max_calls} reached ({len(done)} predictions written; "
+                             "re-run the same command to resume)")
+        calls["n"] += 1
         for attempt in range(8):
             try:
                 return fn(*args, **kw)
