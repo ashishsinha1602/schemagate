@@ -46,6 +46,12 @@ jobs:
         with:
           results_file: results.sarif
           results_format: sarif
+          # The default token cannot read classic branch protection, so the
+          # Branch-Protection check reported an internal error instead of a
+          # score. SCORECARD_TOKEN is a fine-grained, read-only token with
+          # Administration: read on this repository only. Until it exists the
+          # run falls back to the default token and behaves as before.
+          repo_token: ${{ secrets.SCORECARD_TOKEN || github.token }}
           # Public, so the badge and the detail behind it are readable by
           # anyone deciding whether to install this.
           publish_results: true
