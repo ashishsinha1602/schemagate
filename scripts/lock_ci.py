@@ -15,6 +15,7 @@ pointed at these files.
 """
 from __future__ import annotations
 
+import os
 import pathlib
 import subprocess
 import sys
@@ -65,6 +66,9 @@ def lock(name: str, extras, lines) -> None:
         # --no-annotate: the "# via" notes would name machine-local temp files
         cmd = ["uv", "pip", "compile", *inputs, "--universal", "--python-version", "3.10",
                "--generate-hashes", "--no-header", "--no-annotate", "--quiet", "-o", str(out)]
+        # existing pins are kept unless named here: LOCK_UPGRADE="uv requests" moves just those (a security fix)
+        for pkg in os.environ.get("LOCK_UPGRADE", "").split():
+            cmd += ["--upgrade-package", pkg]
         for e in extras or []:
             cmd += ["--extra", e]
         subprocess.run(cmd, check=True, cwd=ROOT)
