@@ -40,6 +40,9 @@ LOCKS = {
     "e2e-mysql":      (["mcp", "mysql"], ["uv"]),
     "e2e-mssql":      (["mcp", "mssql"], ["uv"]),
     "e2e-oracle":     (["mcp", "oracle"], ["uv"]),
+    # uniql-oracle.yml: UniQL's loader + scorer; the -oci one adds the OCI SDK for MODE=full only
+    "uniql-oracle":     (["oracle"], ["python-dateutil", "func_timeout"]),
+    "uniql-oracle-oci": (["oracle", "oci"], ["python-dateutil", "func_timeout"]),
     "docker":         (["databases", "ai", "mcp"], []),
     "fuzz":           ([], ["sqlglot>=25"]),     # run_query's parser layer is under test too
     "ruff":           (None, ["ruff==0.16.8"]),
