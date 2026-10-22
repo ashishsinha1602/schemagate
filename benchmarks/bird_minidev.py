@@ -192,7 +192,9 @@ def descriptions(db_dir: pathlib.Path, tables) -> str:
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--data", required=True, help="the MINIDEV folder (mini_dev_sqlite.json, dev_databases/)")
+    ap.add_argument("--data", help="the MINIDEV folder (mini_dev_sqlite.json, dev_databases/)")
+    ap.add_argument("--questions", help="any BIRD question file instead (dev.json, test.json); SQLite only")
+    ap.add_argument("--db-root", help="folder with one <db_id>/<db_id>.sqlite per database (with --questions)")
     ap.add_argument("--out", required=True, help="predictions JSON to write")
     ap.add_argument("--model", default="google.gemini-2.5-flash")
     ap.add_argument("--top-k", type=int, default=8)
@@ -216,11 +218,19 @@ def main():
     from schemagate.ai.providers import AnthropicProvider, OCIGenAIProvider
     from schemagate.answer import UnsafeSQL, _strip_fences, check_read_only, generate_sql
 
-    root = pathlib.Path(a.data)
     dialect = DIALECTS[a.dialect]
-    qs = json.loads((root / f"mini_dev_{a.dialect}.json").read_text("utf-8"))
-    tables_of = {d["db_id"]: d["table_names_original"]
-                 for d in json.loads((root / "dev_tables.json").read_text("utf-8"))}
+    if a.questions:
+        if a.dialect != "sqlite" or not a.db_root:
+            ap.error("--questions needs --db-root and the sqlite dialect")
+        qs = json.loads(pathlib.Path(a.questions).read_text("utf-8"))
+        dbroot = pathlib.Path(a.db_root)
+        tables_of = {}
+    else:
+        root = pathlib.Path(a.data)
+        qs = json.loads((root / f"mini_dev_{a.dialect}.json").read_text("utf-8"))
+        dbroot = root / "dev_databases"
+        tables_of = {d["db_id"]: d["table_names_original"]
+                     for d in json.loads((root / "dev_tables.json").read_text("utf-8"))}
     engine = None
     if a.dialect != "sqlite":
         import sqlalchemy as sa
@@ -244,7 +254,7 @@ def main():
     def catalog(db):
         with lock:
             if db not in cats:
-                d = root / "dev_databases" / db
+                d = dbroot / db
                 if engine is None:
                     path = d / f"{db}.sqlite"
                     cat = Catalog(name=db).bootstrap(f"sqlite:///{path.as_posix()}", sample_values=True)
