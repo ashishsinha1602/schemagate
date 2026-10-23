@@ -107,13 +107,23 @@ def test_role_list_revoke_on_a_reused_catalog_takes_effect_on_the_next_call():
     cat.add_all(_docs())
 
     before = cat.select(q, top_k=3, principal=ALICE)
-    assert "vt_salaries" in _names(before)          # unrestricted: alice may see it
+    assert "vt_salaries" in _names(before), (        # unrestricted: alice may see it
+        f"control failed before any change: alice did not get vt_salaries, got {_names(before)}")
 
     cat.restrict("vt_salaries", ["payroll"])        # revoke; same caller, same catalog object
     revoked = cat.select(q, top_k=3, principal=ALICE)
-    assert "vt_salaries" not in _names(revoked)
+    assert "vt_salaries" not in _names(revoked), (
+        f"sales removed from vt_salaries; the next select for alice still returned it: {_names(revoked)}")
     assert "vt_salaries" not in revoked.prompt_fragment()
     assert "annual_amount" not in revoked.prompt_fragment()
+
+    # The control that an always-deny path or a refresh of something unrelated
+    # would fail: a caller whose membership did NOT change keeps seeing the table
+    # on the same catalog object, before and after the change to alice's view.
+    carol = Principal("okta:carol", roles=frozenset({"payroll"}))
+    kept = cat.select(q, top_k=3, principal=carol)
+    assert "vt_salaries" in _names(kept), (
+        f"carol's membership was unchanged (payroll); after alice's revoke she lost vt_salaries: {_names(kept)}")
 
     cat.restrict("vt_salaries", ["payroll", "sales"])   # grant back
     regranted = cat.select(q, top_k=3, principal=ALICE)
