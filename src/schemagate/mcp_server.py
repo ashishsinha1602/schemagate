@@ -112,17 +112,28 @@ _STATE: Dict[str, Any] = {
     "calls": 0, "errors": 0,
     # catalogue freshness (SCHEMAGATE_CATALOG_MAX_AGE), on the monotonic clock
     "max_age": None, "read_at_mono": None, "last_attempt_mono": None,
+    "reread_timeout": None,
 }
 
 #: The clock catalogue age is measured on. Monotonic, so a wall-clock change
 #: cannot make a stale catalogue look fresh; tests replace it.
 _clock: Callable[[], float] = time.monotonic
-#: Only one call re-reads an expired catalogue; the others wait for it.
+#: Only one call re-reads an expired catalogue; the others join that re-read.
+#: The lock guards the bookkeeping, never the re-read itself.
 _REFRESH_LOCK = threading.Lock()
+#: The re-read in flight, if any: {"done": Event, "ok": bool}. It runs on its
+#: own thread so that a caller's wait for it can be bounded.
+_REREAD_JOB: Dict[str, Any] = {"job": None}
 #: A failed automatic re-read is retried at most this often, so a database
 #: outage is not answered with a reflection storm. Calls in between are
 #: refused straight away.
 STALE_RETRY_SECONDS = 5.0
+#: How long a call waits for the re-read of an expired catalogue before it is
+#: refused as stale. A database that accepts the connection and never answers
+#: must not hold every caller open with it: past this, callers are refused and
+#: the re-read keeps running; if it does return, the catalogue it brings is
+#: served from then on. SCHEMAGATE_REREAD_TIMEOUT overrides it.
+REREAD_TIMEOUT = 30.0
 
 
 class StaleCatalogError(Exception):
@@ -146,6 +157,21 @@ def _max_age() -> Optional[float]:
         raise SystemExit(f"SCHEMAGATE_CATALOG_MAX_AGE must be a number of seconds, got {raw!r}") from None
     if not value > 0 or value == float("inf"):
         raise SystemExit(f"SCHEMAGATE_CATALOG_MAX_AGE must be a positive number of seconds, got {raw!r}")
+    return value
+
+
+def _reread_timeout() -> float:
+    """``SCHEMAGATE_REREAD_TIMEOUT`` in seconds, default `REREAD_TIMEOUT`.
+    Validated at startup for the same reason as the max age."""
+    raw = (os.environ.get("SCHEMAGATE_REREAD_TIMEOUT") or "").strip()
+    if not raw:
+        return REREAD_TIMEOUT
+    try:
+        value = float(raw)
+    except ValueError:
+        raise SystemExit(f"SCHEMAGATE_REREAD_TIMEOUT must be a number of seconds, got {raw!r}") from None
+    if not value > 0 or value == float("inf"):
+        raise SystemExit(f"SCHEMAGATE_REREAD_TIMEOUT must be a positive number of seconds, got {raw!r}")
     return value
 
 
@@ -320,6 +346,7 @@ def build_catalog(url: Optional[str] = None, config_path: Optional[str] = None,
                 "or use SCHEMAGATE_DATABASE_URL=demo for the bundled schema")
         config_path = config_path or os.environ.get("SCHEMAGATE_CATALOG_CONFIG")
         max_age = _max_age()                 # validated before any database work
+        reread_timeout = _reread_timeout()   # likewise
         _STATE["rerank"] = _rerank_check()   # likewise
         _STATE["semantic"] = _semantic_check()
         cat = _reflect(url, config_path)
@@ -330,11 +357,12 @@ def build_catalog(url: Optional[str] = None, config_path: Optional[str] = None,
         globals()["_ENGINE"] = None
         _STATE.update(url=_redact(url), config=config_path,
                       last_refresh_at=time.time(), last_refresh_ok=True,
-                      last_error=None, max_age=max_age,
+                      last_error=None, max_age=max_age, reread_timeout=reread_timeout,
                       read_at_mono=_clock(), last_attempt_mono=None)
         if max_age:
             log.info("catalogue max age %.0f s: an older catalogue is re-read before use, "
-                     "and if that fails the scoping tools refuse", max_age)
+                     "and if that fails or takes more than %.0f s the scoping tools refuse",
+                     max_age, reread_timeout)
         return cat
 
 
@@ -643,12 +671,16 @@ def _ensure_fresh() -> None:
     """Re-read an expired catalogue before it is used; refuse if that fails.
 
     Only with ``SCHEMAGATE_CATALOG_MAX_AGE`` set and a database to re-read (a
-    catalogue handed in directly has none). One caller re-reads under
-    `_REFRESH_LOCK`; callers that queued behind it find a fresh catalogue and
-    go on. A failed re-read is retried at most every `STALE_RETRY_SECONDS`;
-    until one succeeds, every call is refused with `StaleCatalogError`. The
-    refusal never carries the database's own error text, which can name hosts
-    and users; that goes to the log and to `health`.
+    catalogue handed in directly has none). One re-read runs at a time, on its
+    own thread; every caller that finds the catalogue expired joins it and
+    waits at most `REREAD_TIMEOUT` seconds. A re-read that fails, or has not
+    answered by then, refuses the caller with `StaleCatalogError`: nobody is
+    answered from the expired catalogue, and nobody is held open by a database
+    that took the connection and went quiet. A re-read that returns late still
+    publishes its catalogue, and the next call is served from it. A failed
+    re-read is retried at most every `STALE_RETRY_SECONDS`. The refusal never
+    carries the database's own error text, which can name hosts and users;
+    that goes to the log and to `health`.
     """
     max_age = _STATE.get("max_age")
     if not max_age or _STATE.get("url") in (None, "<provided>"):
@@ -656,21 +688,55 @@ def _ensure_fresh() -> None:
     age = _catalog_age()
     if age is not None and age <= max_age:
         return
-    with _REFRESH_LOCK:
-        age = _catalog_age()
-        if age is not None and age <= max_age:
-            return                                   # another call re-read it
-        last = _STATE.get("last_attempt_mono")
-        if last is None or _clock() - last >= STALE_RETRY_SECONDS:
-            _STATE["last_attempt_mono"] = _clock()
-            if _reread()["ok"]:
-                return
-        age = _catalog_age() or 0.0
+    job = _join_reread()
+    if job is not None:
+        timeout = _STATE.get("reread_timeout") or REREAD_TIMEOUT
+        if not job["done"].wait(timeout):
+            _STATE.update(last_refresh_ok=False,
+                          last_error=f"refresh: no answer from the database after {timeout:.0f} s; "
+                                     "the re-read is still running")
+            log.warning("catalogue re-read has taken more than %.0f s; refusing calls until it returns",
+                        timeout)
+        elif job["ok"]:
+            return
+    age = _catalog_age() or 0.0
     raise StaleCatalogError(
         f"permissions are stale: the catalogue was read {age:.0f} s ago, the limit "
         f"(SCHEMAGATE_CATALOG_MAX_AGE) is {max_age:.0f} s, and re-reading the database "
         "failed. Refusing until a re-read succeeds; the operator can see why in health "
         "and the server log.")
+
+
+def _join_reread() -> Optional[Dict[str, Any]]:
+    """The re-read in flight, starting one if none is and the retry pacing
+    allows. None means a recent attempt failed and it is too soon to try again."""
+    with _REFRESH_LOCK:
+        job = _REREAD_JOB.get("job")
+        if job is not None and not job["done"].is_set():
+            return job                                   # join the one already running
+        last = _STATE.get("last_attempt_mono")
+        if last is not None and _clock() - last < STALE_RETRY_SECONDS:
+            return None
+        _STATE["last_attempt_mono"] = _clock()
+        job = {"done": threading.Event(), "ok": False}
+        _REREAD_JOB["job"] = job
+        threading.Thread(target=_run_reread, args=(job,), daemon=True,
+                         name="schemagate-reread").start()
+        return job
+
+
+def _run_reread(job: Dict[str, Any]) -> None:
+    try:
+        job["ok"] = bool(_reread().get("ok"))
+    except Exception:                                    # noqa: BLE001  _reread reports its own failures
+        log.exception("catalogue re-read thread failed")
+    finally:
+        job["done"].set()
+
+
+def _reread_in_flight() -> bool:
+    job = _REREAD_JOB.get("job")
+    return job is not None and not job["done"].is_set()
 
 
 def _principal(subject: Optional[str], roles: Optional[List[str]]) -> Optional[Principal]:
@@ -1124,6 +1190,8 @@ def health() -> Dict[str, Any]:
         "last_error": _STATE["last_error"],
         "catalog_age_seconds": None if _catalog_age() is None else round(_catalog_age(), 1),
         "catalog_max_age_seconds": _STATE.get("max_age"),
+        "catalog_reread_timeout_seconds": _STATE.get("reread_timeout"),
+        "reread_in_flight": _reread_in_flight(),
         "rerank": bool(_STATE.get("rerank")),
         "semantic": bool(_STATE.get("semantic")),
         # where identity comes from: "oauth" (a verified token), "none" (HTTP, client-asserted), "stdio"

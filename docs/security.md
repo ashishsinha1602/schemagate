@@ -88,7 +88,7 @@ from the catalogue's.
 | `SELECT *` pulls a hidden column | `*` is expanded against visibility and refused if it would include one | `tests/test_mcp_server.py` |
 | The model writes or chains statements | single-read check that strips comments and literals first | `tests/test_answer.py` |
 | A Postgres view runs with its owner's rights and bypasses row-level security | policied tables are probed as the caller; non-`security_invoker` views over them are flagged or hidden | `tests/test_rls.py`, live job `postgres.yml` |
-| The rules drift from the database | `--restrict-from-grants` reads GRANTs directly; `SCHEMAGATE_CATALOG_MAX_AGE` bounds how old they may be and refuses past it if they cannot be re-read | `tests/test_grants.py`, `tests/test_catalog_max_age.py`, `tests/freshness_e2e.py` (real GRANT/REVOKE on PostgreSQL, MySQL, Oracle) |
+| The rules drift from the database | `--restrict-from-grants` reads GRANTs directly; `SCHEMAGATE_CATALOG_MAX_AGE` bounds how old they may be and refuses past it if they cannot be re-read, or if the re-read has not answered within `SCHEMAGATE_REREAD_TIMEOUT` (default 30 s) | `tests/test_grants.py`, `tests/test_catalog_max_age.py` (including a re-read held open), `tests/freshness_e2e.py` (real GRANT/REVOKE on PostgreSQL, MySQL, Oracle) |
 | Someone edits the audit trail after the fact | hash chain plus ML-DSA-65 signatures; `audit verify` | `tests/test_pq_audit.py` |
 | A tampered release | PEP 740 attestations, Sigstore-signed stack zip, pinned Actions | `.github/workflows/publish.yml` |
 | Injection through the build pipeline | no `pull_request_target`; least-privilege tokens; CodeQL on every push | OpenSSF Scorecard: Dangerous-Workflow and Token-Permissions 10/10 |
