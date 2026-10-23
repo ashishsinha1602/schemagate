@@ -140,6 +140,7 @@ def build_index() -> None:
     # what Google's spam policies call hidden text, on the one page meant to rank.
     intro = ('<header class="sg-intro"><h1>schemagate: schema selection for text-to-SQL</h1>'
              f'<p>{html.escape(DESC)} '
+             'BIRD dev: 77.1% execution accuracy with one model call per question; UniQL Oracle: 64.5% first try. '
              '<a href="/schemagate/install/">Install</a> · <a href="/schemagate/benchmarks/">Benchmarks</a> · '
              f'<a href="{REPO}">GitHub</a></p></header>')
     intro_css = (".sg-intro{padding:10px 16px;border-bottom:1px solid rgba(127,127,127,.25);"
@@ -186,9 +187,10 @@ def build_benchmarks() -> None:
              '<a class="cta" href="/schemagate/">Try the demo</a></p>')
     (SITE / "benchmarks").mkdir(parents=True, exist_ok=True)
     (SITE / "benchmarks" / "index.html").write_text(page(
-        "schemagate on Spider, BIRD and Spider 2.0 — table recall and execution accuracy",
-        "Measured table recall on Spider (1,034 questions), BIRD (1,534) and Spider 2.0-lite, "
-        "end-to-end execution accuracy, and the two corrections to a published figure.",
+        "schemagate on BIRD, UniQL, Spider and Spider 2.0 — execution accuracy and table recall",
+        "BIRD dev 77.1% execution accuracy with one model call per question; BIRD Mini-Dev 81.0 / 72.6 / 72.4 "
+        "on SQLite / PostgreSQL / MySQL; UniQL Oracle 64.5% first try; table recall on Spider, BIRD and "
+        "Spider 2.0-lite. Scored by each benchmark's own evaluator.",
         "/benchmarks/", body), "utf-8")
 
 
@@ -500,7 +502,7 @@ Oracle 23ai VECTOR store.
 - PyPI: https://pypi.org/project/schemagate/
 - Demo (runs in the browser, no database): {BASE}/
 - Install, Docker and the OCI stack: {BASE}/install/
-- Benchmarks (Spider, BIRD, Spider 2.0): {BASE}/benchmarks/
+- Benchmarks: BIRD dev 77.1% execution accuracy (1,534 questions, one model call each), BIRD Mini-Dev 81.0 / 72.6 / 72.4 EX on SQLite / PostgreSQL / MySQL, UniQL Oracle 64.5% first try (best published 49.6), plus table recall on Spider, BIRD and Spider 2.0: {BASE}/benchmarks/
 - RBAC Text-to-SQL benchmark (SIGMOD 2027), scored by the authors' evaluator: {BASE}/rbac-benchmark/
 - Running it with a local model, no API key: {BASE}/local-models/
 - LangChain: a retriever for SQL agents whose schema outgrows the context window: {BASE}/langchain/

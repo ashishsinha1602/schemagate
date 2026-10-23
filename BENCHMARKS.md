@@ -1,4 +1,4 @@
-# schemagate on Spider, BIRD and Spider 2.0
+# schemagate on BIRD, UniQL, Spider and Spider 2.0
 
 Every other number in this repo is measured on schemas I invented. That is
 fine for catching regressions and worth very little to anyone else: a schema
@@ -8,15 +8,56 @@ that.
 
 So here are the same measurements on the public text-to-SQL benchmarks.
 The data is downloaded from the original sources, the scripts are in
-[`benchmarks/`](benchmarks/), and the whole thing reruns in about three
+[`benchmarks/`](benchmarks/), and the retrieval part reruns in about three
 minutes.
 
-## What is being measured
+## Execution accuracy, scored by each benchmark's own evaluator
 
-schemagate does not write SQL, so it cannot appear on either leaderboard —
-those score execution accuracy of generated queries. What it does is pick the
-tables, so what is scored here is **table recall**: given a question, does the
-selected set contain every table the benchmark's own reference SQL reads.
+These are end-to-end numbers: schemagate picks the tables, the model writes
+one query against only those tables, the query runs, and the benchmark's own
+evaluator compares the rows with its reference answer. Nothing reads the gold
+SQL. Every prediction file and evaluator output is in
+[`benchmarks/results/`](benchmarks/results/).
+
+| Benchmark | Model | Execution accuracy | Best published, on 2026-10-19 |
+|---|---|---|---|
+| **BIRD dev**, all 1,534 questions (SQLite) | Claude Opus 5.5 | **77.12** (simple 80.97 / moderate 71.34 / challenging 71.03) | main board, hidden test set: 82.95; a test-set submission was sent on 2026-10-22 |
+| **BIRD Mini-Dev**, 500 questions, SQLite | Claude Opus 5.5 | **81.00** | 75.60 (Jitto Build, the same model) |
+| BIRD Mini-Dev, PostgreSQL | Claude Opus 5.5 | **72.60** | 65.80 (Ontology2SQL, deepseek-v4-flash as a 12-step agent) |
+| BIRD Mini-Dev, MySQL | Claude Opus 5.5 | **72.40** | 49.20 (TA + GPT-4) |
+| BIRD Mini-Dev, SQLite / PostgreSQL / MySQL | Gemini 2.5 Flash, a light model | 63.60 / 56.20 / 55.60 | above the MySQL leader; below the other two |
+| **UniQL, Oracle dialect**, 1,534 questions, first try only | Gemini 2.5 Flash | **64.47** (67.60 with one execution repair) | 49.61 (Claude Sonnet 4.5, UniQL's own baseline) |
+
+What is the same in every row: one model call per question, about 2,100
+prompt tokens, no candidate generation, no voting, no agent loop. The only
+extra call is a repair when the database raises an error (1 of 1,534 on BIRD
+dev). The BIRD numbers come from BIRD's `evaluation_ex.py`, the Oracle number
+from UniQL's `evaluate.py --dialect oracle`, each run on the files in the
+results folder.
+
+What to read with care. Opus is not deterministic: a re-run of the Mini-Dev
+SQLite setting gave 80.20 against 81.00, so treat single-run numbers as about
+±1. Mini-Dev and dev rows on BIRD's site are self-reported; ours are in
+[bird-bench PR #251](https://github.com/bird-bench/bird-bench.github.io/pull/251)
+awaiting the maintainers, and the hidden test set, which only the BIRD team
+runs, is the one number that is not self-reported. BIRD's `evidence` string is
+passed through with the question, as the benchmark intends and as published
+systems do. Details, difficulty splits, and what the Oracle rules changed:
+[Mini-Dev](benchmarks/results/bird_minidev/README.md),
+[dev](benchmarks/results/bird_dev/README.md),
+[UniQL Oracle](benchmarks/results/uniql_oracle/README.md).
+
+Access control is scored separately, by two benchmarks whose evaluators I did
+not write: AC-F1 90.1 on the RBAC Text-to-SQL benchmark and refusal F1 0.984
+on Spider-ACL, with zero queries that read ungranted data in either. Those
+sections are [further down](#access-control-scored-by-someone-else-the-rbac-text-to-sql-benchmark).
+
+## What is being measured in the retrieval sections
+
+Everything from here to the access-control sections scores the part that is
+schemagate's own job: picking the tables. What is scored is **table recall**:
+given a question, does the selected set contain every table the benchmark's
+own reference SQL reads.
 
 Two numbers per row:
 
@@ -1092,26 +1133,37 @@ writes the query against only those tables, `run_sql()` executes it. The model
 never sees a table selection did not return.
 
 ```
-BIRD dev, n=150 (seeded, stratified by database), claude-opus-5, top_k=10
+BIRD dev, all 1,534 questions, claude-opus-5-5, scored by BIRD's evaluation_ex.py (2026-10-22)
 
-  SQL written               146/150   97.3%
-  executed without error    146/150   97.3%
-  EXECUTION ACCURACY        102/150   68.0%
+  EXECUTION ACCURACY        77.12%
+    simple       (925)      80.97%
+    moderate     (464)      71.34%
+    challenging  (145)      71.03%
+  repair calls (SQLite raised an error)       1 of 1,534
+  asked again after the model declined       12 of 1,534
 ```
+
+An earlier version of this section reported 68.0% on a seeded 150-question
+sample with claude-opus-5. The full set with the current model is above, and
+the sample runner (`benchmarks/bird_e2e.py`) is still in the repo.
 
 Rows are compared as sets, which is how BIRD's own evaluator scores them:
 order is not graded.
 
-Three things this is not. It is **not a leaderboard placing** -- that needs the
-held-out test set and a formal submission, and nothing here has been submitted.
-It is a **sample, not the full 1,534**, because every question is a
-frontier-model call; the sample is seeded, so it is the same 150 every run, and
-the per-database counts are proportional. And BIRD's own `evidence` string is
-passed through with the question, which is what the benchmark intends and what
-published systems do, but it is a hint a real user would have to write.
+Three things this is not. It is **not yet a leaderboard placing** -- that needs
+the held-out test set, which only the BIRD team can run; the submission package
+in [`benchmarks/results/bird_dev/`](benchmarks/results/bird_dev/) was sent to
+them on 2026-10-22 and this page will carry whatever number they report. It is
+**one model call per question**, so it is not comparable in cost with the
+multi-candidate systems at the top of the main board. And BIRD's own
+`evidence` string is passed through with the question, which is what the
+benchmark intends and what published systems do, but it is a hint a real user
+would have to write.
 
-Run it yourself with `python benchmarks/bird_e2e.py`; `BIRD_SAMPLE=1534` does
-the lot.
+Run it yourself with `python benchmarks/bird_minidev.py --questions dev.json
+--db-root <dev_databases> --provider anthropic --model claude-opus-5-5`; the
+Mini-Dev and UniQL Oracle runs are in the same folder, with their exact commands
+in their READMEs.
 
 ## Reproducing this
 
@@ -1145,10 +1197,13 @@ suppressed, which is the ablation above.
 
 ## What these numbers are not
 
-They are not a leaderboard placing, and schemagate is not eligible for one:
-both boards score generated SQL, and this writes none. They are not
-end-to-end accuracy either — a perfect table selection still leaves the model
-to write a correct query.
+The retrieval numbers are not a leaderboard placing: the boards score
+generated SQL, and table recall is one step before it. They are not end-to-end
+accuracy either — a perfect table selection still leaves the model to write a
+correct query, which is why the execution-accuracy section at the top exists.
+And the execution-accuracy numbers are not yet a verified placing: the Mini-Dev
+rows are self-reported until BIRD merges them, and the test-set result is
+BIRD's to report.
 
 What they are is a claim you can check without trusting me, on data neither
 of us controls.
