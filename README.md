@@ -419,6 +419,7 @@ call per question, about 2,100 prompt tokens, no candidates, no voting, no agent
 | BIRD dev, all 1,534 questions | Claude Opus 5.5 | **77.12** | test-set submission sent 2026-10-22 |
 | BIRD Mini-Dev, SQLite / PostgreSQL / MySQL | Claude Opus 5.5 | **81.0 / 72.6 / 72.4** | 75.6 / 65.8 / 49.2 |
 | UniQL, Oracle dialect, first try | Gemini 2.5 Flash | **64.47** | 49.61 (Claude Sonnet 4.5) |
+| Spider 2.0-lite, the 135 SQLite questions only | Claude Sonnet 5.5 | **71.9** | 57.78 Pass@1 (FlexSQL agent, gpt-oss-120b) |
 
 Opus varies about ±1 run to run; the Mini-Dev rows are self-reported until BIRD merges
 [PR #251](https://github.com/bird-bench/bird-bench.github.io/pull/251). Files and commands:

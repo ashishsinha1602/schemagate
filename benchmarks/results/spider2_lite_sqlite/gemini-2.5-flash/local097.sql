@@ -1,0 +1,12 @@
+SELECT
+  CAST(T1.year AS INTEGER) AS start_year,
+  COUNT(T2.MID) AS movie_count
+FROM main.Movie AS T1
+JOIN main.Movie AS T2
+  ON CAST(T2.year AS INTEGER) >= CAST(T1.year AS INTEGER)
+  AND CAST(T2.year AS INTEGER) < CAST(T1.year AS INTEGER) + 10
+GROUP BY
+  CAST(T1.year AS INTEGER)
+ORDER BY
+  movie_count DESC
+LIMIT 1

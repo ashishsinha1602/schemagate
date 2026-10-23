@@ -10,6 +10,10 @@
   running, and if it does return its catalogue is served from then on. `health` reports
   `reread_in_flight` and `catalog_reread_timeout_seconds`. `tests/test_catalog_max_age.py` holds a
   re-read open and checks the bound.
+- Spider 2.0-lite, the 135 SQLite questions, scored by Spider 2.0's own evaluator
+  (`benchmarks/results/spider2_lite_sqlite/`): schemagate + Claude Sonnet 5.5, one query per question, 97 of
+  135 = 71.9 EX; Gemini 2.5 Flash 39.3, and 40.7 with the full schema and no schemagate. One third of the
+  benchmark, not a leaderboard row.
 
 ## 1.10.0
 

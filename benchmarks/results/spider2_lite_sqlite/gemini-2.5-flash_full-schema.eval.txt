@@ -1,0 +1,9 @@
+python evaluate.py --mode sql --result_dir gemini-2.5-flash_full-schema     (Spider2/spider2-lite/evaluation_suite, 2026-10-23)
+
+Evaluating SQL: 100%|##########| 133/133 [02:21<00:00,  1.06s/it]
+Final score: 0.41353383458646614, Correct examples: 55, Total examples: 133
+Real score: 0.10054844606946983, Correct examples: 55, Total examples: 547
+Correct IDs saved to: gemini-2.5-flash_full-schema.correct_ids.csv
+
+Note: the control arm (--full-schema: the model sees every table, schemagate selects nothing). 133 .sql files for
+135 questions; 55 / 135 = 40.7%.

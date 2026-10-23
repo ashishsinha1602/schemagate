@@ -27,6 +27,8 @@ SQL. Every prediction file and evaluator output is in
 | BIRD Mini-Dev, MySQL | Claude Opus 5.5 | **72.40** | 49.20 (TA + GPT-4) |
 | BIRD Mini-Dev, SQLite / PostgreSQL / MySQL | Gemini 2.5 Flash, a light model | 63.60 / 56.20 / 55.60 | above the MySQL leader; below the other two |
 | **UniQL, Oracle dialect**, 1,534 questions, first try only | Gemini 2.5 Flash | **64.47** (67.60 with one execution repair) | 49.61 (Claude Sonnet 4.5, UniQL's own baseline) |
+| **Spider 2.0-lite, the 135 SQLite questions** (one third of the set; not a leaderboard row) | Claude Sonnet 5.5 | **71.9** (97 of 135) | 57.78 Pass@1 / 64.44 Majority@8 (FlexSQL, gpt-oss-120b, an agent) |
+| Spider 2.0-lite SQLite, same 135 | Gemini 2.5 Flash | 39.3 (full schema, no schemagate: 40.7) | the light model is not competitive here |
 
 What is the same in every row: one model call per question, about 2,100
 prompt tokens, no candidate generation, no voting, no agent loop. The only
@@ -42,10 +44,14 @@ SQLite setting gave 80.20 against 81.00, so treat single-run numbers as about
 awaiting the maintainers, and the hidden test set, which only the BIRD team
 runs, is the one number that is not self-reported. BIRD's `evidence` string is
 passed through with the question, as the benchmark intends and as published
-systems do. Details, difficulty splits, and what the Oracle rules changed:
+systems do. The Spider 2.0 row is one third of that benchmark: the BigQuery and
+Snowflake tasks need credentials these runs did not have, so it is a measurement,
+not a placing, and the FlexSQL comparison is not same-model. Details, difficulty
+splits, and what the Oracle rules changed:
 [Mini-Dev](benchmarks/results/bird_minidev/README.md),
 [dev](benchmarks/results/bird_dev/README.md),
-[UniQL Oracle](benchmarks/results/uniql_oracle/README.md).
+[UniQL Oracle](benchmarks/results/uniql_oracle/README.md),
+[Spider 2.0-lite SQLite](benchmarks/results/spider2_lite_sqlite/README.md).
 
 Access control is scored separately, by two benchmarks whose evaluators I did
 not write: AC-F1 90.1 on the RBAC Text-to-SQL benchmark and refusal F1 0.984
