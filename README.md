@@ -410,6 +410,20 @@ The paper's systems are 2024-25 models; details and limits in
 [BENCHMARKS.md](BENCHMARKS.md#access-control-a-second-benchmark-spider-acl), and both results in one
 [technical report (PDF)](docs/papers/schemagate_access_control.pdf), [DOI 10.5281/zenodo.23446210](https://doi.org/10.5281/zenodo.23446210).
 
+**On execution accuracy, scored by the benchmarks' own evaluators.** One model
+call per question, about 2,100 prompt tokens, no candidates, no voting, no agent loop:
+
+| | Model | EX | Best published, 2026-10-19 |
+|---|---|---|---|
+| BIRD dev, all 1,534 questions | Claude Opus 5.5 | **77.12** | test-set submission sent 2026-10-22 |
+| BIRD Mini-Dev, SQLite / PostgreSQL / MySQL | Claude Opus 5.5 | **81.0 / 72.6 / 72.4** | 75.6 / 65.8 / 49.2 |
+| UniQL, Oracle dialect, first try | Gemini 2.5 Flash | **64.47** | 49.61 (Claude Sonnet 4.5) |
+
+Opus varies about ±1 run to run; the Mini-Dev rows are self-reported until BIRD merges
+[PR #251](https://github.com/bird-bench/bird-bench.github.io/pull/251). Files and commands:
+[`benchmarks/results/`](benchmarks/results/); the context is in
+[BENCHMARKS.md](BENCHMARKS.md#execution-accuracy-scored-by-each-benchmarks-own-evaluator).
+
 **On public benchmarks, so you can check them without trusting me:**
 [BENCHMARKS.md](BENCHMARKS.md) has schemagate on Spider and BIRD, with the
 scripts in [`benchmarks/`](benchmarks/) and the data downloaded from the
