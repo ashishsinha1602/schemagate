@@ -1,0 +1,16 @@
+WITH ay AS (
+  SELECT DISTINCT c.PID, CAST(substr(m.year, -4) AS INTEGER) AS y
+  FROM M_Cast c
+  JOIN Movie m ON m.MID = c.MID
+),
+g AS (
+  SELECT PID, y - LAG(y) OVER (PARTITION BY PID ORDER BY y) AS d
+  FROM ay
+)
+SELECT COUNT(*)
+FROM (
+  SELECT PID
+  FROM g
+  GROUP BY PID
+  HAVING COALESCE(MAX(d), 0) <= 4
+)

@@ -1,0 +1,11 @@
+python evaluate.py --mode sql --result_dir claude-sonnet-5-5     (Spider2/spider2-lite/evaluation_suite, 2026-10-23)
+
+Evaluating SQL: 100%|##########| 133/133 [20:44<00:00,  9.36s/it]
+Final score: 0.7293233082706767, Correct examples: 97, Total examples: 133
+Real score: 0.1773308957952468, Correct examples: 97, Total examples: 547
+Correct IDs saved to: claude-sonnet-5-5.correct_ids.csv
+
+Note: "Total examples: 133" is the number of .sql files present. The run has 135 questions; for 2 the model
+declined three times and no file was written, which counts as wrong. The number this repo reports is therefore
+97 / 135 = 71.9%, not the evaluator's 72.9% over the files it found. "Real score" divides by all 547 Spider 2.0-lite
+tasks (BigQuery and Snowflake included), which this run did not attempt.

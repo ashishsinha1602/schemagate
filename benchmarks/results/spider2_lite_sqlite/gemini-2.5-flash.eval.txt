@@ -1,0 +1,7 @@
+python evaluate.py --mode sql --result_dir gemini-2.5-flash     (Spider2/spider2-lite/evaluation_suite, 2026-10-23)
+
+Final score: 0.4108527131782946, Correct examples: 53, Total examples: 129
+Real score: 0.09689213893967093, Correct examples: 53, Total examples: 547
+Correct IDs saved to: gemini-2.5-flash.correct_ids.csv
+
+Note: 129 .sql files for 135 questions; the 6 the model declined three times count as wrong: 53 / 135 = 39.3%.
