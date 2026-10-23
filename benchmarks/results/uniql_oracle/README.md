@@ -37,6 +37,13 @@ schemagate now gives the model Oracle's rules when the target is Oracle (`DIALEC
 repaired score moves within run-to-run noise. Nearly every first query now runs, so the repair step matters
 much less.
 
+**No held-out set.** The two rules were read from the error log of these 1,534 questions, and the re-run is
+the same 1,534 questions. The rules are about Oracle syntax (no `AS` before a table alias; quote reserved
+words used as column names), not about any question's content, but 64.47 is still a number measured on the
+set the rules came from. There is no second Oracle question set to report yet. The two rules were also added
+together, so their separate contributions are only known from the first run's error counts: 551 of the 694
+failed first tries were ORA-03048 and 100 were ORA-03050.
+
 **About the first run (before the rules): its rows were measured differently, so read them with that in
 mind.** UniQL's published baselines are
 models answering once, with no execution feedback. schemagate is a system: it runs the query, and if Oracle
