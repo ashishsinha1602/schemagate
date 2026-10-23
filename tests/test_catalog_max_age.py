@@ -12,6 +12,7 @@ past it with the re-read failing, the retry pacing, and recovery.
 """
 import json
 import threading
+import time
 
 import pytest
 
@@ -262,6 +263,59 @@ def test_callers_waiting_on_the_reread_never_see_the_expired_catalogue(server):
     assert len(results) == 10
     assert all("crm_customer" not in r for r in results), "a caller saw the expired catalogue"
     assert len(calls) == 1, f"{len(calls)} re-reads for one expiry"
+
+
+def test_a_hung_reread_is_bounded_and_refused_not_waited_on(server):
+    """A database that takes the connection and never answers. Callers wait at most the re-read
+    timeout and are then refused as stale: not answered from the expired catalogue, and not held
+    open. One re-read is in flight the whole time (no storm), health says so, and when the re-read
+    finally returns, the revoke it carries is what every later call sees."""
+    clock, cfg, calls, mp = server
+    assert "crm_customer" in json.dumps(mcp_server.list_objects())
+    cfg.write_text(json.dumps({"restrict": {"crm_customer": ["finance"]}}), encoding="utf-8")
+    clock.advance(61)
+    mp.setitem(mcp_server._STATE, "reread_timeout", 0.3)
+
+    counted = mcp_server._reflect                     # the fixture's wrapper: it records the re-read
+    started, release = [], threading.Event()
+
+    def hung(url, config_path):
+        started.append(1)
+        assert release.wait(30), "the test never released the re-read"
+        return counted(url, config_path)
+
+    mp.setattr(mcp_server, "_reflect", hung)
+    try:
+        t0 = time.monotonic()
+        outs = [(tool, _call(tool)) for tool in SCOPING]
+        elapsed = time.monotonic() - t0
+        assert elapsed < 5, f"callers were held {elapsed:.1f} s by a re-read that never answered"
+        for tool, out in outs:
+            assert "rows" not in out and "objects" not in out and "ddl" not in out, (tool, out)
+            assert "permissions are stale" in out["error"], (tool, out)
+        assert started == [1], f"{len(started)} re-reads started for one hung database"
+        h = mcp_server.health()
+        assert h["catalog_stale"] is True and h["reread_in_flight"] is True, h
+        assert "no answer" in (h["last_error"] or ""), h
+        assert "secret" not in json.dumps(outs)
+    finally:
+        release.set()
+    assert mcp_server._REREAD_JOB["job"]["done"].wait(30), "the released re-read never finished"
+    assert "crm_customer" not in json.dumps(mcp_server.list_objects()), "the late re-read was not served"
+    h = mcp_server.health()
+    assert h["catalog_stale"] is False and h["reread_in_flight"] is False, h
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize("bad", ["abc", "0", "-5", "inf", "nan"])
+def test_an_invalid_reread_timeout_stops_the_server_before_any_database_work(monkeypatch, bad):
+    monkeypatch.setenv("SCHEMAGATE_DATABASE_URL", "demo")
+    monkeypatch.setenv("SCHEMAGATE_REREAD_TIMEOUT", bad)
+    touched = []
+    monkeypatch.setattr(mcp_server, "_reflect", lambda *a: touched.append(1))
+    with pytest.raises(SystemExit, match="SCHEMAGATE_REREAD_TIMEOUT"):
+        mcp_server.build_catalog()
+    assert touched == []
 
 
 def test_a_stale_refusal_is_recorded_as_a_refusal(server):

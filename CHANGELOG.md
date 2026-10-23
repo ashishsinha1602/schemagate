@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- **A hung re-read is bounded.** With `SCHEMAGATE_CATALOG_MAX_AGE` set, the re-read of an expired
+  catalogue now runs on its own thread, and a caller waits for it at most `SCHEMAGATE_REREAD_TIMEOUT`
+  seconds (default 30). A database that accepts the connection and never answers used to hold that
+  caller, and everyone queued behind it, open indefinitely; now they are refused with the same
+  "permissions are stale" error, nobody is answered from the expired catalogue, the re-read keeps
+  running, and if it does return its catalogue is served from then on. `health` reports
+  `reread_in_flight` and `catalog_reread_timeout_seconds`. `tests/test_catalog_max_age.py` holds a
+  re-read open and checks the bound.
+
 ## 1.10.0
 
 - **Oracle rules in the SQL prompt.** `generate_sql` (and so `answer`, the CLI and Studio) now tells the
