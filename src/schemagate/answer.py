@@ -87,6 +87,67 @@ _FENCE = re.compile(r"```[a-zA-Z]*[ \t]*\r?\n(.*?)```", re.S)
 #: ends and SQL begins in an unfenced reply.
 _STATEMENT_START = re.compile(r"(?im)^[ \t]*(select|with)\b")
 
+#: Where an explanation can start after the query: a semicolon, or a blank line.
+_TAIL_BREAK = re.compile(r";|\n[ \t]*\n")
+
+#: Words a SQL continuation line starts with. A tail that starts with one of these is still SQL.
+_SQL_CONTINUES = re.compile(
+    r"(?i)^\W*(select|with|from|where|join|left|right|inner|outer|full|cross|natural|group|order|"
+    r"having|limit|offset|fetch|union|intersect|except|minus|and|or|not|on|using|as|case|when|then|"
+    r"else|end|values|qualify|window|over|partition|top|distinct|into|lateral|pivot|unpivot)\b")
+
+
+def _balanced(sql: str) -> bool:
+    """Parentheses closed and quotes paired, so the text can be a whole statement."""
+    bare = re.sub(r"'(?:[^']|'')*'", "''", sql)
+    bare = re.sub(r'"[^"]*"', '""', bare)
+    return bare.count("(") == bare.count(")") and "'" not in bare.replace("''", "") \
+        and '"' not in bare.replace('""', "")
+
+
+def _is_prose(tail: str) -> bool:
+    """Does this read as an explanation rather than more SQL?
+
+    A sentence: at least four words, mostly plain words, no SQL punctuation
+    (`(`, `=`, `,` at the end of a line, `*`), not starting with a SQL keyword,
+    and no statement anywhere in it. Deliberately strict: a CTE split by a
+    blank line (`b AS (...)`) fails on the parenthesis and stays in the query.
+    """
+    first = tail.strip().splitlines()[0] if tail.strip() else ""
+    # `=` quoted in backticks is prose about SQL, not SQL ("SQLite's `=` on TEXT is case-sensitive")
+    first = re.sub(r"`[^`]*`", "x", first)
+    words = first.split()
+    # "Case sensitivity: ..." is a label, not CASE WHEN: one to three words then ': ' is never SQL
+    # (a bind variable is ':name' with no space after the colon, so `CASE WHEN :x` stays SQL)
+    if len(words) < 4 or (_SQL_CONTINUES.match(first)
+                          and not re.match(r"^\W*[A-Za-z]+(?:\s+[A-Za-z]+){0,2}:\s", first)):
+        return False
+    if re.search(r"[(=*]|,\s*$|^\s*\)", first) or _STATEMENT_START.search(tail):
+        return False
+    plain = sum(1 for w in words if re.fullmatch(r"[A-Za-z][A-Za-z'’-]*[.,:;!?]?", w))
+    return plain >= 0.7 * len(words)
+
+
+def _cut_prose_tail(s: str) -> str:
+    """Drop an explanation the model wrote after the query.
+
+    Measured: in the Spider-ACL audit, 2 of 8,128 answered queries failed only
+    because a sentence followed the SQL. Unlike dropping a prefix, dropping a
+    tail cannot hide a write -- the cut text is discarded, not run -- but a tail
+    that names a statement keyword or anything forbidden is left in place so
+    `check_read_only` still rejects it loudly ("more than one statement",
+    "contains DELETE") instead of the reply being quietly trimmed.
+    """
+    for m in _TAIL_BREAK.finditer(s):
+        head, tail = s[:m.start()], s[m.end():]
+        if not tail.strip() or not head.strip() or not _balanced(head):
+            continue
+        if _FORBIDDEN.search(tail):
+            return s
+        if _is_prose(tail):
+            return head
+    return s
+
 
 def _strip_fences(sql: str) -> str:
     """Pull the SQL out of whatever the model wrapped around it.
@@ -117,6 +178,9 @@ def _strip_fences(sql: str) -> str:
         prefix = s[:match.start()]
         if ";" not in prefix and not _FORBIDDEN.search(prefix):
             s = s[match.start():]
+
+    if _STATEMENT_START.match(s):
+        s = _cut_prose_tail(s)
 
     return s.strip().rstrip(";").strip()
 

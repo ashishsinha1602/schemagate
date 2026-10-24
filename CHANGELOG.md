@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- **A sentence after the query no longer breaks it.** A model that writes its SQL and then a note
+  ("Case sensitivity: SQLite's `=` on TEXT is case-sensitive...") had the note sent to the database
+  with the query, or the reply rejected as "more than one statement" when a `;` came first. The note
+  is now dropped when it reads as a sentence and everything before it is a complete statement.
+  Anything in the tail that could be SQL, or that names a write, still makes the reply fail exactly
+  as before. Replayed on 28,785 real model replies from the BIRD, Spider 2.0 and Spider-ACL runs:
+  identical results on all but one, which loses only a trailing comment.
+
 ## 1.11.0
 
 - **A hung re-read is bounded.** With `SCHEMAGATE_CATALOG_MAX_AGE` set, the re-read of an expired
