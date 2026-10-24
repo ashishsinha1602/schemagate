@@ -217,6 +217,24 @@ def test_referenced_tables_ignores_ctes_and_keeps_qualified_names():
     assert "a" in found and "main.b" in found and "t" not in found
 
 
+def test_recursive_and_column_list_ctes_are_not_read_as_tables():
+    """`WITH RECURSIVE periods(n) AS (...)`: the CTE reader knew only `WITH name AS (`, so `RECURSIVE` was taken
+    for the CTE's name and `periods` for a table the caller may not see, and every recursive query was refused.
+    A CTE with a column list, `inv(product_id, qty) AS (`, was missed the same way."""
+    found = mcp_server._referenced_tables(
+        "WITH RECURSIVE periods(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM periods WHERE n < 12) "
+        "SELECT * FROM periods JOIN sales s ON s.m = periods.n")
+    assert [t.lower() for t in found] == ["sales"]
+    found = mcp_server._referenced_tables(
+        "WITH inv(product_id, qty) AS (SELECT product_id, qty FROM inventory), cur AS (SELECT * FROM inv) "
+        "SELECT * FROM cur JOIN products p ON p.id = cur.product_id")
+    assert [t.lower() for t in found] == ["inventory", "products"]
+    found = mcp_server._referenced_tables(
+        "WITH RECURSIVE tree AS (SELECT * FROM emp WHERE boss IS NULL UNION ALL "
+        "SELECT e.* FROM emp e JOIN tree t ON e.boss = t.id) SELECT count(*) FROM tree")
+    assert [t.lower() for t in found] == ["emp"]
+
+
 def test_list_objects_is_scoped(served):
     anon = mcp_server.list_objects()
     hr = mcp_server.list_objects(principal="okta:hr", roles=["payroll"])
