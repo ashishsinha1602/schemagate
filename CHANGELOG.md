@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.11.1
 
 - **A sentence after the query no longer breaks it.** A model that writes its SQL and then a note
   ("Case sensitivity: SQLite's `=` on TEXT is case-sensitive...") had the note sent to the database
