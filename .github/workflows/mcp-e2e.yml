@@ -43,7 +43,7 @@ jobs:
       SGE_URL: "postgresql+psycopg://postgres:Sg_CI_throwaway_2026!@127.0.0.1:5432/postgres"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
       - run: pip install --require-hashes -r .github/requirements/e2e-postgres.txt && pip install --no-deps -e .
@@ -73,7 +73,7 @@ jobs:
       SGE_URL: "mysql+pymysql://root:Sg_CI_throwaway_2026!@127.0.0.1:3306/app"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
       - run: pip install --require-hashes -r .github/requirements/e2e-mysql.txt && pip install --no-deps -e .
@@ -103,7 +103,7 @@ jobs:
       SGE_URL: "mssql+pyodbc://sa:Sg_CI_throwaway_2026!@127.0.0.1:1433/master?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
       - name: ODBC Driver 18 (same steps as mssql.yml)
@@ -147,7 +147,7 @@ jobs:
       KC_BOOTSTRAP_ADMIN_PASSWORD: "kc-throwaway-2026"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
       - name: Keycloak 26.4
@@ -190,7 +190,7 @@ jobs:
       SGE_URL: "oracle+oracledb://app:Sg_CI_throwaway_2026@127.0.0.1:1521/?service_name=FREEPDB1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
       - run: pip install --require-hashes -r .github/requirements/e2e-oracle.txt && pip install --no-deps -e .
