@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.11.0
 
 - **A hung re-read is bounded.** With `SCHEMAGATE_CATALOG_MAX_AGE` set, the re-read of an expired
   catalogue now runs on its own thread, and a caller waits for it at most `SCHEMAGATE_REREAD_TIMEOUT`
