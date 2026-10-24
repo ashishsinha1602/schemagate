@@ -10,6 +10,12 @@
   running, and if it does return its catalogue is served from then on. `health` reports
   `reread_in_flight` and `catalog_reread_timeout_seconds`. `tests/test_catalog_max_age.py` holds a
   re-read open and checks the bound.
+- **Recursive CTEs were refused by the scope check.** The pattern that collects CTE names knew only
+  `WITH name AS (`; in `WITH RECURSIVE periods(n) AS (...)` it took `RECURSIVE` for the name, so `periods`
+  then read as a table the caller may not see and `run_query` refused the statement (the same for a CTE
+  with a column list, `inv(product_id, qty) AS (`). Found when 3 of 63 Spider 2.0 answers came back
+  blank. Fail-closed held, nothing leaked; the queries were simply wrongly refused. Both forms are now
+  read as CTEs, with a test for each.
 - Spider 2.0-lite, the 135 SQLite questions, scored by Spider 2.0's own evaluator
   (`benchmarks/results/spider2_lite_sqlite/`): schemagate + Claude Sonnet 5.5, one query per question, 97 of
   135 = 71.9 EX; Gemini 2.5 Flash 39.3, and 40.7 with the full schema and no schemagate. One third of the

@@ -434,8 +434,10 @@ _ITEM = _REF + r"(?:\s+(?:as\s+)?" + _NOT_ALIAS + _PART + r")?"
 #: `FROM a, b c, d AS e` and `JOIN x` -- every item of a FROM list, not just
 #: the first: `FROM hr_employee, hr_compensation` used to read as one table.
 _REFERENCED = re.compile(r"\b(?:from|join)\s+(" + _ITEM + r"(?:\s*,\s*" + _ITEM + r")*)", re.I)
-#: `WITH name AS (`, and the `, name AS (` that follow it.
-_CTE = re.compile(r"(?:\bwith\b|,)\s*(" + _PART + r")\s+as\s*\(", re.I)
+#: `WITH name AS (`, and the `, name AS (` that follow it; also `WITH RECURSIVE name AS (` and a CTE with a
+#: column list, `name(a, b) AS (`. Without those two forms the CTE's name read as a table the caller may not
+#: see, and every recursive query was refused.
+_CTE = re.compile(r"(?:\bwith\b(?:\s+recursive\b)?|,)\s*(" + _PART + r")\s*(?:\([^()]*\))?\s+as\s*\(", re.I)
 
 
 def _unquote(part: str) -> str:
