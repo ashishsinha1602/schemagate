@@ -1,0 +1,32 @@
+WITH u AS (
+  SELECT id, creation_date, DATE_TRUNC(DATE(creation_date), MONTH) AS month
+  FROM `bigquery-public-data.stackoverflow.users`
+  WHERE creation_date >= TIMESTAMP('2021-01-01') AND creation_date < TIMESTAMP('2022-01-01')
+),
+fq AS (
+  SELECT u.id, MIN(q.creation_date) AS first_q_date
+  FROM u
+  JOIN `bigquery-public-data.stackoverflow.posts_questions` q
+    ON q.owner_user_id = u.id
+   AND q.creation_date >= u.creation_date
+   AND q.creation_date <= TIMESTAMP_ADD(u.creation_date, INTERVAL 30 DAY)
+  GROUP BY u.id
+),
+ans AS (
+  SELECT DISTINCT fq.id
+  FROM fq
+  JOIN `bigquery-public-data.stackoverflow.posts_answers` a
+    ON a.owner_user_id = fq.id
+   AND a.creation_date > fq.first_q_date
+   AND a.creation_date <= TIMESTAMP_ADD(fq.first_q_date, INTERVAL 30 DAY)
+)
+SELECT
+  u.month,
+  COUNT(*) AS total_new_users,
+  100 * SAFE_DIVIDE(COUNTIF(fq.id IS NOT NULL), COUNT(*)) AS pct_asked_within_30_days,
+  100 * SAFE_DIVIDE(COUNTIF(ans.id IS NOT NULL), COUNTIF(fq.id IS NOT NULL)) AS pct_answered_within_30_days_after_first_question
+FROM u
+LEFT JOIN fq ON fq.id = u.id
+LEFT JOIN ans ON ans.id = u.id
+GROUP BY u.month
+ORDER BY u.month

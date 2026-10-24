@@ -16,6 +16,11 @@
   with a column list, `inv(product_id, qty) AS (`). Found when 3 of 63 Spider 2.0 answers came back
   blank. Fail-closed held, nothing leaked; the queries were simply wrongly refused. Both forms are now
   read as CTEs, with a test for each.
+- Spider 2.0-lite, the 205 BigQuery questions (`benchmarks/spider2_lite.py`, results in
+  `benchmarks/results/spider2_lite_bigquery/`): schemagate + Claude Sonnet 5.5, one query per question,
+  94 of 205 = 45.9 EX, scored offline by Spider 2.0's evaluator against its released gold results. Per-task
+  SQL, result CSV and trace are included. Also on the SQLite third: Claude Opus 5.5 single-shot 67.4, below
+  Sonnet's 71.9 with the same pipeline.
 - Spider 2.0-lite, the 135 SQLite questions, scored by Spider 2.0's own evaluator
   (`benchmarks/results/spider2_lite_sqlite/`): schemagate + Claude Sonnet 5.5, one query per question, 97 of
   135 = 71.9 EX; Gemini 2.5 Flash 39.3, and 40.7 with the full schema and no schemagate. One third of the

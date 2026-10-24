@@ -13,6 +13,11 @@ output and the `*.correct_ids.csv` files are the question ids it marked correct.
 | **schemagate + Claude Sonnet 5.5, one query per question** | **97** | **71.9** |
 | schemagate + Gemini 2.5 Flash, one query per question | 53 | 39.3 |
 | control: full schema (no schemagate) + Gemini 2.5 Flash | 55 | 40.7 |
+| schemagate + Claude Opus 5.5, one query per question (run 2026-10-23) | 91 | 67.4 |
+
+Opus 5.5 scored **below** Sonnet 5.5 on these questions with the identical pipeline (gained 12, lost 18
+questions against the Sonnet run). The predictions are in `claude-opus-5-5/`, the evaluator's output in
+`claude-opus-5-5.eval.txt`.
 
 For comparison, the best published number on this same 135-question subset that I know of is FlexSQL
 (COLM 2026, [arXiv 2605.02815](https://arxiv.org/abs/2605.02815)): **57.78 Pass@1** and 64.44 Majority@8 with

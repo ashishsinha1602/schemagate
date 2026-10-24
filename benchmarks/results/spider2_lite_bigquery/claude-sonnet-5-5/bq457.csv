@@ -1,0 +1,257 @@
+name_with_owner,host_type,size,language,fork_source_name_with_owner,updated_timestamp,artifact_name,library_name,library_languages
+jslee1/kitsune,GitLab,,,,2017-05-20 07:47:10+00:00,django-waffle,Waffle,Python
+dejwoo/xp_project,GitHub,27,Python,,2017-03-29 13:57:49+00:00,django-waffle,Waffle,Python
+pickpeteee/herd,GitHub,1542,Ruby,herdup/herd,2017-04-25 10:24:43+00:00,flip,Flip,Ruby
+ukparliament/parliament.uk-search-prototype,GitHub,165,Ruby,,2017-04-10 12:58:37+00:00,bandiera-client,Bandiera,Ruby
+hascode/jee-feature-flags,Bitbucket,9,Java,,2017-03-04 09:10:01+00:00,org.togglz:togglz-core,Togglz,"Kotlin, Java"
+ukparliament/parliament.uk-pugin-components-ruby,GitHub,636,Ruby,,2018-12-07 14:43:02+00:00,bandiera-client,Bandiera,Ruby
+katzmopolitan/werkd,Bitbucket,3950,Ruby,,2017-03-27 04:40:49+00:00,rollout,rollout,Ruby
+Cluggers/kuma,GitLab,,,,2016-12-09 15:33:46+00:00,django-waffle,Waffle,Python
+iSCInc/cbng-interface,GitHub,142,Python,DamianZaremba/cbng-interface,2017-03-24 03:50:02+00:00,gargoyle-yplan,Gargoyle,Python
+ArgonautsCrew/classroom,GitHub,9351,Ruby,education/classroom,2017-04-30 02:11:18+00:00,flipper,Flipper,Ruby
+Poncho09/zamboni,GitHub,464764,Python,mozilla/zamboni,2016-12-04 23:02:17+00:00,django-waffle,Waffle,Python
+Goblic/mystamps,GitHub,18377,Java,php-coder/mystamps,2017-01-04 22:55:00+00:00,org.togglz:togglz-core,Togglz,"Kotlin, Java"
+prarthitm/edxplatform,GitHub,356676,Python,,2017-10-13 05:38:51+00:00,django-waffle,Waffle,Python
+zenittude/togglz,GitHub,6249,Java,togglz/togglz,2017-02-02 00:13:06+00:00,org.togglz:togglz-core,Togglz,"Kotlin, Java"
+DynamoMTL/RickRollout,GitHub,10,Ruby,,2017-03-19 21:54:23+00:00,rollout,rollout,Ruby
+hks-epod/edx-analytics-dashboard,GitHub,18079,Python,edx/edx-analytics-dashboard,2017-04-02 16:56:42+00:00,django-waffle,Waffle,Python
+CredoReference/edx-analytics-dashboard,GitHub,25462,Python,edx/edx-analytics-dashboard,2016-05-10 17:04:34+00:00,django-waffle,Waffle,Python
+schubergphilis/supermarket,GitHub,3457,,chef/supermarket,2017-03-19 20:36:20+00:00,rollout,rollout,Ruby
+Tout/feature-rails,GitHub,19,Ruby,,2018-09-03 12:50:21+00:00,feature,Feature,Ruby
+rootart/django-experiments,GitHub,327,Python,mixcloud/django-experiments,2018-09-21 12:27:48+00:00,gargoyle,Gargoyle,Python
+marcosptf/tnt-report,GitHub,39612,HTML,,2017-12-30 12:02:36+00:00,Flask-FeatureFlags,Flask FeatureFlags,Python
+rugby110/mozillians,GitHub,34211,Python,mozilla/mozillians,2016-11-23 01:46:48+00:00,django-waffle,Waffle,Python
+weapp/rollout_ui2,GitHub,397,Ruby,,2016-12-04 23:23:34+00:00,rollout,rollout,Ruby
+magicjohnson/pets,GitHub,1856,JavaScript,,2017-03-05 05:05:10+00:00,django-waffle,Waffle,Python
+holisticon/confiis,GitHub,4049,Java,,2017-03-23 02:12:33+00:00,org.togglz:togglz-core,Togglz,"Kotlin, Java"
+yossi-eynav/rollout-service,GitHub,0,,,2017-12-15 22:17:50+00:00,rollout,rollout,Ruby
+he8us/DAS,GitHub,7078,PHP,,2017-02-15 18:12:51+00:00,dzunke/feature-flags-bundle,Symfony FeatureFlagsBundle,PHP
+urwithajit9/NthFibonacci,GitHub,512,JavaScript,,2017-03-06 08:08:48+00:00,django-waffle,Waffle,Python
+yusinto/ld-redux,GitHub,214,JavaScript,,2018-09-26 09:30:55+00:00,ldclient-js,launchdarkly,"JavaScript, TypeScript"
+githax/bedrock,GitHub,355199,HTML,craigcook/bedrock,2016-05-18 14:16:44+00:00,django-waffle,Waffle,Python
+mattvanhorn/BJJLife,GitHub,2251,Ruby,,2017-01-20 19:12:23+00:00,rollout,rollout,Ruby
+mozilla-algiers/kuma,GitHub,155778,HTML,mozilla/kuma,2017-02-16 12:06:34+00:00,django-waffle,Waffle,Python
+joelr/rollout,GitHub,142,Ruby,fetlife/rollout,2016-04-18 03:28:59+00:00,rollout,rollout,Ruby
+weilandia/classroom,GitHub,11955,Ruby,education/classroom,2016-12-13 05:52:02+00:00,flipper,Flipper,Ruby
+PhilipHauber/django_requirements,GitHub,74,,,2017-04-30 01:47:54+00:00,django-waffle,Waffle,Python
+xccvv/travis-core,GitHub,9016,Ruby,GistIcon/travis-core,2017-02-22 15:06:12+00:00,rollout,rollout,Ruby
+rumverse/bantayciudad_api,GitHub,316,Python,,2017-12-17 15:02:54+00:00,gargoyle,Gargoyle,Python
+mintdigital/rollout,GitHub,114,Ruby,fetlife/rollout,2017-03-19 21:37:50+00:00,rollout,rollout,Ruby
+gbozee/pyconng,GitHub,2736,CSS,tsolarin/pyconng,2016-12-09 11:16:52+00:00,django-waffle,Waffle,Python
+olear/stackwalker,GitHub,187627,C++,mozilla/socorro,2016-11-10 11:44:51+00:00,django-waffle,Waffle,Python
+7Geese/gutter-django,GitHub,610,Python,disqus/gutter-django,2017-04-04 11:02:35+00:00,gutter,Gutter,Python
+edx/edx-enterprise,GitHub,3655,Python,,2018-12-21 19:20:22+00:00,django-waffle,Waffle,Python
+tschellenbach/Skipper,GitHub,312,JavaScript,,2018-07-14 01:00:22+00:00,gargoyle,Gargoyle,Python
+nikolas/dmt,GitHub,38593,Python,ccnmtl/dmt,2017-06-10 09:42:40+00:00,django-waffle,Waffle,Python
+glogiotatidis/kitsune,GitHub,114879,Python,mozilla/kitsune,2016-07-26 16:22:10+00:00,django-waffle,Waffle,Python
+virtualstaticvoid/setler_example,GitHub,136,Ruby,,2018-12-18 23:12:22+00:00,setler,Setler,Ruby
+sarupbanskota/get-yalla,GitHub,104,JavaScript,,2017-06-06 15:10:26+00:00,ember-feature-flags,ember-feature-flags,"JavaScript, TypeScript"
+6a68/testpilot,GitHub,13933,JavaScript,mozilla/testpilot,2016-07-07 20:11:01+00:00,django-waffle,Waffle,Python
+andyli/travis-core,GitHub,9217,Ruby,travis-ci/travis-core,2016-09-14 15:28:38+00:00,rollout,rollout,Ruby
+kidaa/travis-core,GitLab,,,,2017-05-20 01:46:43+00:00,rollout,rollout,Ruby
+WalkerAndCoBrandsInc/rollout_ui,GitHub,174,Ruby,jasonkim/rollout_ui,2017-03-26 20:50:48+00:00,rollout,rollout,Ruby
+AVGTechnologies/travis-core,GitHub,8796,Ruby,final-ci/travis-core,2016-04-19 10:43:35+00:00,rollout,rollout,Ruby
+j-dexx/banner_jones_2016,GitHub,5519,Ruby,eskimosoup/banner_jones_2016,2017-08-04 17:21:39+00:00,flip,Flip,Ruby
+jslee1301/kitsune,GitHub,113747,Python,mozilla/kitsune,2017-03-02 08:50:05+00:00,django-waffle,Waffle,Python
+adngdb/socorro,GitHub,169288,Python,mozilla/socorro,2016-11-03 18:40:00+00:00,django-waffle,Waffle,Python
+yesbox/nixpkgs,GitHub,739715,Nix,NixOS/nixpkgs,2017-03-05 10:44:40+00:00,flipper,Flipper,Ruby
+astianos/persei,GitLab,,,,2017-05-20 10:58:17+00:00,django-waffle,Waffle,Python
+sqdmydxf/Custom-Open-Edx,GitHub,41244,Python,,2017-03-02 08:48:45+00:00,django-waffle,Waffle,Python
+AVGTechnologies/final-api,GitHub,211,Ruby,final-ci/final-api,2017-04-14 11:34:05+00:00,rollout,rollout,Ruby
+harikishen/addons-server,GitHub,764331,Python,mozilla/addons-server,2017-05-14 16:15:21+00:00,django-waffle,Waffle,Python
+mixonic/diesel.aptible.com,GitHub,2448,JavaScript,aptible/dashboard.aptible.com,2016-05-10 20:00:32+00:00,ember-feature-flags,ember-feature-flags,"JavaScript, TypeScript"
+fotinakis/travis-web,GitHub,81847,CSS,travis-ci/travis-web,2016-11-13 06:43:10+00:00,ember-feature-flags,ember-feature-flags,"JavaScript, TypeScript"
+kevin87/flo_rollout,GitHub,103,Ruby,,2017-03-16 03:29:42+00:00,rollout,rollout,Ruby
+acfrmarine/squidle,GitHub,150814,JavaScript,,2017-12-03 11:35:21+00:00,django-waffle,Waffle,Python
+moxlive/Toggle,GitHub,0,JavaScript,,2017-04-09 15:08:02+00:00,ldclient-node,launchdarkly,"JavaScript, TypeScript"
+GlobalDevOpsBootcamp/challenge1,GitHub,5920,JavaScript,,2017-06-22 14:12:21+00:00,FeatureToggle,FeatureToggle,"C#, Visual Basic"
+arpitgogia/kuma,GitHub,156310,HTML,mozilla/kuma,2017-08-02 03:23:39+00:00,django-waffle,Waffle,Python
+kiendtvt1411/re-test,GitHub,8,Ruby,,2017-06-02 10:59:56+00:00,flipper,Flipper,Ruby
+npmtest/node-npmtest-ember-feature-flags,GitHub,1971,JavaScript,,2017-04-22 09:57:29+00:00,ember-feature-flags,ember-feature-flags,"JavaScript, TypeScript"
+yusinto/launchdarkly,GitHub,13,JavaScript,,2017-07-23 09:26:30+00:00,ldclient-js,launchdarkly,"JavaScript, TypeScript"
+jackass0528/travis-api,GitHub,6103,Ruby,travis-ci/travis-api,2018-12-19 20:17:44+00:00,rollout,rollout,Ruby
+jmcbailey/django-cached-hitcount,GitHub,94,Python,philroche/django-cached-hitcount,2016-04-22 11:32:01+00:00,gargoyle,Gargoyle,Python
+yesimon/classiwhale,GitHub,20912,JavaScript,,2017-01-30 09:03:33+00:00,gargoyle,Gargoyle,Python
+stevenvandervalk/benthobox,GitHub,41326,JavaScript,,2017-03-02 10:00:19+00:00,django-waffle,Waffle,Python
+vyshnevska/iShop,GitHub,900,Ruby,,2018-01-03 19:04:16+00:00,rollout,rollout,Ruby
+jnunemaker/flipper-cassanity,GitHub,184,Ruby,,2013-10-10 02:50:22+00:00,flipper,Flipper,Ruby
+szemek/latajace-kregi,GitHub,2873,Ruby,,2017-09-14 11:38:45+00:00,rollout,rollout,Ruby
+jackass0528/kuma,GitHub,179049,Python,mozilla/kuma,2018-12-19 20:15:27+00:00,django-waffle,Waffle,Python
+elfinhuangcat/neuCS6200,GitHub,34800,HTML,,2017-12-24 10:21:20+00:00,gargoyle,Gargoyle,Python
+zenweasel/cashflow2,GitHub,496,JavaScript,,2017-02-25 11:08:42+00:00,django-waffle,Waffle,Python
+jamestalmage/travis-tasks,GitHub,474,Ruby,travis-ci/travis-tasks,2016-04-05 06:44:33+00:00,rollout,rollout,Ruby
+meetup/meetup-web-platform,GitHub,6737,JavaScript,,2018-12-22 07:23:19+00:00,ldclient-node,launchdarkly,"JavaScript, TypeScript"
+ManTheG/exercism.io,GitHub,16269,Ruby,exercism/exercism.io,2017-04-02 13:07:24+00:00,flipper,Flipper,Ruby
+davehunt/addons-server,GitHub,715318,Python,mozilla/addons-server,2017-08-04 03:16:51+00:00,django-waffle,Waffle,Python
+dcondrey/kuma,GitHub,170174,HTML,mozilla/kuma,2016-06-08 01:09:47+00:00,django-waffle,Waffle,Python
+maiamatheus/kuma,GitHub,170416,HTML,mozilla/kuma,2017-02-02 22:12:38+00:00,django-waffle,Waffle,Python
+srobledo/newtemp,GitHub,5965,HTML,,2017-12-24 19:01:01+00:00,ember-feature-flags,ember-feature-flags,"JavaScript, TypeScript"
+launchdarkly/hello-android,GitHub,85,Java,,2017-10-09 02:31:26+00:00,com.launchdarkly:launchdarkly-android-client,launchdarkly,"Kotlin, Java"
+sarracini/addons-server,GitHub,718488,Python,mozilla/addons-server,2016-11-15 17:58:22+00:00,django-waffle,Waffle,Python
+coati-00/django_websockets,GitHub,2576,Python,,2017-12-30 09:04:35+00:00,django-waffle,Waffle,Python
+ashishrathore1/Togglz-ff4j,GitHub,0,Java,,2018-01-07 11:02:26+00:00,org.ff4j:ff4j-core,FF4J,"Kotlin, Java"
+esign-consulting/logistics,GitHub,301,Java,,2018-12-22 23:13:42+00:00,org.togglz:togglz-core,Togglz,"Kotlin, Java"
+iZND/rollout,GitHub,118,Ruby,fetlife/rollout,2017-03-04 04:13:59+00:00,rollout,rollout,Ruby
+arun1595/pythondotorg,GitHub,18160,Python,python/pythondotorg,2017-02-23 21:26:36+00:00,django-waffle,Waffle,Python
+alphagov/digitalmarketplace-briefs-frontend,GitHub,2389,Python,,2018-04-10 16:28:27+00:00,Flask-FeatureFlags,Flask FeatureFlags,Python
+Unleash/unleash-demo-app-node,GitHub,12,JavaScript,,2018-09-06 16:46:56+00:00,unleash-client,unleash-client-node,"JavaScript, TypeScript"
+rppatel1007/508-tutorial,GitHub,0,Ruby,,2017-03-05 22:57:06+00:00,flip,Flip,Ruby
+xionon/thanks-api,GitHub,188,CSS,,2017-07-08 00:01:06+00:00,flipper,Flipper,Ruby
+testinc32/travis-api,GitHub,5171,Ruby,KONTRAKT-XX/travis-api,2017-02-02 00:12:38+00:00,rollout,rollout,Ruby
+hsgfan/apiBluePrintTest,GitHub,58,Python,,2017-04-13 09:27:13+00:00,ldclient-py,launchdarkly,Python
+alainlompo/ff4j-labs,GitHub,132,Java,,2017-02-10 06:21:02+00:00,org.ff4j:ff4j-core,FF4J,"Kotlin, Java"
+caktus/kuma,GitHub,165098,HTML,mozilla/kuma,2017-03-23 03:52:01+00:00,django-waffle,Waffle,Python
+trosevear/PreEmploymentMedical,GitHub,4520,Ruby,,2017-06-06 03:01:02+00:00,rollout,rollout,Ruby
+raj-maurya/mozillians,GitHub,34026,Python,mozilla/mozillians,2016-08-25 03:13:55+00:00,django-waffle,Waffle,Python
+Shekharrajak/classroom,GitHub,10318,Ruby,education/classroom,2016-10-09 04:42:16+00:00,flipper,Flipper,Ruby
+adlogix/zf2-opensoft-rollout,GitHub,120,PHP,,2018-07-03 14:33:01+00:00,opensoft/rollout,rollout,PHP
+7THSYMBOL/travis-web,GitHub,84208,CSS,travis-ci/travis-web,2017-02-07 08:11:52+00:00,ember-feature-flags,ember-feature-flags,"JavaScript, TypeScript"
+Jaspaul/laravel-rollout,GitHub,53,PHP,,2018-08-24 18:18:02+00:00,opensoft/rollout,rollout,PHP
+Mariatta/pythondotorg,GitHub,20167,Python,python/pythondotorg,2016-08-11 17:17:23+00:00,django-waffle,Waffle,Python
+hummingbird-me/hummingbird-server,GitHub,5963,Ruby,,2018-07-25 14:53:49+00:00,flipper,Flipper,Ruby
+solarce/socorro,GitHub,152993,Python,mozilla/socorro,2016-06-03 14:53:14+00:00,django-waffle,Waffle,Python
+dsimandl/teamsurmandl,GitHub,3288,Python,,2017-03-15 16:48:17+00:00,django-waffle,Waffle,Python
+rtcreativegroup/rollout_ui,GitHub,141,Ruby,jrallison/rollout_ui,2017-03-08 12:13:54+00:00,rollout,rollout,Ruby
+VivekBhat/RandomTestGenerator,GitHub,0,,,2017-03-13 04:17:57+00:00,ldclient-node,launchdarkly,"JavaScript, TypeScript"
+redhat-developer/che-starter,GitHub,628,Java,,2018-07-14 21:52:35+00:00,no.finn.unleash:unleash-client-java,unleash-client-java,"Kotlin, Java"
+SkillsFundingAgency/roatp-register,GitHub,2899,CSS,,2018-12-14 17:18:20+00:00,FeatureToggle,FeatureToggle,"C#, Visual Basic"
+zangrandi/learning-management-system,GitHub,6824,Ruby,,2017-10-07 07:38:00+00:00,flip,Flip,Ruby
+alanmoo/bedrock,GitHub,365161,HTML,mozilla/bedrock,2016-12-16 14:19:24+00:00,django-waffle,Waffle,Python
+Bluefieldscom/open-bacon,GitHub,50587,Ruby,,2018-01-13 17:02:20+00:00,rollout,rollout,Ruby
+honeypotio/rollout_ui,GitHub,212,Ruby,jrallison/rollout_ui,2017-04-16 16:47:07+00:00,rollout,rollout,Ruby
+ojengwa/apipanda,GitHub,4504,JavaScript,openarmy/apipanda,2017-10-20 13:15:52+00:00,gargoyle,Gargoyle,Python
+WebFactoryMk/bike_index,GitHub,49418,Ruby,bikeindex/bike_index,2017-03-26 21:44:12+00:00,rollout,rollout,Ruby
+fedetaglia/feature,GitHub,0,Ruby,,2017-07-31 09:31:52+00:00,rollout,rollout,Ruby
+gb1035/happy_goat_time,GitHub,738,CSS,,2017-03-20 05:27:13+00:00,django-waffle,Waffle,Python
+DealerDotCom/togglz,GitHub,1404,Java,togglz/togglz,2017-03-21 07:56:50+00:00,org.togglz:togglz-core,Togglz,"Kotlin, Java"
+pyung/pycon-ng,GitHub,3153,CSS,,2018-03-22 10:30:44+00:00,django-waffle,Waffle,Python
+paul58914080/ff4j-spring-boot-starter-parent,GitHub,252,Java,,2018-04-02 16:37:36+00:00,org.ff4j:ff4j-core,FF4J,"Kotlin, Java"
+bantic/ember-json-schema-builder,GitHub,36,JavaScript,aptible/ember-json-schema-builder,2016-12-06 12:44:31+00:00,ember-feature-flags,ember-feature-flags,"JavaScript, TypeScript"
+lucasb/django19,GitHub,307,Python,,2018-01-01 15:01:41+00:00,django-waffle,Waffle,Python
+davehunt/kuma,GitHub,108302,HTML,mozilla/kuma,2016-11-30 20:15:32+00:00,django-waffle,Waffle,Python
+busy-web/ember-cli-launch-darkly,GitHub,93,JavaScript,,2018-04-11 01:13:38+00:00,ldclient-js,launchdarkly,"JavaScript, TypeScript"
+proversity-org/edx-analytics-dashboard,GitHub,20872,Python,edx/edx-analytics-dashboard,2017-04-09 11:05:24+00:00,django-waffle,Waffle,Python
+macressler/socorro,GitHub,157586,,mozilla/socorro,2016-07-12 03:14:57+00:00,django-waffle,Waffle,Python
+coffeetalkh/kuma,GitHub,155859,HTML,mozilla/kuma,2016-02-14 11:02:12+00:00,django-waffle,Waffle,Python
+cstratulat/base,GitHub,88,Ruby,,2017-11-11 13:28:23+00:00,flipper,Flipper,Ruby
+pmac/bedrock,GitLab,,,,2016-02-19 22:37:17+00:00,django-waffle,Waffle,Python
+mtayseer/mozaharat,GitHub,168,Python,,2017-12-28 09:20:41+00:00,gargoyle,Gargoyle,Python
+ClayShentrup/iris,GitHub,3821,Ruby,,2017-05-28 09:02:12+00:00,flip,Flip,Ruby
+DamianZaremba/cbng-interface,GitHub,142,Python,,2017-02-23 19:22:22+00:00,gargoyle-yplan,Gargoyle,Python
+GitOnRails/GoR-core,GitHub,356,Ruby,,2014-02-12 17:49:55+00:00,rollout,rollout,Ruby
+AVGTechnologies/travis-hub,GitHub,3088,Ruby,final-ci/travis-hub,2017-04-14 11:34:02+00:00,rollout,rollout,Ruby
+uwdevendra/ashoka-survey-web,GitHub,9304,Ruby,,2017-05-18 17:23:39+00:00,feature,Feature,Ruby
+nschonni/travis-ci,GitHub,11481,Ruby,travis-ci/travis-ci,2013-11-30 19:58:20+00:00,rollout,rollout,Ruby
+codecentric/drc,GitHub,6393,Python,,2017-06-09 12:11:39+00:00,django-waffle,Waffle,Python
+Thejhonys/kuma,GitHub,162584,HTML,mozilla/kuma,2016-04-13 13:12:20+00:00,django-waffle,Waffle,Python
+pyung/pyconng,GitHub,6524,CSS,gbozee/pyconng,2018-01-05 14:21:51+00:00,django-waffle,Waffle,Python
+uwdevendra/user-owner,GitHub,848,Ruby,,2017-07-05 17:36:36+00:00,feature,Feature,Ruby
+queueit/FeatureSwitcher.AwsConfiguration,GitHub,847,C#,,2018-10-18 07:48:42+00:00,FeatureSwitcher,FeatureSwitcher,"C#, Visual Basic"
+deshraj/fjord,GitHub,48866,Python,mozilla/fjord,2015-08-30 09:25:45+00:00,django-waffle,Waffle,Python
+201-created/travis-web,GitHub,81963,JavaScript,travis-ci/travis-web,2018-07-25 04:59:33+00:00,ember-feature-flags,ember-feature-flags,"JavaScript, TypeScript"
+WyriHaximus/travis-api,GitHub,4105,Ruby,travis-ci/travis-api,2018-07-17 10:24:44+00:00,rollout,rollout,Ruby
+cs50/classroom,GitHub,6489,Ruby,education/classroom,2017-04-16 18:36:13+00:00,flipper,Flipper,Ruby
+launchdarkly/saga-feature-flow,GitHub,83,JavaScript,,2017-10-03 21:48:25+00:00,ldclient-js,launchdarkly,"JavaScript, TypeScript"
+magicknot/travis-core,GitHub,11840,Ruby,travis-ci/travis-core,2016-11-11 15:39:21+00:00,rollout,rollout,Ruby
+eduNEXT/edunext-ecommerce,GitHub,4917,Python,,2016-11-17 23:05:51+00:00,django-waffle,Waffle,Python
+kaidokert/polls-api,GitHub,444,Python,apiaryio/polls-api,2018-12-18 01:12:51+00:00,ldclient-py,launchdarkly,Python
+mayakarya/classroom,GitLab,,,,2017-05-20 13:37:47+00:00,flipper,Flipper,Ruby
+launchdarkly/angular-shopping-flags,GitHub,120,JavaScript,,2017-03-07 04:41:03+00:00,ldclient-js,launchdarkly,"JavaScript, TypeScript"
+ykoer/lightblue-togglz,GitHub,20,Java,,2017-03-20 10:48:28+00:00,org.togglz:togglz-core,Togglz,"Kotlin, Java"
+open-craft/ecommerce,GitHub,6340,Python,edx/ecommerce,2017-04-01 03:17:29+00:00,django-waffle,Waffle,Python
+uwdevendra/survey-web,GitHub,2372,Ruby,,2017-07-05 17:37:13+00:00,feature,Feature,Ruby
+sdss/marvin,GitHub,65185,Python,,2018-12-03 18:49:36+00:00,Flask-FeatureFlags,Flask FeatureFlags,Python
+Guy1394/kitsune,GitLab,,,,2017-05-20 05:40:27+00:00,django-waffle,Waffle,Python
+malept/travis-core,GitHub,9324,Ruby,travis-ci/travis-core,2018-09-22 20:30:40+00:00,rollout,rollout,Ruby
+pebblecode/digitalmarketplace-utils,GitHub,616,Python,alphagov/digitalmarketplace-utils,2016-05-31 10:33:10+00:00,Flask-FeatureFlags,Flask FeatureFlags,Python
+bhaveshAn/pythondotorg,GitHub,19881,Python,,2017-03-02 20:13:53+00:00,django-waffle,Waffle,Python
+digideskio/addons-server,GitHub,491974,Python,mozilla/addons-server,2016-04-27 03:15:10+00:00,django-waffle,Waffle,Python
+bbc/silex-reference,GitHub,2593,PHP,,2017-03-21 07:39:28+00:00,opensoft/rollout,rollout,PHP
+ivorp/ld-relay,GitHub,135,Go,launchdarkly/ld-relay,2016-08-29 06:31:19+00:00,github.com/launchdarkly/go-client,launchdarkly,Go
+jamesbeedy/chatrt-djano-ango,GitHub,1012,CSS,,2017-02-21 19:48:26+00:00,django-waffle,Waffle,Python
+jmcbailey/django-cached-hitcount,GitHub,94,Python,philroche/django-cached-hitcount,2016-04-22 11:32:01+00:00,gargoyle-yplan,Gargoyle,Python
+hvst/travis-ci,GitHub,10945,Ruby,travis-ci/travis-ci,2013-07-09 18:44:20+00:00,rollout,rollout,Ruby
+petrSchreiber/final-api,GitHub,155,Ruby,AVGTechnologies/final-api,2016-06-27 11:13:02+00:00,rollout,rollout,Ruby
+bradesp/ashoka-survey-web,GitHub,3264,JavaScript,nilenso/ashoka-survey-web,2013-11-23 13:37:54+00:00,feature,Feature,Ruby
+yihangbailu/exercism.io,GitHub,16256,Ruby,exercism/exercism.io,2017-03-26 11:06:47+00:00,flipper,Flipper,Ruby
+LessonPlanet/rollout,GitHub,248,Ruby,davidgiffin/rollout,2017-03-19 02:42:41+00:00,rollout,rollout,Ruby
+szpak/togglz,GitHub,1216,Java,togglz/togglz,2016-08-03 13:02:24+00:00,org.togglz:togglz-core,Togglz,"Kotlin, Java"
+megatux/binflip,GitHub,20,Ruby,bkaney/binflip,2017-08-05 22:21:58+00:00,rollout,rollout,Ruby
+zwolf/Panoptes,GitHub,5616,Ruby,zooniverse/Panoptes,2016-06-22 20:27:01+00:00,flipper,Flipper,Ruby
+samholder/FeatureToggle,GitHub,18844,C#,jason-roberts/FeatureToggle,2016-06-22 16:25:13+00:00,FeatureToggle,FeatureToggle,"C#, Visual Basic"
+MaxMillion/zamboni,GitHub,290517,,mozilla/zamboni,2016-08-02 03:49:36+00:00,django-waffle,Waffle,Python
+mathisdt/sdb2,GitHub,51422,Java,,2017-10-15 15:36:38+00:00,org.togglz:togglz-core,Togglz,"Kotlin, Java"
+davehunt/kitsune,GitHub,113741,Python,mozilla/kitsune,2016-11-30 20:18:11+00:00,django-waffle,Waffle,Python
+Sveder/bdlr,GitHub,88355,Python,,2017-02-24 12:06:44+00:00,django-waffle,Waffle,Python
+TrueCar/react-launch-darkly,GitHub,321,JavaScript,,2018-10-16 23:02:01+00:00,ldclient-js,launchdarkly,"JavaScript, TypeScript"
+travis-ci/travis-live,GitHub,52,Ruby,,2017-05-31 13:01:25+00:00,rollout,rollout,Ruby
+fedetaglia/feature,GitHub,0,Ruby,,2017-07-31 09:31:52+00:00,feature,Feature,Ruby
+jrbenny35/addons-server,GitHub,722519,Python,,2017-02-18 11:00:21+00:00,django-waffle,Waffle,Python
+jourez01/miniws,GitHub,0,,,2017-06-14 07:00:55+00:00,org.togglz:togglz-core,Togglz,"Kotlin, Java"
+aptible/ember-json-schema-builder,GitHub,39,JavaScript,,2018-12-21 16:30:31+00:00,ember-feature-flags,ember-feature-flags,"JavaScript, TypeScript"
+Teebo/smart-grading,GitHub,9577,HTML,,2018-02-04 03:01:56+00:00,rollout,rollout,Ruby
+tndatacommons/tndata_backend,GitHub,12767,Python,,2017-11-11 22:03:06+00:00,django-waffle,Waffle,Python
+CoolSuplex/featureToggleConsole,GitHub,132,CSS,,2017-05-30 12:01:55+00:00,org.ff4j:ff4j-core,FF4J,"Kotlin, Java"
+AusDTO/dto-digitalmarketplace-utils,GitHub,793,Python,alphagov/digitalmarketplace-utils,2017-02-24 06:00:35+00:00,Flask-FeatureFlags,Flask FeatureFlags,Python
+JioEducation/course-discovery,GitHub,369,Python,,2016-07-14 07:43:14+00:00,django-waffle,Waffle,Python
+assignitapp/rollout_ui,GitHub,321,Ruby,jrallison/rollout_ui,2017-02-12 08:12:45+00:00,rollout,rollout,Ruby
+emedgene/Open-Knesset,GitHub,28238,Python,hasadna/Open-Knesset,2017-02-02 17:13:09+00:00,django-waffle,Waffle,Python
+timbroder/reader-follow,GitHub,416,Python,,2017-02-24 02:20:55+00:00,django-waffle,Waffle,Python
+benjiyue/mystamps,GitHub,18591,Java,php-coder/mystamps,2018-01-17 21:47:14+00:00,org.togglz:togglz-core,Togglz,"Kotlin, Java"
+mozilla-algiers/mozillians,GitHub,33420,Python,mozilla/mozillians,2017-02-16 12:06:36+00:00,django-waffle,Waffle,Python
+ticket-monster-msa/monolith,GitHub,11916,Java,,2018-05-01 07:48:52+00:00,org.ff4j:ff4j-core,FF4J,"Kotlin, Java"
+frankdoylezw/pickles,GitHub,89915,C#,picklesdoc/pickles,2018-01-16 22:57:16+00:00,FeatureSwitcher,FeatureSwitcher,"C#, Visual Basic"
+cococoder/rollout,GitHub,693,Ruby,fetlife/rollout,2016-08-10 03:59:28+00:00,rollout,rollout,Ruby
+silverorange/bedrock,GitHub,307953,HTML,sgarrity/bedrock,2017-03-19 19:46:49+00:00,django-waffle,Waffle,Python
+MofeLee/polls-api,GitHub,73,Python,apiaryio/polls-api,2016-09-29 22:06:29+00:00,ldclient-py,launchdarkly,Python
+Tiger66639/travis-core,GitLab,,,,2017-05-20 02:27:07+00:00,rollout,rollout,Ruby
+mveritym/kuma,GitHub,174040,Python,mozilla/kuma,2016-12-02 15:57:57+00:00,django-waffle,Waffle,Python
+rahulyewale/goodwillcoders-plateletapp,GitHub,7408,Java,,2017-12-02 23:04:43+00:00,org.ff4j:ff4j-core,FF4J,"Kotlin, Java"
+harikishen/socorro,GitHub,169976,Python,mozilla/socorro,2017-05-12 22:17:42+00:00,django-waffle,Waffle,Python
+samcdavid/atomic_cms_example,GitHub,204,Ruby,,2017-12-24 17:07:14+00:00,rollout,rollout,Ruby
+githax/kuma,GitHub,168368,HTML,mozilla/kuma,2016-05-18 14:24:55+00:00,django-waffle,Waffle,Python
+jlesquembre/nixpkgs,GitHub,809537,Nix,NixOS/nixpkgs,2018-12-21 22:14:04+00:00,flipper,Flipper,Ruby
+VisualTravis/travis-core,GitHub,6832,Ruby,travis-ci/travis-core,2017-02-20 21:16:05+00:00,rollout,rollout,Ruby
+rsdomingues/wiredtigervsvmap,GitHub,18,Java,,2017-01-23 23:24:51+00:00,org.ff4j:ff4j-core,FF4J,"Kotlin, Java"
+xaxadmin/travis-api,GitHub,2740,Ruby,travis-ci/travis-api,2016-06-18 19:16:07+00:00,rollout,rollout,Ruby
+Acidburn0zzz/kuma,GitHub,183502,Python,mozilla/kuma,2017-03-17 11:52:19+00:00,django-waffle,Waffle,Python
+p-janik/react-native-launch-darkly,GitHub,720,Objective-C,,2018-06-22 05:00:51+00:00,com.launchdarkly:launchdarkly-android-client,launchdarkly,"Kotlin, Java"
+trailhawks/lawrencetrailhawks,GitHub,5413,HTML,,2018-08-12 14:32:29+00:00,django-waffle,Waffle,Python
+backspace/web-clone,GitHub,76610,JavaScript,,2017-12-14 14:01:18+00:00,ember-feature-flags,ember-feature-flags,"JavaScript, TypeScript"
+JKGisMe/square-square-frontend,GitHub,164,JavaScript,,2017-12-30 08:01:17+00:00,ember-feature-flags,ember-feature-flags,"JavaScript, TypeScript"
+sameerchauhan/Startup,GitHub,26124,C#,,2018-01-07 04:03:18+00:00,FeatureToggle,FeatureToggle,"C#, Visual Basic"
+digideskio/rletters,GitHub,16184,Ruby,rletters/rletters,2016-04-17 01:26:09+00:00,setler,Setler,Ruby
+VivekBhat/FlagLagBot,GitHub,0,,,2018-01-29 15:01:48+00:00,ldclient-node,launchdarkly,"JavaScript, TypeScript"
+sdreher/ccnmtlwagtail,GitHub,5956,Python,,2017-02-21 03:09:04+00:00,django-waffle,Waffle,Python
+alextucker/escalator,GitHub,353,JavaScript,,2017-01-22 21:54:55+00:00,django-waffle,Waffle,Python
+codeclimate/rollout,GitHub,302,Ruby,fetlife/rollout,2017-03-19 16:45:03+00:00,rollout,rollout,Ruby
+davehunt/bedrock,GitHub,360540,HTML,mozilla/bedrock,2017-08-04 03:18:01+00:00,django-waffle,Waffle,Python
+ranand/tribalknow,GitHub,1400,JavaScript,edk/tribalknow,2017-02-16 06:47:08+00:00,rollout,rollout,Ruby
+marco-c/socorro,GitHub,169403,Python,mozilla/socorro,2016-09-02 13:27:46+00:00,django-waffle,Waffle,Python
+byrnenick/teamedup,GitHub,47305,JavaScript,heroku/python-getting-started,2017-02-23 00:22:23+00:00,django-waffle,Waffle,Python
+EnterStudios/bike_index,GitHub,49343,Ruby,bikeindex/bike_index,2017-04-26 18:05:55+00:00,rollout,rollout,Ruby
+blischalk/feature,GitHub,240,JavaScript,,2018-01-05 14:47:44+00:00,feature,Feature,Ruby
+magopian/olympia,GitHub,452270,Python,mozilla/addons-server,2016-11-04 16:14:53+00:00,django-waffle,Waffle,Python
+wilane/django-uwsgi-nginx,GitLab,,,,2017-05-20 06:41:33+00:00,django-waffle,Waffle,Python
+peterkinalex/kuma,GitHub,154075,HTML,mozilla/kuma,2016-04-06 23:50:55+00:00,django-waffle,Waffle,Python
+elin-moco/bedrock,GitHub,832950,HTML,mozilla/bedrock,2016-05-25 01:57:37+00:00,django-waffle,Waffle,Python
+elwayman02/unplug,GitHub,117,JavaScript,,2017-06-17 10:01:01+00:00,ember-feature-flags,ember-feature-flags,"JavaScript, TypeScript"
+kevmoo/travis-web,GitHub,81854,JavaScript,travis-ci/travis-web,2018-12-11 23:21:05+00:00,ember-feature-flags,ember-feature-flags,"JavaScript, TypeScript"
+solarce/firefox-flicks,GitHub,8973,Python,mozilla/firefox-flicks,2016-06-03 14:52:14+00:00,django-waffle,Waffle,Python
+elwayman02/dubtrack-ui,GitHub,101,JavaScript,,2017-05-25 12:01:18+00:00,ember-feature-flags,ember-feature-flags,"JavaScript, TypeScript"
+garrettqmartin8/verba,GitHub,3036,Ruby,,2017-02-05 23:02:11+00:00,feature,Feature,Ruby
+bsmedberg/socorro,GitHub,168954,Python,mozilla/socorro,2016-08-26 17:29:10+00:00,django-waffle,Waffle,Python
+sebdeckers/website,GitHub,298,Ruby,engineersftw/website,2016-12-02 13:43:25+00:00,feature,Feature,Ruby
+schmico/voluntir,GitHub,0,JavaScript,,2017-12-09 19:01:55+00:00,django-waffle,Waffle,Python
+SkillsFundingAgency/das-apprenticeship-programs-api,GitHub,39205,CSS,,2018-11-23 08:21:15+00:00,FeatureToggle,FeatureToggle,"C#, Visual Basic"
+BojanapuMohan/topvisible,GitHub,77940,Ruby,,2018-02-17 06:05:35+00:00,flip,Flip,Ruby
+launchdarkly/ld-relay,GitHub,665,Go,,2018-02-20 23:52:42+00:00,github.com/launchdarkly/go-client,launchdarkly,Go
+10clouds/ecommerce,GitHub,4115,Python,edx/ecommerce,2016-11-10 09:35:30+00:00,django-waffle,Waffle,Python
+VivekBhat/FlagLagBot2,GitHub,0,JavaScript,,2017-12-17 00:06:38+00:00,ldclient-node,launchdarkly,"JavaScript, TypeScript"
+craigcook/bedrock,GitHub,355199,HTML,mozilla/bedrock,2016-05-18 14:29:31+00:00,django-waffle,Waffle,Python
+chuckharmston/testpilot,GitHub,28901,JavaScript,mozilla/testpilot,2016-06-20 15:47:28+00:00,django-waffle,Waffle,Python
+kabirkhan/edx-platform,GitHub,816112,Python,edx/edx-platform,2017-05-24 22:58:31+00:00,django-waffle,Waffle,Python
+travis-ci/travis-api-v3,GitHub,4407,Ruby,,2017-01-31 15:17:02+00:00,rollout,rollout,Ruby
+RishabhJain2018/olympia,GitHub,452857,Python,mozilla/addons-server,2015-12-24 17:43:58+00:00,django-waffle,Waffle,Python
+ccnmtl/videoanalytics,GitHub,4044,Python,,2017-10-11 02:48:24+00:00,django-waffle,Waffle,Python
+datagraft/datagraft-portal,GitHub,19546,Ruby,,2017-01-03 12:44:09+00:00,flip,Flip,Ruby
