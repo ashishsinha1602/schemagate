@@ -1,0 +1,85 @@
+season,round,days_from_epoch,game_date,day,label,seed,market,name,alias,school_ncaa,opponent_seed,opponent_market,opponent_name,opponent_alias,opponent_school_ncaa
+2010,64,14686,2010-03-18,Thursday,win,03,Baylor,Bears,BAY,Baylor,14,Sam Houston State,Bearkats,SHSU,Sam Houston St.
+2010,64,14686,2010-03-18,Thursday,win,01,Kansas,Jayhawks,KU,Kansas,16,Lehigh,Mountain Hawks,LEH,Lehigh
+2010,64,14686,2010-03-18,Thursday,win,01,Kentucky,Wildcats,UK,Kentucky,16,East Tennessee State,Buccaneers,ETSU,ETSU
+2010,64,14687,2010-03-19,Friday,loss,09,Florida State,Seminoles,FSU,Florida St.,08,Gonzaga,Bulldogs,GONZ,Gonzaga
+2010,32,14688,2010-03-20,Saturday,win,03,Baylor,Bears,BAY,Baylor,11,Old Dominion,Monarchs,ODU,Old Dominion
+2010,32,14688,2010-03-20,Saturday,loss,01,Kansas,Jayhawks,KU,Kansas,09,Northern Iowa,Panthers,UNI,UNI
+2010,32,14688,2010-03-20,Saturday,win,01,Kentucky,Wildcats,UK,Kentucky,09,Wake Forest,Demon Deacons,WAKE,Wake Forest
+2010,16,14693,2010-03-25,Thursday,win,01,Kentucky,Wildcats,UK,Kentucky,12,Cornell,Big Red,COR,Cornell
+2010,16,14694,2010-03-26,Friday,win,03,Baylor,Bears,BAY,Baylor,10,Saint Mary's,Gaels,SMC,Saint Mary's (CA)
+2010,8,14695,2010-03-27,Saturday,loss,01,Kentucky,Wildcats,UK,Kentucky,02,West Virginia,Mountaineers,WVU,West Virginia
+2010,8,14696,2010-03-28,Sunday,loss,03,Baylor,Bears,BAY,Baylor,01,Duke,Blue Devils,DUKE,Duke
+2011,64,15050,2011-03-17,Thursday,win,04,Kentucky,Wildcats,UK,Kentucky,13,Princeton,Tigers,PRIN,Princeton
+2011,64,15051,2011-03-18,Friday,win,10,Florida State,Seminoles,FSU,Florida St.,07,Texas A&M,Aggies,TXAM,Texas A&M
+2011,64,15051,2011-03-18,Friday,win,01,Kansas,Jayhawks,KU,Kansas,16,Boston University,Terriers,BU,Boston U.
+2011,32,15052,2011-03-19,Saturday,win,04,Kentucky,Wildcats,UK,Kentucky,05,West Virginia,Mountaineers,WVU,West Virginia
+2011,32,15053,2011-03-20,Sunday,win,10,Florida State,Seminoles,FSU,Florida St.,02,Notre Dame,Fighting Irish,ND,Notre Dame
+2011,32,15053,2011-03-20,Sunday,win,01,Kansas,Jayhawks,KU,Kansas,09,Illinois,Fighting Illini,ILL,Illinois
+2011,16,15058,2011-03-25,Friday,loss,10,Florida State,Seminoles,FSU,Florida St.,11,Virginia Commonwealth,Rams,VCU,VCU
+2011,16,15058,2011-03-25,Friday,win,01,Kansas,Jayhawks,KU,Kansas,12,Richmond,Spiders,RICH,Richmond
+2011,16,15058,2011-03-25,Friday,win,04,Kentucky,Wildcats,UK,Kentucky,01,Ohio State,Buckeyes,OSU,Ohio St.
+2011,8,15060,2011-03-27,Sunday,loss,01,Kansas,Jayhawks,KU,Kansas,11,Virginia Commonwealth,Rams,VCU,VCU
+2011,8,15060,2011-03-27,Sunday,win,04,Kentucky,Wildcats,UK,Kentucky,02,North Carolina,Tar Heels,UNC,North Carolina
+2011,4,15066,2011-04-02,Saturday,loss,04,Kentucky,Wildcats,UK,Kentucky,03,Connecticut,Huskies,CONN,UConn
+2012,64,15414,2012-03-15,Thursday,win,03,Baylor,Bears,BAY,Baylor,14,South Dakota State,Jackrabbits,SDST,South Dakota St.
+2012,64,15414,2012-03-15,Thursday,win,01,Kentucky,Wildcats,UK,Kentucky,16,Western Kentucky,Hilltoppers,WKU,Western Ky.
+2012,64,15415,2012-03-16,Friday,loss,09,Alabama,Crimson Tide,ALA,Alabama,08,Creighton,Bluejays,CREI,Creighton
+2012,64,15415,2012-03-16,Friday,win,03,Florida State,Seminoles,FSU,Florida St.,14,St. Bonaventure,Bonnies,SBON,St. Bonaventure
+2012,64,15415,2012-03-16,Friday,win,02,Kansas,Jayhawks,KU,Kansas,15,Detroit,Titans,DET,Detroit Mercy
+2012,32,15416,2012-03-17,Saturday,win,03,Baylor,Bears,BAY,Baylor,11,Colorado,Buffaloes,COLO,Colorado
+2012,32,15416,2012-03-17,Saturday,win,01,Kentucky,Wildcats,UK,Kentucky,08,Iowa State,Cyclones,ISU,Iowa St.
+2012,32,15417,2012-03-18,Sunday,loss,03,Florida State,Seminoles,FSU,Florida St.,06,Cincinnati,Bearcats,CIN,Cincinnati
+2012,32,15417,2012-03-18,Sunday,win,02,Kansas,Jayhawks,KU,Kansas,10,Purdue,Boilermakers,PUR,Purdue
+2012,16,15422,2012-03-23,Friday,win,03,Baylor,Bears,BAY,Baylor,10,Xavier,Musketeers,XAV,Xavier
+2012,16,15422,2012-03-23,Friday,win,02,Kansas,Jayhawks,KU,Kansas,11,North Carolina State,Wolfpack,NCST,NC State
+2012,16,15422,2012-03-23,Friday,win,01,Kentucky,Wildcats,UK,Kentucky,04,Indiana,Hoosiers,IND,Indiana
+2012,8,15424,2012-03-25,Sunday,loss,03,Baylor,Bears,BAY,Baylor,01,Kentucky,Wildcats,UK,Kentucky
+2012,8,15424,2012-03-25,Sunday,win,02,Kansas,Jayhawks,KU,Kansas,01,North Carolina,Tar Heels,UNC,North Carolina
+2012,8,15424,2012-03-25,Sunday,win,01,Kentucky,Wildcats,UK,Kentucky,03,Baylor,Bears,BAY,Baylor
+2012,4,15430,2012-03-31,Saturday,win,02,Kansas,Jayhawks,KU,Kansas,02,Ohio State,Buckeyes,OSU,Ohio St.
+2012,4,15430,2012-03-31,Saturday,win,01,Kentucky,Wildcats,UK,Kentucky,04,Louisville,Cardinals,LOU,Louisville
+2012,2,15432,2012-04-02,Monday,loss,02,Kansas,Jayhawks,KU,Kansas,01,Kentucky,Wildcats,UK,Kentucky
+2012,2,15432,2012-04-02,Monday,win,01,Kentucky,Wildcats,UK,Kentucky,02,Kansas,Jayhawks,KU,Kansas
+2013,64,15786,2013-03-22,Friday,win,01,Kansas,Jayhawks,KU,Kansas,16,Western Kentucky,Hilltoppers,WKU,Western Ky.
+2013,32,15788,2013-03-24,Sunday,win,01,Kansas,Jayhawks,KU,Kansas,08,North Carolina,Tar Heels,UNC,North Carolina
+2013,16,15793,2013-03-29,Friday,loss,01,Kansas,Jayhawks,KU,Kansas,04,Michigan,Wolverines,MICH,Michigan
+2014,64,16150,2014-03-21,Friday,win,06,Baylor,Bears,BAY,Baylor,11,Nebraska,Cornhuskers,NEB,Nebraska
+2014,64,16150,2014-03-21,Friday,win,02,Kansas,Jayhawks,KU,Kansas,15,Eastern Kentucky,Colonels,EKY,Eastern Ky.
+2014,64,16150,2014-03-21,Friday,win,08,Kentucky,Wildcats,UK,Kentucky,09,Kansas State,Wildcats,KSU,Kansas St.
+2014,32,16152,2014-03-23,Sunday,win,06,Baylor,Bears,BAY,Baylor,03,Creighton,Bluejays,CREI,Creighton
+2014,32,16152,2014-03-23,Sunday,loss,02,Kansas,Jayhawks,KU,Kansas,10,Stanford,Cardinal,STAN,Stanford
+2014,32,16152,2014-03-23,Sunday,win,08,Kentucky,Wildcats,UK,Kentucky,01,Wichita State,Shockers,WICH,Wichita St.
+2014,16,16156,2014-03-27,Thursday,loss,06,Baylor,Bears,BAY,Baylor,02,Wisconsin,Badgers,WIS,Wisconsin
+2014,16,16157,2014-03-28,Friday,win,08,Kentucky,Wildcats,UK,Kentucky,04,Louisville,Cardinals,LOU,Louisville
+2014,8,16159,2014-03-30,Sunday,win,08,Kentucky,Wildcats,UK,Kentucky,02,Michigan,Wolverines,MICH,Michigan
+2014,4,16165,2014-04-05,Saturday,win,08,Kentucky,Wildcats,UK,Kentucky,02,Wisconsin,Badgers,WIS,Wisconsin
+2014,2,16167,2014-04-07,Monday,loss,08,Kentucky,Wildcats,UK,Kentucky,07,Connecticut,Huskies,CONN,UConn
+2015,64,16513,2015-03-19,Thursday,loss,03,Baylor,Bears,BAY,Baylor,14,Georgia State,Panthers,GAST,Georgia St.
+2015,64,16513,2015-03-19,Thursday,win,01,Kentucky,Wildcats,UK,Kentucky,16,Hampton,Pirates,HAMP,Hampton
+2015,64,16514,2015-03-20,Friday,win,02,Kansas,Jayhawks,KU,Kansas,15,New Mexico State,Aggies,NMSU,New Mexico St.
+2015,32,16515,2015-03-21,Saturday,win,01,Kentucky,Wildcats,UK,Kentucky,08,Cincinnati,Bearcats,CIN,Cincinnati
+2015,32,16516,2015-03-22,Sunday,loss,02,Kansas,Jayhawks,KU,Kansas,07,Wichita State,Shockers,WICH,Wichita St.
+2015,16,16520,2015-03-26,Thursday,win,01,Kentucky,Wildcats,UK,Kentucky,05,West Virginia,Mountaineers,WVU,West Virginia
+2015,8,16522,2015-03-28,Saturday,win,01,Kentucky,Wildcats,UK,Kentucky,03,Notre Dame,Fighting Irish,ND,Notre Dame
+2015,4,16529,2015-04-04,Saturday,loss,01,Kentucky,Wildcats,UK,Kentucky,01,Wisconsin,Badgers,WIS,Wisconsin
+2016,64,16877,2016-03-17,Thursday,loss,05,Baylor,Bears,BAY,Baylor,12,Yale,Bulldogs,YALE,Yale
+2016,64,16877,2016-03-17,Thursday,win,01,Kansas,Jayhawks,KU,Kansas,16,Austin Peay,Governors,PEAY,Austin Peay
+2016,64,16877,2016-03-17,Thursday,win,04,Kentucky,Wildcats,UK,Kentucky,13,Stony Brook,Seawolves,STON,Stony Brook
+2016,32,16879,2016-03-19,Saturday,win,01,Kansas,Jayhawks,KU,Kansas,09,Connecticut,Huskies,CONN,UConn
+2016,32,16879,2016-03-19,Saturday,loss,04,Kentucky,Wildcats,UK,Kentucky,05,Indiana,Hoosiers,IND,Indiana
+2016,16,16884,2016-03-24,Thursday,win,01,Kansas,Jayhawks,KU,Kansas,05,Maryland,Terrapins,MD,Maryland
+2016,8,16886,2016-03-26,Saturday,loss,01,Kansas,Jayhawks,KU,Kansas,02,Villanova,Wildcats,VILL,Villanova
+2017,64,17241,2017-03-16,Thursday,win,03,Florida State,Seminoles,FSU,Florida St.,14,Florida Gulf Coast,Eagles,FGCU,FGCU
+2017,64,17242,2017-03-17,Friday,win,03,Baylor,Bears,BAY,Baylor,14,New Mexico State,Aggies,NMSU,New Mexico St.
+2017,64,17242,2017-03-17,Friday,win,01,Kansas,Jayhawks,KU,Kansas,16,UC Davis,Aggies,UCD,UC Davis
+2017,64,17242,2017-03-17,Friday,win,02,Kentucky,Wildcats,UK,Kentucky,15,Northern Kentucky,Norse,NKU,Northern Ky.
+2017,32,17243,2017-03-18,Saturday,loss,03,Florida State,Seminoles,FSU,Florida St.,11,Xavier,Musketeers,XAV,Xavier
+2017,32,17244,2017-03-19,Sunday,win,03,Baylor,Bears,BAY,Baylor,11,USC,Trojans,USC,Southern California
+2017,32,17244,2017-03-19,Sunday,win,01,Kansas,Jayhawks,KU,Kansas,09,Michigan State,Spartans,MSU,Michigan St.
+2017,32,17244,2017-03-19,Sunday,win,02,Kentucky,Wildcats,UK,Kentucky,10,Wichita State,Shockers,WICH,Wichita St.
+2017,16,17248,2017-03-23,Thursday,win,01,Kansas,Jayhawks,KU,Kansas,04,Purdue,Boilermakers,PUR,Purdue
+2017,16,17249,2017-03-24,Friday,loss,03,Baylor,Bears,BAY,Baylor,07,South Carolina,Gamecocks,SCAR,South Carolina
+2017,16,17249,2017-03-24,Friday,win,02,Kentucky,Wildcats,UK,Kentucky,03,UCLA,Bruins,UCLA,UCLA
+2017,8,17250,2017-03-25,Saturday,loss,01,Kansas,Jayhawks,KU,Kansas,03,Oregon,Ducks,ORE,Oregon
+2017,8,17251,2017-03-26,Sunday,loss,02,Kentucky,Wildcats,UK,Kentucky,01,North Carolina,Tar Heels,UNC,North Carolina

@@ -1,0 +1,36 @@
+WITH p2 AS (
+  SELECT game_id, team_market, team_id, jersey_num, SUM(points_scored) AS pts
+  FROM `bigquery-public-data.ncaa_basketball.mbb_pbp_sr`
+  WHERE period = 2
+    AND season BETWEEN 2010 AND 2018
+    AND points_scored > 0
+    AND jersey_num IS NOT NULL
+  GROUP BY game_id, team_market, team_id, jersey_num
+  HAVING SUM(points_scored) >= 15
+),
+top_markets AS (
+  SELECT team_market
+  FROM p2
+  GROUP BY team_market
+  ORDER BY COUNT(DISTINCT CONCAT(team_id, '-', CAST(jersey_num AS STRING))) DESC
+  LIMIT 5
+),
+t AS (
+  SELECT season, round, days_from_epoch, game_date, day,
+         'win' AS label,
+         win_seed AS seed, win_market AS market, win_name AS name, win_alias AS alias, win_school_ncaa AS school_ncaa,
+         lose_seed AS opponent_seed, lose_market AS opponent_market, lose_name AS opponent_name, lose_alias AS opponent_alias, lose_school_ncaa AS opponent_school_ncaa
+  FROM `bigquery-public-data.ncaa_basketball.mbb_historical_tournament_games`
+  UNION ALL
+  SELECT season, round, days_from_epoch, game_date, day,
+         'loss' AS label,
+         lose_seed, lose_market, lose_name, lose_alias, lose_school_ncaa,
+         win_seed, win_market, win_name, win_alias, win_school_ncaa
+  FROM `bigquery-public-data.ncaa_basketball.mbb_historical_tournament_games`
+)
+SELECT season, round, days_from_epoch, game_date, day, label, seed, market, name, alias, school_ncaa,
+       opponent_seed, opponent_market, opponent_name, opponent_alias, opponent_school_ncaa
+FROM t
+WHERE season BETWEEN 2010 AND 2018
+  AND market IN (SELECT team_market FROM top_markets)
+ORDER BY game_date, market

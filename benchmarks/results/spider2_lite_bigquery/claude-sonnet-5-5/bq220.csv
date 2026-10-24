@@ -1,0 +1,7 @@
+plot_type,year,state,avg_size
+macroplot,2015,California,48112360.52493453
+macroplot,2016,California,48437776.17992511
+macroplot,2017,California,49112654.79675315
+subplot,2015,California,48100122.594915845
+subplot,2016,California,48425423.927518494
+subplot,2017,California,49099907.47639603

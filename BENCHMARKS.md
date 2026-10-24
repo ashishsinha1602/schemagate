@@ -29,6 +29,8 @@ SQL. Every prediction file and evaluator output is in
 | **UniQL, Oracle dialect**, 1,534 questions, first try only | Gemini 2.5 Flash | **64.47** (67.60 with one execution repair) | 49.61 (Claude Sonnet 4.5, UniQL's own baseline) |
 | **Spider 2.0-lite, the 135 SQLite questions** (one third of the set; not a leaderboard row) | Claude Sonnet 5.5 | **71.9** (97 of 135) | 57.78 Pass@1 / 64.44 Majority@8 (FlexSQL, gpt-oss-120b, an agent) |
 | Spider 2.0-lite SQLite, same 135 | Gemini 2.5 Flash | 39.3 (full schema, no schemagate: 40.7) | the light model is not competitive here |
+| Spider 2.0-lite SQLite, same 135 | Claude Opus 5.5 | 67.4 (91 of 135) | below Sonnet 5.5 with the same pipeline |
+| **Spider 2.0-lite, the 205 BigQuery questions** | Claude Sonnet 5.5 | **45.9** (94 of 205) | no BigQuery-only row on the board; Snowflake third not yet run |
 
 What is the same in every row: one model call per question, about 2,100
 prompt tokens, no candidate generation, no voting, no agent loop. The only
@@ -51,7 +53,8 @@ splits, and what the Oracle rules changed:
 [Mini-Dev](benchmarks/results/bird_minidev/README.md),
 [dev](benchmarks/results/bird_dev/README.md),
 [UniQL Oracle](benchmarks/results/uniql_oracle/README.md),
-[Spider 2.0-lite SQLite](benchmarks/results/spider2_lite_sqlite/README.md).
+[Spider 2.0-lite SQLite](benchmarks/results/spider2_lite_sqlite/README.md),
+[Spider 2.0-lite BigQuery](benchmarks/results/spider2_lite_bigquery/README.md).
 
 Access control is scored separately, by two benchmarks whose evaluators I did
 not write: AC-F1 90.1 on the RBAC Text-to-SQL benchmark and refusal F1 0.984
