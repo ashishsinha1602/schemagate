@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.12.0
+
+- **The reranker can show the model more of each table.** `rerank(..., summary_width=150)` sets how many
+  characters of each candidate's one-line summary the model reads. Wide tables with terse column names
+  (`pnlkind`, `degyrrate`) need room for the column meanings, or the model ranks on abbreviations it
+  cannot read. The default stays 150, so every existing caller gets exactly the prompt it got before (a
+  test pins that).
+- **BIRD Mini-Dev: first query against repairs, with the run log.** In the Claude Opus 5.5 SQLite run
+  behind the 81.00, 498 of 500 questions ran on the first query; the 2 repaired ones did not end up
+  correct, so accuracy before any repair is also 81.00. The per-attempt log of that run is now in
+  `benchmarks/results/bird_minidev/`.
+- README: patent pending (US provisional application 64/183,987).
+
 ## 1.11.1
 
 - **A sentence after the query no longer breaks it.** A model that writes its SQL and then a note

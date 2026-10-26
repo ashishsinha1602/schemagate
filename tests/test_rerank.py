@@ -150,3 +150,31 @@ def test_a_reasoning_model_gets_enough_tokens_to_answer():
     out = rerank(model, "q", docs, top_k=2)
     assert [d.qname for d in out[:2]] == ["main.t3", "main.t1"], "the model's answer was not used"
     assert model.budgets and model.budgets[0] >= 512
+
+
+LONG = Doc("main.wide", "columns: " + "; ".join(f"col{i} (what column {i} means)" for i in range(40)))
+
+
+def test_the_default_summary_is_unchanged():
+    """Every caller that does not pass summary_width gets exactly the prompt it got before."""
+    assert build_prompt("q", [LONG], 6) == build_prompt("q", [LONG], 6, summary_width=150)
+    line = build_prompt("q", [LONG], 6).splitlines()[1]
+    assert len(line.split(" -- ", 1)[1]) == 150
+
+
+def test_a_wider_summary_shows_the_column_meanings_a_short_one_cuts():
+    """Wide tables with terse names: the model can only rank on meanings it is shown."""
+    short = build_prompt("q", [LONG], 6)
+    wide = build_prompt("q", [LONG], 6, summary_width=600)
+    assert "col15" not in short and "col15" in wide
+
+
+def test_rerank_passes_the_width_through_to_the_model():
+    seen = {}
+
+    class Spy:
+        def complete(self, system, prompt, max_tokens=1024):
+            seen["prompt"] = prompt
+            return "1"
+    rerank(Spy(), "q", [LONG, DOCS[0]], top_k=1, summary_width=600)
+    assert "col15" in seen["prompt"]
