@@ -4,6 +4,7 @@
 [![Python](https://img.shields.io/pypi/pyversions/schemagate.svg)](https://pypi.org/project/schemagate/)
 [![CI](https://github.com/ashishsinha1602/schemagate/actions/workflows/ci.yml/badge.svg)](https://github.com/ashishsinha1602/schemagate/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Patent pending: US 64/183,987](https://img.shields.io/badge/patent-pending%20(US%2064%2F183%2C987)-555555)](#status)
 [![BIRD Mini-Dev EX: SQLite 81.0 · PostgreSQL 72.6 · MySQL 72.4](https://img.shields.io/badge/BIRD%20Mini--Dev%20EX-SQLite%2081.0%20%C2%B7%20PostgreSQL%2072.6%20%C2%B7%20MySQL%2072.4-0F7B6C)](benchmarks/results/bird_minidev/README.md)
 [![UniQL Oracle: 64.5% first try](https://img.shields.io/badge/UniQL%20Oracle-64.5%25%20first%20try-C74634)](benchmarks/results/uniql_oracle/README.md)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15353/badge)](https://www.bestpractices.dev/projects/15353)
@@ -1380,3 +1381,6 @@ runs the embedder in fresh subprocesses under different `PYTHONHASHSEED`
 values, because it was broken once and nothing else caught it.
 
 Apache-2.0. Ashish Sinha.
+
+Patent pending: US provisional application 64/183,987, filed 25 October 2026. Use of this code is
+licensed under Apache-2.0, including the patent licence in its section 3.
