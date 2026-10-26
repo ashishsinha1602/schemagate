@@ -64,8 +64,8 @@ def _summary(doc, width: int = 150) -> str:
     return text[:width]
 
 
-def build_prompt(question: str, docs: Sequence, top_k: int) -> str:
-    lines = [f"{i + 1}. {d.qname} -- {_summary(d)}" for i, d in enumerate(docs)]
+def build_prompt(question: str, docs: Sequence, top_k: int, summary_width: int = 150) -> str:
+    lines = [f"{i + 1}. {d.qname} -- {_summary(d, summary_width)}" for i, d in enumerate(docs)]
     return ("Candidates:\n" + "\n".join(lines)
             + f"\n\nQuestion: {question}\nReply with at most {top_k} numbers.")
 
@@ -92,13 +92,19 @@ def parse_choice(reply: str, n: int, top_k: int) -> List[int]:
 
 
 def rerank(provider, question: str, docs: Sequence, top_k: int = 6,
-           candidates: int = 20, max_tokens: int = 1024) -> List:
+           candidates: int = 20, max_tokens: int = 1024,
+           summary_width: int = 150) -> List:
     """Reorder ``docs`` by asking a model, falling back to the order given.
 
     ``docs`` must already be the caller's allowed set, in the order the maths
     produced. Only the first ``candidates`` are shown to the model; anything
     below that keeps its place, so a reply that omits a table demotes it
     rather than dropping it from the catalog.
+
+    ``summary_width`` is how many characters of each candidate's summary the
+    model sees. 150 fits a hint or a dozen column names; wide tables with
+    terse column names (``pnlkind``, ``degyrrate``) need room for the column
+    meanings, or the model ranks on abbreviations it cannot read.
 
     ``max_tokens`` covers the model's reasoning as well as the few numbers it
     writes. It was 120, which a reasoning model spends before it answers: on
@@ -113,7 +119,7 @@ def rerank(provider, question: str, docs: Sequence, top_k: int = 6,
 
     try:
         reply = provider.complete(SYSTEM.format(k=top_k),
-                                  build_prompt(question, head, top_k),
+                                  build_prompt(question, head, top_k, summary_width),
                                   max_tokens=max_tokens)
         picked = parse_choice(reply, len(head), top_k)
     except Exception:

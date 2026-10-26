@@ -51,6 +51,13 @@ Reproduction: the script as merged on `main` was re-run with Claude Opus 5.5 on 
 answer identically run to run. One question in the re-run had no SQL because of a single API error.
 The predictions and evaluator output are `claude-opus-5-5_plain_sqlite_rerun.*`.
 
+First query against repairs: the runner shows the model a database error and lets it try again, at most
+`--repairs` times (default 3). In the Claude Opus 5.5 SQLite run behind the 81.00, 498 of the 500
+questions ran on the first query. The other 2 each got one repair, and neither ended up correct, so
+execution accuracy before any repair is also 81.00. The per-attempt log of that run is
+`claude-opus-5-5_plain_sqlite.log.jsonl`: its SQL matches the scored predictions on all 500 questions,
+and `tries` lists each attempt.
+
 Evaluator variance: `evaluation_ex.py` gives a query 30 s. Scored while other evaluators were running,
 Haiku on PostgreSQL came out 54.60. Scored alone, it came out 55.00, which is what the `.ex.txt` file
 shows. Every number in this page is from a run scored alone.
