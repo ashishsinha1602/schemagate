@@ -37,6 +37,7 @@ answer path sends schema only.
 """
 from __future__ import annotations
 
+import contextvars as _contextvars
 import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Sequence
@@ -90,7 +91,6 @@ _STEP_TOKENS = 2000
 #: True while deep mode runs an EXPLORE query -- set here, read by whatever `run` does (the cache,
 #: a time limit). Row count cannot say which kind of read it is: a final answer asked for with
 #: ``max_rows=5`` is as small as any exploration.
-import contextvars as _contextvars
 EXPLORING: "_contextvars.ContextVar[bool]" = _contextvars.ContextVar("schemagate_exploring", default=False)
 
 _STEP = re.compile(r"^\s*\**\s*(EXPLORE|TABLES|FINAL)\s*\**\s*:\s*(.*)$", re.I)
