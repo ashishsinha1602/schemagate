@@ -238,6 +238,13 @@ def adaptive_answer(provider, question: str, ddl: str,
                        history=[_history_line(t) for t in tries], repairs=repairs)
     for s in deep.steps:
         s["step"] += len(tries)
+    if deep.sql is None and last.get("_rows") is not None:
+        # The steps found nothing better. The first query ran, and its empty or zero result
+        # is an answer (a count can be 0); returning nothing instead would lose it.
+        deep.sql, deep.columns = last["sql"], last.get("_columns") or []
+        rows = last["_rows"]
+        deep.rows, deep.truncated = rows[:max_rows], bool(last.get("_truncated")) or len(rows) > max_rows
+        deep.error = None
     deep.steps = [_public(t) for t in tries] + deep.steps
     return deep
 
@@ -305,7 +312,7 @@ def deep_answer(provider, question: str, ddl: str,
     system = DEEP_SYSTEM + _flavour(dialect)
     schema = ddl.strip()
     log: List[str] = list(history)
-    asked_empty = False
+    asked_empty = asked_insufficient = False
     steps = max(1, int(max_steps))
 
     for left in range(steps, 0, -1):
@@ -322,6 +329,16 @@ def deep_answer(provider, question: str, ddl: str,
         res.steps.append(step)
 
         if kind == "INSUFFICIENT":
+            # Questioned once, like an empty FINAL: on Oracle 9 of the 15 questions a plain
+            # query got right were lost here, the model giving up on tables that did answer
+            # them. A second INSUFFICIENT stands; the tables shown are the same either way.
+            if not asked_insufficient and left > 1:
+                asked_insufficient = True
+                step["outcome"] = "said the tables cannot answer this; asked to check"
+                log.append("INSUFFICIENT\n-> Check again before giving up. Name the part of the "
+                           "question that no table or column above covers. If every part is covered "
+                           "by some column above, write the FINAL query instead.")
+                continue
             step["outcome"] = "the model said the tables it may use cannot answer this"
             res.error = step["outcome"]
             return res

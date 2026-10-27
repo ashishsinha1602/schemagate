@@ -151,9 +151,40 @@ def test_out_of_steps_and_the_last_query_fails_reports_why():
     assert res.sql is None and "2 model calls" in res.error
 
 
-def test_insufficient_ends_it():
-    res = deep_answer(Script("INSUFFICIENT"), "q", DDL, FakeDB({}))
+def test_insufficient_twice_ends_it():
+    model = Script("INSUFFICIENT", "INSUFFICIENT")
+    res = deep_answer(model, "q", DDL, FakeDB({}))
+    assert res.error and res.sql is None and len(res.steps) == 2
+    assert "Check again before giving up" in model.prompts[1]
+
+
+def test_first_insufficient_is_questioned_and_a_final_wins():
+    model = Script("INSUFFICIENT", "FINAL: x\nSELECT id FROM customer")
+    res = deep_answer(model, "q", DDL, FakeDB({"SELECT id": {"columns": ["id"], "rows": [[1]]}}))
+    assert res.rows == [[1]] and res.error is None
+    assert [s["kind"] for s in res.steps] == ["insufficient", "final"]
+
+
+def test_insufficient_on_the_last_call_is_not_questioned():
+    res = deep_answer(Script("INSUFFICIENT"), "q", DDL, FakeDB({}), max_steps=1)
     assert res.error and len(res.steps) == 1
+
+
+def test_adaptive_keeps_an_empty_first_answer_when_the_steps_find_nothing():
+    # a count of 0 can be right; when deep mode gives up, the executed first query still answers
+    model = Script("SELECT count(*) FROM customer WHERE country = 'XX'", "INSUFFICIENT", "INSUFFICIENT")
+    db = FakeDB({"'XX'": {"columns": ["n"], "rows": [[0]]}})
+    res = adaptive_answer(model, "how many in XX", DDL, db)
+    assert res.rows == [[0]] and res.error is None and "'XX'" in res.sql
+    assert [s["kind"] for s in res.steps] == ["plain", "insufficient", "insufficient"]
+
+
+def test_adaptive_gives_no_answer_when_no_query_ever_ran():
+    model = Script("SELECT a FROM customer", "SELECT b FROM customer", "SELECT c FROM customer",
+                   "INSUFFICIENT", "INSUFFICIENT")
+    db = FakeDB({"SELECT a": {"error": "e1"}, "SELECT b": {"error": "e2"}, "SELECT c": {"error": "e3"}})
+    res = adaptive_answer(model, "q", DDL, db, repairs=2)
+    assert res.sql is None and res.error
 
 
 # --- the MCP tool -----------------------------------------------------------------------------
