@@ -244,6 +244,30 @@ Nineteen points of the original figure were measurement error, all of it
 flattering. The fix for the first is `benchmarks/longpath.py`; the fix for
 the second is counting.
 
+## Prompt tokens on public schemas: the saving grows with the schema
+
+`benchmarks/token_savings/measure.py` counts, for every question, the tokens of the schema
+a text-to-SQL prompt carries: every column of every table in the database (no selection),
+against what `Catalog.select` returns. No model is called. cl100k_base tokens; the hashed
+embedder `pip install schemagate` gives you; top_k 6 on BIRD, 12 on Spider 2.0. Results
+are in `benchmarks/token_savings/results.json`.
+
+| Schemas | Questions | Databases | Median tables | Full schema, mean tokens | Selected, mean | Mean saving | Median saving per database |
+|---|---|---|---|---|---|---|---|
+| BIRD dev | 1,534 | 11 | 7 | 579 | 462 | 20.1% | 8.8% |
+| Spider 2.0-lite, local SQLite | 135 | 30 | 13 | 924 | 642 | 30.6% | 6.3% |
+| Spider 2.0-lite, BigQuery and Snowflake | 412 | 128 | 16 | 46,560 | 1,469 | 96.8% | 48.8% |
+| the same, databases with 50+ tables | | 33 | | | | | **92.9%** |
+
+Small schemas leave little to cut: on BIRD's seven-table databases the whole schema is
+already a few hundred tokens. The saving is where schemas are big. The mean on the
+warehouses is pulled up by a few very large databases, so the per-database median is
+the fairer single number.
+
+The cost of cutting: on BIRD, every table the gold SQL reads was in the selection for
+98.4% of questions. On the warehouses (questions with public gold SQL) it was 79.6%. A
+question whose table was cut can't be answered from the prompt. That is what the
+retrieval sections above measure in detail.
 ## What the dropped questions say about the tool
 
 They are not noise. Spider 2.0's `ga4` database is 92 tables named
