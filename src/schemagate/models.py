@@ -378,6 +378,9 @@ class Selection:
     #: says so -- that something is withheld, not what -- so a model given a partial schema
     #: declines a question that needs the rest instead of approximating it from what is left.
     restricted: bool = False
+    #: Business rules for this question and caller (see ``schemagate.rules``), one ``- title: text``
+    #: line each. Empty unless the catalog has rules, and then the fragment is unchanged.
+    rules: List[str] = field(default_factory=list)
 
     @property
     def objects(self) -> List[ObjectDoc]:
@@ -413,6 +416,8 @@ class Selection:
             # Above the DDL, so the model reads what "revenue" means before it
             # reads the columns it might otherwise guess from.
             body = "-- What the business terms in this question mean:\n" + "\n".join(self.meanings) + "\n\n" + ddl
+        if self.rules:
+            body = "-- Business rules to follow:\n" + "\n".join("-- " + r for r in self.rules) + "\n\n" + body
         # Only above a schema: a caller shown nothing gets nothing, not a notice alone.
         return RESTRICTED_NOTICE + "\n" + body if self.restricted and body else body
 

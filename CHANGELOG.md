@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.13.0
+
+- **`deep_answer`: the model can look at the data before it answers.** New MCP tool, off unless the
+  server runs with `SCHEMAGATE_MCP_DEEP=1`, because explore rows go to the model provider. Each model
+  call is one step: EXPLORE (a small read whose first 10 rows the model sees), TABLES (more of the
+  caller's scoped schema), FINAL or INSUFFICIENT. Every step's SQL goes through `run_query`'s read-only
+  check, scope check and audit. The default `mode="adaptive"` writes a plain query first, repairs it up
+  to twice, and escalates to steps only when the result is an error, empty or all zeros. Explore reads
+  have a time limit (`SCHEMAGATE_DEEP_EXPLORE_SECONDS`, default 10), and a 5-minute cache keyed by caller,
+  roles and catalog version. On 220 BIRD questions with Gemini 2.5 Flash: plain 36.8, adaptive 54.5.
+  See `docs/deep-answer.md`.
+- **Business rules.** Knowledge the schema doesn't carry, kept in Markdown with one `##` heading per rule
+  and optional `tables:` and `roles:` lines. Set it with `"rules": "rules.md"` in the catalog config, or
+  in Studio's new *Business rules* box, saved per database. Rules are picked by role, by table and by
+  wording, at most 5 per prompt. With no rules the prompt is byte-for-byte unchanged. See
+  `docs/business-rules.md`.
+- `run_sql(..., timeout=)` limits how long one statement may run on PostgreSQL, Oracle, MySQL and SQLite.
+  The default is no limit, as before.
+
 ## 1.12.0
 
 - **The reranker can show the model more of each table.** `rerank(..., summary_width=150)` sets how many
