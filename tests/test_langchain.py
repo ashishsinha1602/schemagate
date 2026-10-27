@@ -71,3 +71,9 @@ def test_batch_works(retriever):
     results = retriever.batch(["revenue by month", "headcount per department"])
     assert len(results) == 2
     assert all(isinstance(r, list) for r in results)
+
+
+def test_top_k_per_call(cat):
+    r = SchemagateRetriever(catalog=cat, top_k=6, expand_fks=False)
+    assert len(r.invoke("which customers owe us money", top_k=1)) == 1
+    assert len(r.invoke("which customers owe us money", top_k=3)) == 3

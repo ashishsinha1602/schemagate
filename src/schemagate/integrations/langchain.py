@@ -48,9 +48,11 @@ class SchemagateRetriever(BaseRetriever):
     model_config = {"arbitrary_types_allowed": True}
 
     def _get_relevant_documents(
-        self, query: str, *, run_manager: Optional[CallbackManagerForRetrieverRun] = None
+        self, query: str, *, run_manager: Optional[CallbackManagerForRetrieverRun] = None,
+        top_k: Optional[int] = None,
     ) -> List[Document]:
-        sel = self.catalog.select(query, top_k=self.top_k,
+        """``top_k`` overrides the retriever's for one call: ``retriever.invoke(q, top_k=3)``."""
+        sel = self.catalog.select(query, top_k=top_k or self.top_k,
                                   principal=self.principal,
                                   expand_fks=self.expand_fks)
         return [
