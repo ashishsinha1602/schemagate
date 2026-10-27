@@ -22,7 +22,7 @@ database, so anything that is not a single read is refused rather than run.
 from __future__ import annotations
 
 import re
-from typing import Any, List, Sequence, Tuple
+from typing import Any, List, Optional, Sequence, Tuple
 
 __all__ = ["UnsafeSQL", "check_read_only", "sql_prompt", "generate_sql", "run_sql"]
 
@@ -314,21 +314,62 @@ def generate_sql(provider, question: str, fragment: str,
     )
 
 
-def run_sql(engine, sql: str, limit: int = 50
+def _limit_time(conn, seconds: float) -> None:
+    """Best-effort statement time limit on this connection, per dialect. Unknown dialects: none."""
+    name = conn.dialect.name
+    ms = max(1, int(seconds * 1000))
+    raw = conn.connection.driver_connection
+    if name == "postgresql":
+        conn.exec_driver_sql(f"SET statement_timeout = {ms}")
+    elif name == "oracle":
+        raw.call_timeout = ms
+    elif name == "sqlite":
+        import time
+        stop = time.monotonic() + seconds
+        raw.set_progress_handler(lambda: 1 if time.monotonic() > stop else 0, 10000)
+    elif name in ("mysql", "mariadb"):
+        conn.exec_driver_sql(f"SET SESSION MAX_EXECUTION_TIME = {ms}")
+
+
+def _clear_time(conn) -> None:
+    name = conn.dialect.name
+    raw = conn.connection.driver_connection
+    try:
+        if name == "postgresql":
+            conn.exec_driver_sql("SET statement_timeout = 0")
+        elif name == "oracle":
+            raw.call_timeout = 0
+        elif name == "sqlite":
+            raw.set_progress_handler(None, 0)
+        elif name in ("mysql", "mariadb"):
+            conn.exec_driver_sql("SET SESSION MAX_EXECUTION_TIME = 0")
+    except Exception:                                     # noqa: BLE001 -- the pool resets it anyway
+        pass
+
+
+def run_sql(engine, sql: str, limit: int = 50, timeout: Optional[float] = None
             ) -> Tuple[List[str], List[Sequence[Any]]]:
     """Execute a checked read and return ``(column names, rows)``.
 
     ``check_read_only`` runs again here rather than trusting the caller: this
     is the function that hands text to a database, so it is the one that has
-    to be sure.
+    to be sure. ``timeout`` (seconds) caps the statement where the dialect
+    allows it; deep mode uses it so a slow exploring read cannot hold a
+    question for minutes.
     """
     from sqlalchemy import text
 
     sql = check_read_only(sql)
     with engine.connect() as conn:
-        result = conn.execute(text(sql))
-        cols = list(result.keys())
-        rows = result.fetchmany(limit)
+        if timeout:
+            _limit_time(conn, timeout)
+        try:
+            result = conn.execute(text(sql))
+            cols = list(result.keys())
+            rows = result.fetchmany(limit)
+        finally:
+            if timeout:
+                _clear_time(conn)
     return cols, [tuple(r) for r in rows]
 
 

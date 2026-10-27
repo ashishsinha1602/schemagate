@@ -1,7 +1,8 @@
 # Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Catalog configuration that lives outside your code.
 
-A JSON file with up to seven blocks; every block is optional::
+A JSON file with up to eight blocks; every block is optional (``"rules": "rules.md"`` names a
+Markdown file of business rules, see ``schemagate.rules``)::
 
     {"restrict":        {"hr_compensation": ["payroll"]},
      "restrict_column": {"employees": {"salary": ["hr"],
@@ -41,7 +42,7 @@ from typing import Any, Dict, Mapping, Optional
 
 from .catalog import Catalog
 
-KEYS = ("restrict", "restrict_column", "terms", "ontology", "hint", "describe", "groups")
+KEYS = ("restrict", "restrict_column", "terms", "ontology", "hint", "describe", "groups", "rules")
 
 
 def load(path: Optional[str]) -> Dict[str, Any]:
@@ -54,6 +55,10 @@ def load(path: Optional[str]) -> Dict[str, Any]:
         data = json.load(fh)
     if not isinstance(data, dict):
         raise ValueError(f"{path}: catalog config must be a JSON object")
+    # "rules": "rules.md" is a path to a Markdown file, relative to this config file
+    if isinstance(data.get("rules"), str):
+        rp = pathlib.Path(data["rules"])
+        data["rules"] = str(rp if rp.is_absolute() else p.parent / rp)
     unknown = [k for k in data if k not in KEYS]
     if unknown:
         raise ValueError(
@@ -87,6 +92,12 @@ def apply(cat: Catalog, config: Mapping[str, Any]) -> None:
         bad = [p for p in cat.ontology.check() if "claimed by" not in p]
         if bad:
             raise ValueError("ontology: " + "; ".join(bad))
+    if config.get("rules"):
+        from .rules import parse_markdown
+        rules = config["rules"]
+        if not isinstance(rules, str):
+            raise ValueError("rules must be the path of a Markdown file")
+        cat.rules = parse_markdown(pathlib.Path(rules).read_text("utf-8"))
     for table, text in (config.get("hint") or {}).items():
         cat.hint(table, str(text))
     desc = config.get("describe") or {}

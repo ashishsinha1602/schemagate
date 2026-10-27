@@ -626,6 +626,55 @@ class StudioState:
                     pass
         return {"glossary": g}
 
+    def _rules_path(self) -> str:
+        """This database's rules file. The demo gets one too, so the page can be tried as it ships."""
+        import hashlib
+        from . import remember
+        key = hashlib.sha256((self.connection_label or "demo").encode("utf-8")).hexdigest()[:16]
+        return str(remember.path().parent / "rules" / (key + ".md"))
+
+    def _rules_markdown(self) -> str:
+        try:
+            return pathlib.Path(self._rules_path()).read_text("utf-8")
+        except OSError:
+            return ""
+
+    def _load_rules(self) -> int:
+        """Apply this database's saved rules to the catalog. Returns how many."""
+        from .rules import parse_markdown
+        md = self._rules_markdown()
+        if md.strip():                     # none saved: keep any rules --config already gave
+            self.catalog.rules = parse_markdown(md)
+        return len(self.catalog.rules)
+
+    def rules(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        """Business rules, kept as a Markdown file per database (see ``schemagate.rules``).
+
+        ``get`` returns the file and what it parsed to; ``save`` writes it and applies it at once;
+        ``test`` says which rules a question would send, for the caller in ``body``.
+        """
+        from .rules import parse_markdown
+        action = str(body.get("action") or "get")
+        if action == "save":
+            md = str(body.get("markdown") or "")
+            if len(md) > 200_000:
+                return {"error": "rules file is too long (200,000 characters at most)"}
+            p = pathlib.Path(self._rules_path())
+            try:
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text(md, "utf-8")
+            except OSError as e:
+                return {"error": f"could not save the rules: {e}"}
+            self.catalog.rules = parse_markdown(md)
+        elif action == "test":
+            picked = self.select(body)
+            if "error" in picked:
+                return picked
+            return {"applied": picked.get("rules", [])}
+        out = [{"title": r.title, "text": r.text, "tables": list(r.tables), "roles": list(r.roles)}
+               for r in self.catalog.rules]
+        return {"markdown": self._rules_markdown(), "rules": out, "path": self._rules_path()}
+
     def _expand_question(self, question: str) -> str:
         """Append the meaning of every glossary term the question mentions."""
         g = self._glossary()
@@ -937,6 +986,7 @@ class StudioState:
         ensure_described(cat, cache_path=self._description_cache(),
                          provider=self._provider())
         self._load_hints()
+        self._load_rules()
         from . import remember
         want = self.remember_connection or bool(body.get("remember"))
         self.remembered = bool(want and remember.save_connection(
@@ -1007,6 +1057,7 @@ class StudioState:
             "tokens": _estimate_tokens(sel.prompt_fragment()),
             "full_tokens": _estimate_tokens(full),
             "hidden": hidden, "shadows": sorted(shadows.items()),
+            "rules": list(sel.rules),
         }
 
 
@@ -1118,7 +1169,7 @@ def _handler(state: StudioState):
                                  "/api/describe", "/api/apply-descriptions",
                                  "/api/connect", "/api/resync",
                                  "/api/connections", "/api/models", "/api/hints",
-                                 "/api/glossary"):
+                                 "/api/glossary", "/api/rules"):
                 return self._json(404, {"error": "not found"})
             try:
                 length = int(self.headers.get("Content-Length") or 0)
@@ -1141,6 +1192,8 @@ def _handler(state: StudioState):
                     return self._json(200, state.hints(payload))
                 if self.path == "/api/glossary":
                     return self._json(200, state.glossary(payload))
+                if self.path == "/api/rules":
+                    return self._json(200, state.rules(payload))
                 if self.path == "/api/models":
                     return self._json(200, state.models(payload))
                 if self.path == "/api/connect":
@@ -1283,6 +1336,7 @@ def main(url: Optional[str] = None, host: str = "127.0.0.1", port: int = 8770,
     state.restrict_from_grants = restrict_from_grants
     state.sample_values = sample_values
     state.remember_connection = bool(remember_connection)
+    state._load_rules()
 
     # Replay the last connection, if there is one and nothing more specific
     # was asked for. This is what stops a restart from meaning "type the

@@ -76,7 +76,7 @@ import os
 import re
 import threading
 import time
-from typing import Annotated, Any, Callable, Dict, List, Optional
+from typing import Annotated, Any, Callable, Dict, List, Literal, Optional
 
 from . import __version__
 from .catalog import Catalog
@@ -220,6 +220,20 @@ def _semantic_check() -> bool:
     return True
 
 
+def _deep_check() -> bool:
+    """Whether `deep_answer` is on. Off by default for the same reason as `semantic_query`: its
+    exploring queries send rows to the model provider. ``SCHEMAGATE_MCP_DEEP=1`` without a model
+    stops the server."""
+    if not _truthy("SCHEMAGATE_MCP_DEEP"):
+        return False
+    try:
+        if _server_provider() is None:
+            raise ValueError("SCHEMAGATE_MCP_PROVIDER and SCHEMAGATE_MCP_MODEL are not both set")
+    except ValueError as e:
+        raise SystemExit(f"schemagate.mcp_server: SCHEMAGATE_MCP_DEEP=1 needs a model: {e}")
+    return True
+
+
 def _rerank_check() -> bool:
     """Whether `select_schema` reranks. Read at startup and validated there:
     ``SCHEMAGATE_MCP_RERANK=1`` without a usable model stops the server rather
@@ -241,6 +255,18 @@ MAX_ROLES = 100
 #: should get a page of it and be told there is more, not fill the context.
 MAX_ROWS = 200
 DEFAULT_ROWS = 50
+#: Model calls one deep_answer may make.
+MAX_DEEP_STEPS = 12
+#: deep_answer's exploring reads, kept five minutes per caller and catalogue version.
+from .deep import ExploreCache as _ExploreCache                            # noqa: E402
+_EXPLORE_CACHE = _ExploreCache(ttl=float(os.environ.get("SCHEMAGATE_DEEP_CACHE_SECONDS", "300")))
+#: A statement time limit run_query applies when one is set here -- deep_answer sets it for its
+#: exploring reads only, so a slow look at the data cannot hold a question for minutes. Unset
+#: (None) for every other call, which is every call a client makes directly.
+import contextvars as _contextvars                                         # noqa: E402
+_QUERY_TIMEOUT: "_contextvars.ContextVar[Optional[float]]" = _contextvars.ContextVar(
+    "schemagate_query_timeout", default=None)
+EXPLORE_SECONDS = float(os.environ.get("SCHEMAGATE_DEEP_EXPLORE_SECONDS", "10"))
 #: Characters of SQL accepted. Generous for a real query, small enough that
 #: nobody posts a novel through the tool.
 MAX_SQL_CHARS = 20000
@@ -349,6 +375,7 @@ def build_catalog(url: Optional[str] = None, config_path: Optional[str] = None,
         reread_timeout = _reread_timeout()   # likewise
         _STATE["rerank"] = _rerank_check()   # likewise
         _STATE["semantic"] = _semantic_check()
+        _STATE["deep"] = _deep_check()
         cat = _reflect(url, config_path)
         _CATALOG = cat
         _GROUPS = _groups_from(config_path, url)
@@ -864,6 +891,12 @@ Extract = Annotated[Optional[str], Field(description=(
     "both."))]
 MaxRows = Annotated[int, Field(description=(
     "Most rows to return (default 50, at most 200). The result says when it was truncated."), ge=1, le=200)]
+DeepMode = Annotated[Literal["adaptive", "deep"], Field(description=(
+    "'adaptive' (default): one plain query first, and the step-by-step path only when that one fails, "
+    "comes back empty or is all zero -- most questions cost one model call. 'deep': always work in steps."))]
+MaxSteps = Annotated[int, Field(description=(
+    "Most model calls for this question (default 6, at most 12). Each exploring query, request for "
+    "more tables, repair and final query is one; a plain question uses one."), ge=1, le=12)]
 
 # --- tool implementations, importable without the mcp package ------------
 # Kept separate from the server wiring so they can be unit-tested directly
@@ -1003,7 +1036,7 @@ def run_query(sql: SqlArg, principal: PrincipalArg = None,
     # One extra row, so "there are more" is a fact rather than a guess at the
     # boundary -- asking for 50 and getting 50 says nothing on its own.
     try:
-        cols, rows = run_sql(_engine(), sql, limit=max_rows + 1)
+        cols, rows = run_sql(_engine(), sql, limit=max_rows + 1, timeout=_QUERY_TIMEOUT.get())
     except Exception as e:                               # noqa: BLE001
         # Hand the database's own words back. The generic guard would say
         # "OperationalError", and the caller here is a model whose next move
@@ -1138,6 +1171,80 @@ def answer(question: Question, principal: PrincipalArg = None,
 
 
 @_guard
+def deep_answer(question: Question, principal: PrincipalArg = None,
+                roles: RolesArg = None, top_k: TopK = 6,
+                max_rows: MaxRows = DEFAULT_ROWS,
+                max_steps: MaxSteps = 6,
+                mode: DeepMode = "adaptive") -> Dict[str, Any]:
+    """`answer`, in steps: look at the data, ask for more tables, fix a rejected query, then answer.
+
+    Every step's SQL goes through `run_query` -- read-only check, scope check
+    and audit record each time -- and a TABLES step only ever adds objects this
+    caller may see. Returns the answer with the trace of how it got there.
+    Off unless the server runs with ``SCHEMAGATE_MCP_DEEP=1``: the rows an
+    exploring query returns are sent to the model provider.
+    """
+    from . import deep as D
+
+    if not _STATE.get("deep"):
+        return {"error": "deep_answer is off on this server: its exploring queries send rows to the "
+                         "model provider, so it needs SCHEMAGATE_MCP_DEEP=1 and a configured model"}
+    question = str(question or "").strip()
+    if not question:
+        return {"error": "question is empty"}
+    picked = select_schema(question, principal=principal, roles=roles, top_k=top_k)
+    if "error" in picked:
+        return picked
+    try:
+        max_rows = max(1, min(int(max_rows), MAX_ROWS))
+    except (TypeError, ValueError):
+        max_rows = DEFAULT_ROWS
+    try:
+        max_steps = max(1, min(int(max_steps), MAX_DEEP_STEPS))
+    except (TypeError, ValueError):
+        max_steps = 6
+
+    who = _principal(principal, roles)
+    cat = _catalog()
+    shown = list(picked["objects"])
+
+    def more_tables(topic: str) -> str:
+        # the same scoped selection as select_schema, so nothing withheld can be added
+        sel = cat.select(f"{question} {topic}"[:MAX_QUESTION_CHARS], top_k=max(1, min(int(top_k), MAX_TOP_K)),
+                         principal=who, expand_fks=True)
+        new = [d for d in sel.objects if d.qname not in shown]
+        shown.extend(d.qname for d in new)
+        return "\n\n".join(d.render_ddl(40, principal=who, question=topic) for d in new)
+
+    def run(sql: str, limit: int) -> Dict[str, Any]:
+        token = _QUERY_TIMEOUT.set(EXPLORE_SECONDS if D.EXPLORING.get() else None)
+        try:
+            out = run_query(sql, principal=principal, roles=roles, max_rows=limit)
+        finally:
+            _QUERY_TIMEOUT.reset(token)
+        return {k: v for k, v in out.items() if not k.startswith("_")}
+
+    # Exploring reads are cached per caller and per catalogue version: who asks, with which roles,
+    # against which reflection. A refresh or a different caller never sees another's entry.
+    scope = (who.subject if who else None, tuple(sorted(getattr(who, "roles", None) or ())),
+             id(cat), _STATE.get("last_refresh_at"))
+    run = _EXPLORE_CACHE.wrap(run, scope)
+    answer_fn = D.deep_answer if mode == "deep" else D.adaptive_answer
+    res = answer_fn(_server_provider(), question, picked["ddl"], run, more_tables,
+                    dialect=_dialect_name(), max_steps=max_steps, max_rows=max_rows)
+    if res.sql:
+        # as in `answer`: the question and the query, never the rows
+        _memory().remember(question, res.sql, source="deep_answer")
+    explored = sum(1 for s in res.steps if s["kind"] == "explore" and s.get("outcome", "").endswith("seen"))
+    return dict(res.to_dict(), objects=shown,
+                principal=who.subject if who else None,
+                sent_to_model=("schema only" if not explored else
+                               f"schema, and up to {D.PREVIEW_ROWS} rows from each of {explored} "
+                               "exploring queries"),
+                _tables=_referenced_tables(res.sql) if res.sql else [])
+
+
+@_guard
 def refresh_catalog() -> Dict[str, Any]:
     """Re-reflect the database and swap the index in, atomically.
 
@@ -1196,6 +1303,7 @@ def health() -> Dict[str, Any]:
         "reread_in_flight": _reread_in_flight(),
         "rerank": bool(_STATE.get("rerank")),
         "semantic": bool(_STATE.get("semantic")),
+        "deep": bool(_STATE.get("deep")),
         # where identity comes from: "oauth" (a verified token), "none" (HTTP, client-asserted), "stdio"
         "auth": _STATE.get("auth"),
         "catalog_stale": bool(_STATE.get("max_age") and (_catalog_age() or 0) > _STATE["max_age"]),
@@ -1262,6 +1370,16 @@ TOOL_DESCRIPTIONS = {
         "Question in, rows out: selects the schema, writes the SQL with the server's own configured model, "
         "and runs it, all scoped to the caller. Only available when the server has a model configured; most "
         "clients should use select_schema then run_query with their own model instead."),
+    "deep_answer": (
+        "Like answer, but able to work in steps (mode 'adaptive', the default, tries one plain query first and "
+        "only works in steps when it fails or comes back empty; mode 'deep' always does): the server's model may "
+        "run small exploring queries to see real "
+        "values (how a status or country is spelled, a date format, whether a join matches), ask for more "
+        "tables, and fix a query the database rejected, before running the final query. Every query goes "
+        "through the same read-only and caller-scope checks as run_query. Returns the rows plus a step-by-"
+        "step trace (each step's SQL and outcome) and what was sent to the model. Off unless the server "
+        "enables it (SCHEMAGATE_MCP_DEEP=1), because exploring rows go to the model provider; use it for "
+        "questions that name values or span several tables, and answer for simple ones."),
     "refresh_catalog": (
         "Re-read the database structure (new tables, changed columns, changed grants) and swap the index in. "
         "Call it after a migration or a permission change, or when health shows the catalog is stale; it is "
@@ -1335,15 +1453,16 @@ def create_server(catalog: Optional[Catalog] = None):
     except ImportError:                               # very old SDKs: descriptions only
         ToolAnnotations = None
     for tool in (select_schema, list_objects, describe_object,
-                 run_query, semantic_query, answer, refresh_catalog, health):
+                 run_query, semantic_query, answer, deep_answer, refresh_catalog, health):
         name = tool.__name__
         kw: Dict[str, Any] = {"description": TOOL_DESCRIPTIONS[name]}
         if ToolAnnotations is not None:
             # Every tool only reads. refresh_catalog changes the server's own index, never the database.
-            # semantic_query also sends row text to an outside model provider, hence openWorld.
+            # semantic_query and deep_answer also send rows to an outside model provider, hence openWorld.
+            sends_rows = name in ("semantic_query", "deep_answer")
             kw["annotations"] = ToolAnnotations(readOnlyHint=True, destructiveHint=False,
-                                                idempotentHint=name != "semantic_query",
-                                                openWorldHint=name == "semantic_query")
+                                                idempotentHint=not sends_rows,
+                                                openWorldHint=sends_rows)
         try:
             app.tool(**kw)(tool)
         except TypeError:                             # an SDK without annotations=
@@ -1352,7 +1471,8 @@ def create_server(catalog: Optional[Catalog] = None):
 
 
 #: the tools whose principal and roles OAuth fills in from the token
-IDENTITY_TOOLS = ("select_schema", "list_objects", "describe_object", "run_query", "semantic_query", "answer")
+IDENTITY_TOOLS = ("select_schema", "list_objects", "describe_object", "run_query", "semantic_query", "answer",
+                  "deep_answer")
 
 
 def _oauth_verifier(transport: str):

@@ -389,6 +389,8 @@ class Catalog:
         from .ontology import Ontology
         #: The organisation's vocabulary: concepts, their words, where they live.
         self.ontology = Ontology()
+        #: Business rules (``schemagate.rules.Rule``); empty means the prompt is unchanged.
+        self.rules: List = []
         #: Follow the terms a concept's definition cites (Ontology.with_cited).
         #: On by default; off only to measure what it changes.
         self.cite_definitions = True
@@ -1402,10 +1404,15 @@ class Catalog:
         restricted = self.restriction_notice and any(
             not self._visible(d, principal) or len(d.visible_columns(principal)) < len(d.columns)
             for d in self._docs.values())
+        rules = []
+        if self.rules:
+            from .rules import relevant
+            rules = [r.line() for r in relevant(self.rules, question, [sc.doc.qname for sc in chosen],
+                                                getattr(principal, "roles", None) or ())]
         return Selection(question=question, hits=chosen,
                          total_objects=len(order), principal=principal,
                          meanings=self._meanings(_matched, {sc.doc.qname for sc in chosen}, principal),
-                         restricted=restricted)
+                         restricted=restricted, rules=rules)
 
     def _meanings(self, matched, selected, principal) -> List[str]:
         """Meaning lines for the concepts this question used, for this caller.

@@ -1204,6 +1204,20 @@ your SQL under the same scope check, then asks the model which rows' text meets
 a criterion, or for one short answer per row. See
 [docs/semantic-operators.md](docs/semantic-operators.md).
 
+**Looking at the data before answering.** `deep_answer` (MCP, off by default)
+lets the model run small exploring reads, for example to find that the column
+says `Praha`, not `Prague`, before it writes the final query. Every step goes
+through the same scope check and audit as `run_query`. In the default
+adaptive mode it explores only when the plain query fails, comes back empty
+or returns only zeros. On 220 BIRD questions with Gemini 2.5 Flash, plain
+scored 36.8 and adaptive 54.5. See [docs/deep-answer.md](docs/deep-answer.md).
+
+**Business rules.** "Fiscal year starts 1 July", "leave out the test tenant":
+knowledge the schema doesn't carry. Write it in a Markdown file or in Studio's
+*Business rules* box. Each rule can be tied to tables and kept from roles, and
+only the relevant ones reach the prompt. See
+[docs/business-rules.md](docs/business-rules.md).
+
 ## On Oracle Cloud
 
 Certified live on Oracle AI Database 26ai. Two ways in, neither of which needs
