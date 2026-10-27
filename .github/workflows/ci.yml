@@ -78,6 +78,22 @@ jobs:
             exit 1
           fi
 
+  llamaindex:
+    # tests/test_llamaindex.py skips without llama-index-core, and the matrix
+    # does not install it (it pulls in nltk and a long tail). This job does,
+    # from its own hash-pinned lock, so the adapter is run against the real
+    # package on every pull request instead of being skipped everywhere.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: pip install --require-hashes -r .github/requirements/dev-llamaindex.txt && pip install --no-deps -e .
+      - name: adapter tests against llama-index-core (none may skip)
+        run: |
+          pytest tests/test_llamaindex.py -q -rs | tee li.txt
+          if grep -q "SKIPPED" li.txt; then echo "::error::llama-index-core was not importable"; exit 1; fi
   langchain-floor:
     # tests/test_langchain.py already runs in the matrix above -- but against
     # whatever langchain-core pip resolves to on the day (1.6.6 right now).

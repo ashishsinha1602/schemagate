@@ -17,7 +17,7 @@ keywords = [
   "schema-linking", "schema-selection", "schema-retrieval", "database",
   "vector-search", "bm25", "hybrid-search", "row-level-security", "rls",
   "vpd", "oracle", "oracle-23ai", "postgresql", "sql-server", "sqlalchemy",
-  "mcp", "model-context-protocol", "langchain", "anthropic", "gemini", "openai",
+  "mcp", "model-context-protocol", "langchain", "llamaindex", "anthropic", "gemini", "openai",
   "ai-agent", "data-catalog", "prompt-engineering",
 ]
 classifiers = [
@@ -74,6 +74,7 @@ pq          = ["cryptography>=48"]
 # integrations
 mcp         = ["mcp>=1.2", "sqlglot>=25"]  # sqlglot: run_query reads SQL with a parser
 langchain   = ["langchain-core>=0.3"]
+llamaindex  = ["llama-index-core>=0.12"]
 dev         = ["pytest>=8", "cryptography>=48", "ruff", "mypy", "sqlglot>=25", "anyio>=4",
                "langchain-core>=0.3",
                # tests/test_oci_stack.py parses cloud-init.yaml; it was relying

@@ -1,0 +1,1058 @@
+[
+  {
+    "benchmark": "BIRD dev (all 1,534 questions)",
+    "questions": 1534,
+    "databases": 11,
+    "top_k": 6,
+    "objects_median": 7.0,
+    "full_tokens_mean": 579,
+    "selected_tokens_mean": 462,
+    "reduction": 0.201,
+    "tables_sent_median": 6.0,
+    "gold_tables_all_selected": 0.9844,
+    "per_db": {
+      "california_schools": {
+        "objects": 3,
+        "full_tokens": 638,
+        "selected_tokens_mean": 582,
+        "reduction": 0.0878
+      },
+      "card_games": {
+        "objects": 6,
+        "full_tokens": 741,
+        "selected_tokens_mean": 570,
+        "reduction": 0.2312
+      },
+      "codebase_community": {
+        "objects": 8,
+        "full_tokens": 550,
+        "selected_tokens_mean": 469,
+        "reduction": 0.147
+      },
+      "debit_card_specializing": {
+        "objects": 5,
+        "full_tokens": 153,
+        "selected_tokens_mean": 154,
+        "reduction": -0.0063
+      },
+      "european_football_2": {
+        "objects": 7,
+        "full_tokens": 1587,
+        "selected_tokens_mean": 1093,
+        "reduction": 0.3116
+      },
+      "financial": {
+        "objects": 8,
+        "full_tokens": 479,
+        "selected_tokens_mean": 421,
+        "reduction": 0.1201
+      },
+      "formula_1": {
+        "objects": 13,
+        "full_tokens": 823,
+        "selected_tokens_mean": 551,
+        "reduction": 0.3304
+      },
+      "student_club": {
+        "objects": 8,
+        "full_tokens": 359,
+        "selected_tokens_mean": 329,
+        "reduction": 0.083
+      },
+      "superhero": {
+        "objects": 10,
+        "full_tokens": 341,
+        "selected_tokens_mean": 322,
+        "reduction": 0.055
+      },
+      "thrombosis_prediction": {
+        "objects": 3,
+        "full_tokens": 353,
+        "selected_tokens_mean": 345,
+        "reduction": 0.0225
+      },
+      "toxicology": {
+        "objects": 4,
+        "full_tokens": 140,
+        "selected_tokens_mean": 139,
+        "reduction": 0.0052
+      }
+    }
+  },
+  {
+    "benchmark": "Spider 2.0-lite, local SQLite tasks",
+    "questions": 135,
+    "databases": 30,
+    "top_k": 12,
+    "objects_median": 15,
+    "full_tokens_mean": 924,
+    "selected_tokens_mean": 642,
+    "reduction": 0.306,
+    "tables_sent_median": 12,
+    "gold_tables_all_selected": null,
+    "per_db": {
+      "AdventureWorks": {
+        "objects": 13,
+        "full_tokens": 736,
+        "selected_tokens_mean": 689,
+        "reduction": 0.0639
+      },
+      "Airlines": {
+        "objects": 8,
+        "full_tokens": 370,
+        "selected_tokens_mean": 370,
+        "reduction": 0.0
+      },
+      "Baseball": {
+        "objects": 26,
+        "full_tokens": 1874,
+        "selected_tokens_mean": 852,
+        "reduction": 0.5456
+      },
+      "BowlingLeague": {
+        "objects": 11,
+        "full_tokens": 584,
+        "selected_tokens_mean": 584,
+        "reduction": 0.0
+      },
+      "Brazilian_E_Commerce": {
+        "objects": 10,
+        "full_tokens": 450,
+        "selected_tokens_mean": 450,
+        "reduction": 0.0
+      },
+      "California_Traffic_Collision": {
+        "objects": 4,
+        "full_tokens": 791,
+        "selected_tokens_mean": 578,
+        "reduction": 0.2689
+      },
+      "Db-IMDB": {
+        "objects": 13,
+        "full_tokens": 288,
+        "selected_tokens_mean": 266,
+        "reduction": 0.0757
+      },
+      "EU_soccer": {
+        "objects": 8,
+        "full_tokens": 1828,
+        "selected_tokens_mean": 1368,
+        "reduction": 0.2514
+      },
+      "E_commerce": {
+        "objects": 11,
+        "full_tokens": 476,
+        "selected_tokens_mean": 476,
+        "reduction": 0.0
+      },
+      "EntertainmentAgency": {
+        "objects": 13,
+        "full_tokens": 762,
+        "selected_tokens_mean": 747,
+        "reduction": 0.0201
+      },
+      "IPL": {
+        "objects": 8,
+        "full_tokens": 418,
+        "selected_tokens_mean": 418,
+        "reduction": 0.0
+      },
+      "Pagila": {
+        "objects": 21,
+        "full_tokens": 1219,
+        "selected_tokens_mean": 791,
+        "reduction": 0.3511
+      },
+      "WWE": {
+        "objects": 9,
+        "full_tokens": 354,
+        "selected_tokens_mean": 354,
+        "reduction": 0.0
+      },
+      "bank_sales_trading": {
+        "objects": 19,
+        "full_tokens": 667,
+        "selected_tokens_mean": 444,
+        "reduction": 0.3337
+      },
+      "chinook": {
+        "objects": 11,
+        "full_tokens": 677,
+        "selected_tokens_mean": 677,
+        "reduction": -0.0005
+      },
+      "city_legislation": {
+        "objects": 15,
+        "full_tokens": 795,
+        "selected_tokens_mean": 705,
+        "reduction": 0.1127
+      },
+      "complex_oracle": {
+        "objects": 13,
+        "full_tokens": 1379,
+        "selected_tokens_mean": 1315,
+        "reduction": 0.0462
+      },
+      "delivery_center": {
+        "objects": 7,
+        "full_tokens": 623,
+        "selected_tokens_mean": 623,
+        "reduction": 0.0
+      },
+      "education_business": {
+        "objects": 18,
+        "full_tokens": 621,
+        "selected_tokens_mean": 430,
+        "reduction": 0.3082
+      },
+      "electronic_sales": {
+        "objects": 9,
+        "full_tokens": 395,
+        "selected_tokens_mean": 395,
+        "reduction": 0.0
+      },
+      "f1": {
+        "objects": 29,
+        "full_tokens": 2570,
+        "selected_tokens_mean": 1227,
+        "reduction": 0.5227
+      },
+      "imdb_movies": {
+        "objects": 7,
+        "full_tokens": 257,
+        "selected_tokens_mean": 257,
+        "reduction": 0.0
+      },
+      "log": {
+        "objects": 19,
+        "full_tokens": 676,
+        "selected_tokens_mean": 440,
+        "reduction": 0.3497
+      },
+      "modern_data": {
+        "objects": 17,
+        "full_tokens": 519,
+        "selected_tokens_mean": 384,
+        "reduction": 0.2593
+      },
+      "music": {
+        "objects": 11,
+        "full_tokens": 675,
+        "selected_tokens_mean": 676,
+        "reduction": -0.0015
+      },
+      "northwind": {
+        "objects": 15,
+        "full_tokens": 624,
+        "selected_tokens_mean": 546,
+        "reduction": 0.1242
+      },
+      "oracle_sql": {
+        "objects": 48,
+        "full_tokens": 1864,
+        "selected_tokens_mean": 591,
+        "reduction": 0.683
+      },
+      "school_scheduling": {
+        "objects": 15,
+        "full_tokens": 767,
+        "selected_tokens_mean": 720,
+        "reduction": 0.0613
+      },
+      "sqlite-sakila": {
+        "objects": 21,
+        "full_tokens": 1219,
+        "selected_tokens_mean": 937,
+        "reduction": 0.2316
+      },
+      "stacking": {
+        "objects": 10,
+        "full_tokens": 307,
+        "selected_tokens_mean": 307,
+        "reduction": 0.0
+      }
+    }
+  },
+  {
+    "benchmark": "Spider 2.0-lite, BigQuery and Snowflake tasks",
+    "questions": 412,
+    "databases": 128,
+    "top_k": 12,
+    "objects_median": 16.0,
+    "full_tokens_mean": 46560,
+    "selected_tokens_mean": 1469,
+    "reduction": 0.9684,
+    "tables_sent_median": 12.0,
+    "gold_tables_all_selected": 0.7956,
+    "per_db": {
+      "AMAZON_VENDOR_ANALYTICS__SAMPLE_DATASET": {
+        "objects": 43,
+        "full_tokens": 10343,
+        "selected_tokens_mean": 3151,
+        "reduction": 0.6953
+      },
+      "AUSTIN": {
+        "objects": 10,
+        "full_tokens": 674,
+        "selected_tokens_mean": 674,
+        "reduction": 0.0
+      },
+      "BRAZE_USER_EVENT_DEMO_DATASET": {
+        "objects": 62,
+        "full_tokens": 12363,
+        "selected_tokens_mean": 1808,
+        "reduction": 0.8538
+      },
+      "CENSUS_BUREAU_ACS_2": {
+        "objects": 295,
+        "full_tokens": 605487,
+        "selected_tokens_mean": 4446,
+        "reduction": 0.9927
+      },
+      "CENSUS_GALAXY__AIML_MODEL_DATA_ENRICHMENT_SAMPLE": {
+        "objects": 8,
+        "full_tokens": 571,
+        "selected_tokens_mean": 571,
+        "reduction": 0.0
+      },
+      "CENSUS_GALAXY__ZIP_CODE_TO_BLOCK_GROUP_SAMPLE": {
+        "objects": 8,
+        "full_tokens": 547,
+        "selected_tokens_mean": 547,
+        "reduction": 0.0
+      },
+      "CPTAC_PDC": {
+        "objects": 79,
+        "full_tokens": 11150,
+        "selected_tokens_mean": 1821,
+        "reduction": 0.8367
+      },
+      "CRYPTO": {
+        "objects": 19,
+        "full_tokens": 1255,
+        "selected_tokens_mean": 782,
+        "reduction": 0.3772
+      },
+      "CYMBAL_INVESTMENTS": {
+        "objects": 1,
+        "full_tokens": 188,
+        "selected_tokens_mean": 188,
+        "reduction": 0.0
+      },
+      "DEATH": {
+        "objects": 28,
+        "full_tokens": 804,
+        "selected_tokens_mean": 484,
+        "reduction": 0.398
+      },
+      "DEPS_DEV_V1": {
+        "objects": 10,
+        "full_tokens": 506,
+        "selected_tokens_mean": 506,
+        "reduction": 0.0
+      },
+      "ETHEREUM_BLOCKCHAIN": {
+        "objects": 7,
+        "full_tokens": 504,
+        "selected_tokens_mean": 504,
+        "reduction": 0.0
+      },
+      "FINANCE__ECONOMICS": {
+        "objects": 50,
+        "full_tokens": 3474,
+        "selected_tokens_mean": 984,
+        "reduction": 0.7168
+      },
+      "GENOMICS_CANNABIS": {
+        "objects": 7,
+        "full_tokens": 882,
+        "selected_tokens_mean": 808,
+        "reduction": 0.0845
+      },
+      "GEO_OPENSTREETMAP": {
+        "objects": 10,
+        "full_tokens": 557,
+        "selected_tokens_mean": 557,
+        "reduction": 0.0
+      },
+      "GEO_OPENSTREETMAP_BOUNDARIES": {
+        "objects": 26,
+        "full_tokens": 1913,
+        "selected_tokens_mean": 735,
+        "reduction": 0.6158
+      },
+      "GEO_OPENSTREETMAP_CENSUS_PLACES": {
+        "objects": 67,
+        "full_tokens": 7797,
+        "selected_tokens_mean": 1176,
+        "reduction": 0.8492
+      },
+      "GEO_OPENSTREETMAP_WORLDPOP": {
+        "objects": 11,
+        "full_tokens": 638,
+        "selected_tokens_mean": 638,
+        "reduction": 0.0
+      },
+      "GITHUB_REPOS": {
+        "objects": 6,
+        "full_tokens": 218,
+        "selected_tokens_mean": 218,
+        "reduction": 0.0
+      },
+      "GITHUB_REPOS_DATE": {
+        "objects": 18,
+        "full_tokens": 892,
+        "selected_tokens_mean": 603,
+        "reduction": 0.3244
+      },
+      "GLOBAL_GOVERNMENT": {
+        "objects": 50,
+        "full_tokens": 3379,
+        "selected_tokens_mean": 750,
+        "reduction": 0.778
+      },
+      "GLOBAL_WEATHER__CLIMATE_DATA_FOR_BI": {
+        "objects": 3,
+        "full_tokens": 3191,
+        "selected_tokens_mean": 1783,
+        "reduction": 0.4412
+      },
+      "GOOGLE_ADS": {
+        "objects": 2,
+        "full_tokens": 119,
+        "selected_tokens_mean": 119,
+        "reduction": 0.0
+      },
+      "GOOGLE_TRENDS": {
+        "objects": 4,
+        "full_tokens": 204,
+        "selected_tokens_mean": 204,
+        "reduction": 0.0
+      },
+      "GOOG_BLOCKCHAIN": {
+        "objects": 7,
+        "full_tokens": 676,
+        "selected_tokens_mean": 676,
+        "reduction": 0.0
+      },
+      "HTAN_1": {
+        "objects": 200,
+        "full_tokens": 55099,
+        "selected_tokens_mean": 1906,
+        "reduction": 0.9654
+      },
+      "HTAN_2": {
+        "objects": 94,
+        "full_tokens": 25942,
+        "selected_tokens_mean": 2785,
+        "reduction": 0.8926
+      },
+      "HUMAN_GENOME_VARIANTS": {
+        "objects": 8,
+        "full_tokens": 1437,
+        "selected_tokens_mean": 1248,
+        "reduction": 0.1315
+      },
+      "IDC": {
+        "objects": 16,
+        "full_tokens": 14188,
+        "selected_tokens_mean": 2164,
+        "reduction": 0.8475
+      },
+      "IOWA_LIQUOR_SALES": {
+        "objects": 1,
+        "full_tokens": 144,
+        "selected_tokens_mean": 144,
+        "reduction": 0.0
+      },
+      "META_KAGGLE": {
+        "objects": 29,
+        "full_tokens": 1616,
+        "selected_tokens_mean": 871,
+        "reduction": 0.4609
+      },
+      "NETHERLANDS_OPEN_MAP_DATA": {
+        "objects": 3,
+        "full_tokens": 684,
+        "selected_tokens_mean": 610,
+        "reduction": 0.1089
+      },
+      "NEW_YORK_CITIBIKE_1": {
+        "objects": 116,
+        "full_tokens": 19150,
+        "selected_tokens_mean": 1351,
+        "reduction": 0.9294
+      },
+      "NOAA_DATA": {
+        "objects": 215,
+        "full_tokens": 40861,
+        "selected_tokens_mean": 2321,
+        "reduction": 0.9432
+      },
+      "NOAA_DATA_PLUS": {
+        "objects": 230,
+        "full_tokens": 42259,
+        "selected_tokens_mean": 2190,
+        "reduction": 0.9482
+      },
+      "NOAA_GLOBAL_FORECAST_SYSTEM": {
+        "objects": 11,
+        "full_tokens": 592,
+        "selected_tokens_mean": 592,
+        "reduction": 0.0
+      },
+      "NOAA_PORTS": {
+        "objects": 18,
+        "full_tokens": 2662,
+        "selected_tokens_mean": 1368,
+        "reduction": 0.4861
+      },
+      "OPEN_TARGETS_GENETICS_2": {
+        "objects": 13,
+        "full_tokens": 1883,
+        "selected_tokens_mean": 1742,
+        "reduction": 0.0749
+      },
+      "OPEN_TARGETS_PLATFORM_1": {
+        "objects": 27,
+        "full_tokens": 2292,
+        "selected_tokens_mean": 1236,
+        "reduction": 0.4606
+      },
+      "OPEN_TARGETS_PLATFORM_2": {
+        "objects": 29,
+        "full_tokens": 2506,
+        "selected_tokens_mean": 1169,
+        "reduction": 0.5335
+      },
+      "PANCANCER_ATLAS_1": {
+        "objects": 10,
+        "full_tokens": 8353,
+        "selected_tokens_mean": 1350,
+        "reduction": 0.8383
+      },
+      "PATENTS": {
+        "objects": 3,
+        "full_tokens": 446,
+        "selected_tokens_mean": 446,
+        "reduction": 0.0
+      },
+      "PATENTSVIEW": {
+        "objects": 59,
+        "full_tokens": 2285,
+        "selected_tokens_mean": 404,
+        "reduction": 0.823
+      },
+      "PATENTS_GOOGLE": {
+        "objects": 4,
+        "full_tokens": 499,
+        "selected_tokens_mean": 499,
+        "reduction": 0.0
+      },
+      "PATENTS_USPTO": {
+        "objects": 43,
+        "full_tokens": 2896,
+        "selected_tokens_mean": 937,
+        "reduction": 0.6765
+      },
+      "PYPI": {
+        "objects": 2,
+        "full_tokens": 235,
+        "selected_tokens_mean": 235,
+        "reduction": 0.0
+      },
+      "SAN_FRANCISCO_PLUS": {
+        "objects": 19,
+        "full_tokens": 1987,
+        "selected_tokens_mean": 1020,
+        "reduction": 0.4867
+      },
+      "STACKOVERFLOW": {
+        "objects": 16,
+        "full_tokens": 1361,
+        "selected_tokens_mean": 1096,
+        "reduction": 0.1947
+      },
+      "STACKOVERFLOW_PLUS": {
+        "objects": 24,
+        "full_tokens": 2033,
+        "selected_tokens_mean": 982,
+        "reduction": 0.517
+      },
+      "TCGA": {
+        "objects": 157,
+        "full_tokens": 30504,
+        "selected_tokens_mean": 2673,
+        "reduction": 0.9124
+      },
+      "TCGA_HG19_DATA_V0": {
+        "objects": 33,
+        "full_tokens": 3111,
+        "selected_tokens_mean": 1370,
+        "reduction": 0.5596
+      },
+      "TCGA_HG38_DATA_V0": {
+        "objects": 50,
+        "full_tokens": 8284,
+        "selected_tokens_mean": 2569,
+        "reduction": 0.6898
+      },
+      "TCGA_MITELMAN": {
+        "objects": 176,
+        "full_tokens": 32243,
+        "selected_tokens_mean": 1722,
+        "reduction": 0.9466
+      },
+      "TCGA_bioclin_v0": {
+        "objects": 79,
+        "full_tokens": 13349,
+        "selected_tokens_mean": 2137,
+        "reduction": 0.8399
+      },
+      "THELOOK_ECOMMERCE": {
+        "objects": 7,
+        "full_tokens": 425,
+        "selected_tokens_mean": 425,
+        "reduction": 0.0
+      },
+      "US_ADDRESSES__POI": {
+        "objects": 7,
+        "full_tokens": 465,
+        "selected_tokens_mean": 465,
+        "reduction": 0.0
+      },
+      "US_REAL_ESTATE": {
+        "objects": 25,
+        "full_tokens": 1904,
+        "selected_tokens_mean": 962,
+        "reduction": 0.4947
+      },
+      "WEATHER__ENVIRONMENT": {
+        "objects": 22,
+        "full_tokens": 2540,
+        "selected_tokens_mean": 1712,
+        "reduction": 0.326
+      },
+      "WIDE_WORLD_IMPORTERS": {
+        "objects": 31,
+        "full_tokens": 2517,
+        "selected_tokens_mean": 1218,
+        "reduction": 0.5163
+      },
+      "WORD_VECTORS_US": {
+        "objects": 3,
+        "full_tokens": 118,
+        "selected_tokens_mean": 118,
+        "reduction": 0.0
+      },
+      "YES_ENERGY__SAMPLE_DATA": {
+        "objects": 19,
+        "full_tokens": 1615,
+        "selected_tokens_mean": 1067,
+        "reduction": 0.3393
+      },
+      "_1000_GENOMES": {
+        "objects": 3,
+        "full_tokens": 865,
+        "selected_tokens_mean": 676,
+        "reduction": 0.2182
+      },
+      "austin": {
+        "objects": 10,
+        "full_tokens": 683,
+        "selected_tokens_mean": 683,
+        "reduction": 0.0
+      },
+      "bbc": {
+        "objects": 1,
+        "full_tokens": 22,
+        "selected_tokens_mean": 22,
+        "reduction": 0.0
+      },
+      "bls": {
+        "objects": 143,
+        "full_tokens": 403632,
+        "selected_tokens_mean": 6350,
+        "reduction": 0.9843
+      },
+      "census_bureau_acs_1": {
+        "objects": 351,
+        "full_tokens": 677588,
+        "selected_tokens_mean": 2932,
+        "reduction": 0.9957
+      },
+      "census_bureau_international": {
+        "objects": 8,
+        "full_tokens": 1341,
+        "selected_tokens_mean": 833,
+        "reduction": 0.3788
+      },
+      "census_bureau_usa": {
+        "objects": 14,
+        "full_tokens": 944,
+        "selected_tokens_mean": 777,
+        "reduction": 0.1769
+      },
+      "chicago": {
+        "objects": 2,
+        "full_tokens": 266,
+        "selected_tokens_mean": 266,
+        "reduction": 0.0
+      },
+      "cms_data": {
+        "objects": 52,
+        "full_tokens": 7707,
+        "selected_tokens_mean": 2426,
+        "reduction": 0.6852
+      },
+      "covid19_jhu_world_bank": {
+        "objects": 15,
+        "full_tokens": 32158,
+        "selected_tokens_mean": 2070,
+        "reduction": 0.9356
+      },
+      "covid19_nyt": {
+        "objects": 4,
+        "full_tokens": 192,
+        "selected_tokens_mean": 192,
+        "reduction": 0.0
+      },
+      "covid19_open_data": {
+        "objects": 1,
+        "full_tokens": 7358,
+        "selected_tokens_mean": 404,
+        "reduction": 0.945
+      },
+      "covid19_open_world_bank": {
+        "objects": 12,
+        "full_tokens": 8460,
+        "selected_tokens_mean": 1320,
+        "reduction": 0.844
+      },
+      "covid19_symptom_search": {
+        "objects": 6,
+        "full_tokens": 21279,
+        "selected_tokens_mean": 2132,
+        "reduction": 0.8998
+      },
+      "covid19_usa": {
+        "objects": 285,
+        "full_tokens": 698106,
+        "selected_tokens_mean": 4955,
+        "reduction": 0.9929
+      },
+      "dimensions_ai_covid19": {
+        "objects": 6,
+        "full_tokens": 22467,
+        "selected_tokens_mean": 3722,
+        "reduction": 0.8343
+      },
+      "ebi_chembl": {
+        "objects": 785,
+        "full_tokens": 38998,
+        "selected_tokens_mean": 1284,
+        "reduction": 0.9671
+      },
+      "eclipse_megamovie": {
+        "objects": 7,
+        "full_tokens": 941,
+        "selected_tokens_mean": 941,
+        "reduction": 0.0
+      },
+      "ecommerce": {
+        "objects": 15,
+        "full_tokens": 7641,
+        "selected_tokens_mean": 1400,
+        "reduction": 0.8168
+      },
+      "epa_historical_air_quality": {
+        "objects": 32,
+        "full_tokens": 5231,
+        "selected_tokens_mean": 2086,
+        "reduction": 0.6012
+      },
+      "fda": {
+        "objects": 83,
+        "full_tokens": 8759,
+        "selected_tokens_mean": 1224,
+        "reduction": 0.8603
+      },
+      "fec": {
+        "objects": 486,
+        "full_tokens": 691066,
+        "selected_tokens_mean": 1442,
+        "reduction": 0.9979
+      },
+      "fhir_synthea": {
+        "objects": 17,
+        "full_tokens": 247831,
+        "selected_tokens_mean": 11260,
+        "reduction": 0.9546
+      },
+      "firebase": {
+        "objects": 1,
+        "full_tokens": 744,
+        "selected_tokens_mean": 536,
+        "reduction": 0.28
+      },
+      "ga360": {
+        "objects": 1,
+        "full_tokens": 6711,
+        "selected_tokens_mean": 528,
+        "reduction": 0.9213
+      },
+      "ga4": {
+        "objects": 1,
+        "full_tokens": 1256,
+        "selected_tokens_mean": 501,
+        "reduction": 0.6012
+      },
+      "gbif": {
+        "objects": 1,
+        "full_tokens": 446,
+        "selected_tokens_mean": 249,
+        "reduction": 0.4417
+      },
+      "ghcn_d": {
+        "objects": 266,
+        "full_tokens": 13119,
+        "selected_tokens_mean": 596,
+        "reduction": 0.9546
+      },
+      "gnomAD": {
+        "objects": 71,
+        "full_tokens": 753046,
+        "selected_tokens_mean": 26348,
+        "reduction": 0.965
+      },
+      "google_dei": {
+        "objects": 141,
+        "full_tokens": 403444,
+        "selected_tokens_mean": 1884,
+        "reduction": 0.9953
+      },
+      "hacker_news": {
+        "objects": 1,
+        "full_tokens": 68,
+        "selected_tokens_mean": 68,
+        "reduction": 0.0
+      },
+      "iowa_liquor_sales": {
+        "objects": 1,
+        "full_tokens": 149,
+        "selected_tokens_mean": 149,
+        "reduction": 0.0
+      },
+      "iowa_liquor_sales_plus": {
+        "objects": 3,
+        "full_tokens": 242,
+        "selected_tokens_mean": 242,
+        "reduction": 0.0
+      },
+      "irs_990": {
+        "objects": 18,
+        "full_tokens": 22351,
+        "selected_tokens_mean": 4165,
+        "reduction": 0.8137
+      },
+      "libraries_io": {
+        "objects": 7,
+        "full_tokens": 982,
+        "selected_tokens_mean": 878,
+        "reduction": 0.1059
+      },
+      "london": {
+        "objects": 2,
+        "full_tokens": 276,
+        "selected_tokens_mean": 276,
+        "reduction": 0.0
+      },
+      "mitelman": {
+        "objects": 19,
+        "full_tokens": 1055,
+        "selected_tokens_mean": 639,
+        "reduction": 0.394
+      },
+      "mlb": {
+        "objects": 3,
+        "full_tokens": 1978,
+        "selected_tokens_mean": 636,
+        "reduction": 0.6785
+      },
+      "ncaa_basketball": {
+        "objects": 10,
+        "full_tokens": 3257,
+        "selected_tokens_mean": 1661,
+        "reduction": 0.49
+      },
+      "ncaa_insights": {
+        "objects": 15,
+        "full_tokens": 3562,
+        "selected_tokens_mean": 1587,
+        "reduction": 0.5545
+      },
+      "new_york": {
+        "objects": 22,
+        "full_tokens": 3220,
+        "selected_tokens_mean": 1762,
+        "reduction": 0.4527
+      },
+      "new_york_geo": {
+        "objects": 38,
+        "full_tokens": 4558,
+        "selected_tokens_mean": 1587,
+        "reduction": 0.6518
+      },
+      "new_york_ghcn": {
+        "objects": 288,
+        "full_tokens": 17203,
+        "selected_tokens_mean": 945,
+        "reduction": 0.9451
+      },
+      "new_york_noaa": {
+        "objects": 119,
+        "full_tokens": 21774,
+        "selected_tokens_mean": 1900,
+        "reduction": 0.9127
+      },
+      "new_york_plus": {
+        "objects": 43,
+        "full_tokens": 5701,
+        "selected_tokens_mean": 1542,
+        "reduction": 0.7295
+      },
+      "nhtsa_traffic_fatalities": {
+        "objects": 108,
+        "full_tokens": 22437,
+        "selected_tokens_mean": 3294,
+        "reduction": 0.8532
+      },
+      "nhtsa_traffic_fatalities_plus": {
+        "objects": 122,
+        "full_tokens": 23517,
+        "selected_tokens_mean": 1696,
+        "reduction": 0.9279
+      },
+      "noaa_data": {
+        "objects": 215,
+        "full_tokens": 44669,
+        "selected_tokens_mean": 2542,
+        "reduction": 0.9431
+      },
+      "noaa_gsod": {
+        "objects": 97,
+        "full_tokens": 18413,
+        "selected_tokens_mean": 2178,
+        "reduction": 0.8817
+      },
+      "noaa_ports": {
+        "objects": 18,
+        "full_tokens": 2865,
+        "selected_tokens_mean": 1364,
+        "reduction": 0.5239
+      },
+      "nppes": {
+        "objects": 20,
+        "full_tokens": 8275,
+        "selected_tokens_mean": 836,
+        "reduction": 0.899
+      },
+      "open_images": {
+        "objects": 4,
+        "full_tokens": 186,
+        "selected_tokens_mean": 186,
+        "reduction": 0.0
+      },
+      "open_targets_genetics_1": {
+        "objects": 13,
+        "full_tokens": 2585,
+        "selected_tokens_mean": 2179,
+        "reduction": 0.1571
+      },
+      "openaq": {
+        "objects": 33,
+        "full_tokens": 5171,
+        "selected_tokens_mean": 1908,
+        "reduction": 0.631
+      },
+      "pancancer_atlas_2": {
+        "objects": 21,
+        "full_tokens": 16500,
+        "selected_tokens_mean": 1755,
+        "reduction": 0.8936
+      },
+      "san_francisco": {
+        "objects": 8,
+        "full_tokens": 705,
+        "selected_tokens_mean": 705,
+        "reduction": 0.0
+      },
+      "san_francisco_plus": {
+        "objects": 19,
+        "full_tokens": 2041,
+        "selected_tokens_mean": 1378,
+        "reduction": 0.3249
+      },
+      "sdoh": {
+        "objects": 294,
+        "full_tokens": 674893,
+        "selected_tokens_mean": 4813,
+        "reduction": 0.9929
+      },
+      "sec_quarterly_financials": {
+        "objects": 10,
+        "full_tokens": 861,
+        "selected_tokens_mean": 861,
+        "reduction": 0.0
+      },
+      "stackoverflow": {
+        "objects": 16,
+        "full_tokens": 1405,
+        "selected_tokens_mean": 1165,
+        "reduction": 0.1708
+      },
+      "sunroof_solar": {
+        "objects": 2,
+        "full_tokens": 541,
+        "selected_tokens_mean": 541,
+        "reduction": 0.0
+      },
+      "targetome_reactome": {
+        "objects": 9,
+        "full_tokens": 457,
+        "selected_tokens_mean": 457,
+        "reduction": 0.0
+      },
+      "the_met": {
+        "objects": 3,
+        "full_tokens": 1723,
+        "selected_tokens_mean": 958,
+        "reduction": 0.4442
+      },
+      "usa_names": {
+        "objects": 2,
+        "full_tokens": 68,
+        "selected_tokens_mean": 68,
+        "reduction": 0.0
+      },
+      "usda_nass_agriculture": {
+        "objects": 11,
+        "full_tokens": 2610,
+        "selected_tokens_mean": 2640,
+        "reduction": -0.0115
+      },
+      "usfs_fia": {
+        "objects": 11,
+        "full_tokens": 10121,
+        "selected_tokens_mean": 2819,
+        "reduction": 0.7215
+      },
+      "world_bank": {
+        "objects": 11,
+        "full_tokens": 1068,
+        "selected_tokens_mean": 906,
+        "reduction": 0.1515
+      }
+    }
+  }
+]
