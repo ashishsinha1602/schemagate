@@ -70,7 +70,7 @@ values come from paired exact tests.
 |---|---|---|---|
 | SQLite, 11 databases (220 questions) | 36.8 | 54.1 | **54.5** (1.68 calls per question) |
 | Postgres, all 11 in one 75-table schema (215) | 22.3 | **39.5** | |
-| Oracle Free, 11 databases | 32.7 | **48.6** | |
+| Oracle Free, 11 databases | 32.7 | **49.1** | 47.7 |
 | Spider 2.0-lite SQLite, 135 tasks, with rules | 45.2 (plain plus repairs) | | 42.2 (tie, p = 0.48) |
 
 On SQLite, deep's gain over plain is significant (p < 1e-4), and about 90% of
@@ -78,5 +78,5 @@ the wins come from EXPLORE steps, where the model sees real values. BIRD also
 ships an "evidence" hint for each question. Deep with no hints (54.1) comes
 close to plain with those hints (58.2).
 
-On Oracle, deep did worse than plain on 3 of the 11 databases. On the hardest
+On Oracle, deep did worse than plain on 2 of the 11 databases, by one question each. On Oracle, adaptive won 43 questions plain lost and lost 10 (p < 0.0001). On the hardest
 Spider 2 tasks, adaptive ties plain plus repairs: it does not beat it.

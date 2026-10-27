@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.14.0
+
+- **LlamaIndex retriever.** `schemagate.integrations.llamaindex.SchemagateRetriever` (`schemagate[llamaindex]`), the
+  LlamaIndex counterpart of the LangChain one: one node of DDL per selected table, from the tables the caller may
+  read. Tested against llama-index-core in its own CI job. See `docs/llamaindex.md`.
+- **LangChain: `top_k` per call.** `retriever.invoke(question, top_k=3)` overrides the retriever's count for one
+  call, as LangChain's standard retriever tests expect.
+- **Prompt tokens measured on public schemas.** `benchmarks/token_savings/measure.py` counts the full schema
+  against the selection on every BIRD dev and Spider 2.0-lite question, with no model called. The saving grows with
+  the schema: a median of 8.8% on BIRD's seven-table databases, and 92.9% on the Spider 2.0 warehouses with 50+
+  tables. BENCHMARKS.md has the numbers, with how often the selection held every table the gold SQL needs.
+- **deep_answer gives up less easily.** An INSUFFICIENT reply is questioned once before it is accepted. In adaptive
+  mode, if the steps end without an answer but the first query ran, its result (which may be empty, or 0) is
+  returned instead of nothing. On Oracle (220 BIRD questions, Gemini 2.5 Flash), deep scored 49.1 against 48.6
+  before the change, a difference within noise (7 questions gained, 6 lost); adaptive scored 47.7 against 32.7
+  plain.
+- README: OpenSSF Scorecard badge; square icon in `docs/media/`.
 ## 1.13.0
 
 - **`deep_answer`: the model can look at the data before it answers.** New MCP tool, off unless the
