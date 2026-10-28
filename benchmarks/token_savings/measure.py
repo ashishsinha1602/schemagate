@@ -43,6 +43,29 @@ def gold_tables(sql: str, dialect: str = "sqlite") -> set:
     return {t.name.lower() for t in tree.find_all(sqlglot.exp.Table) if t.name and t.name.lower() not in ctes}
 
 
+def covers(need: set, got: set, names: set) -> bool:
+    """Is every table the gold SQL reads in the selection?
+
+    Family-aware, because the catalog folds `storms_2014` .. `storms_2024` into one
+    `storms_*` entry: a gold table counts when the family it was folded into was
+    selected, and a gold wildcard (`2000_*`) counts when every catalog table it
+    matches was. Scoring by bare names called these misses even when the right
+    family was in the prompt.
+    """
+    for t in need:
+        if t in got:
+            continue
+        m = Catalog._DATED_SUFFIX.match(t)
+        if m and (m.group(1) + "*").lower() in got:
+            continue
+        if t.endswith("*"):
+            matches = {n for n in names if n.startswith(t[:-1])}
+            if matches and matches <= got:
+                continue
+        return False
+    return True
+
+
 def warehouse_catalog(path: pathlib.Path) -> Catalog:
     """One Spider 2.0 BigQuery/Snowflake database: a folder of one JSON file per table.
 
@@ -70,13 +93,14 @@ def measure(name, by_db, top_k, db_path, catalog=None):
         cat = catalog(db) if catalog else Catalog(name=db).bootstrap(f"sqlite:///{db_path(db).as_posix()}")
         # every column of every table: what a prompt carries with no selection at all
         full = tokens("\n\n".join(d.render_ddl(max_columns=10**6) for d in cat._docs.values()))
+        names = {d.name.lower() for d in cat._docs.values()}
         for q in qs:
             sel = cat.select(q["question"], top_k=top_k)
             got = {n.split(".")[-1].lower() for n in sel.table_names}
             need = gold_tables(q["sql"], q.get("dialect", "sqlite")) if q.get("sql") else set()
             rows.append({"db": db, "objects": len(cat._docs), "full": full,
                          "selected": tokens(sel.prompt_fragment()), "tables_sent": len(got),
-                         "gold_covered": (need <= got) if need else None})
+                         "gold_covered": covers(need, got, names) if need else None})
     full = sum(r["full"] for r in rows)
     sel = sum(r["selected"] for r in rows)
     cov = [r["gold_covered"] for r in rows if r["gold_covered"] is not None]

@@ -278,12 +278,12 @@
     "questions": 412,
     "databases": 128,
     "top_k": 12,
-    "objects_median": 16.0,
-    "full_tokens_mean": 46560,
-    "selected_tokens_mean": 1469,
-    "reduction": 0.9684,
-    "tables_sent_median": 12.0,
-    "gold_tables_all_selected": 0.7956,
+    "objects_median": 11.0,
+    "full_tokens_mean": 44571,
+    "selected_tokens_mean": 1450,
+    "reduction": 0.9675,
+    "tables_sent_median": 11.0,
+    "gold_tables_all_selected": 0.8667,
     "per_db": {
       "AMAZON_VENDOR_ANALYTICS__SAMPLE_DATASET": {
         "objects": 43,
@@ -292,9 +292,9 @@
         "reduction": 0.6953
       },
       "AUSTIN": {
-        "objects": 10,
-        "full_tokens": 674,
-        "selected_tokens_mean": 674,
+        "objects": 6,
+        "full_tokens": 496,
+        "selected_tokens_mean": 496,
         "reduction": 0.0
       },
       "BRAZE_USER_EVENT_DEMO_DATASET": {
@@ -400,10 +400,10 @@
         "reduction": 0.0
       },
       "GITHUB_REPOS_DATE": {
-        "objects": 18,
-        "full_tokens": 892,
-        "selected_tokens_mean": 603,
-        "reduction": 0.3244
+        "objects": 9,
+        "full_tokens": 478,
+        "selected_tokens_mean": 478,
+        "reduction": 0.0
       },
       "GLOBAL_GOVERNMENT": {
         "objects": 50,
@@ -478,22 +478,22 @@
         "reduction": 0.1089
       },
       "NEW_YORK_CITIBIKE_1": {
-        "objects": 116,
-        "full_tokens": 19150,
-        "selected_tokens_mean": 1351,
-        "reduction": 0.9294
+        "objects": 21,
+        "full_tokens": 1871,
+        "selected_tokens_mean": 1320,
+        "reduction": 0.2947
       },
       "NOAA_DATA": {
-        "objects": 215,
-        "full_tokens": 40861,
-        "selected_tokens_mean": 2321,
-        "reduction": 0.9432
+        "objects": 34,
+        "full_tokens": 5227,
+        "selected_tokens_mean": 2441,
+        "reduction": 0.533
       },
       "NOAA_DATA_PLUS": {
-        "objects": 230,
-        "full_tokens": 42259,
-        "selected_tokens_mean": 2190,
-        "reduction": 0.9482
+        "objects": 49,
+        "full_tokens": 6444,
+        "selected_tokens_mean": 1858,
+        "reduction": 0.7117
       },
       "NOAA_GLOBAL_FORECAST_SYSTEM": {
         "objects": 11,
@@ -550,10 +550,10 @@
         "reduction": 0.0
       },
       "PATENTS_USPTO": {
-        "objects": 43,
-        "full_tokens": 2896,
-        "selected_tokens_mean": 937,
-        "reduction": 0.6765
+        "objects": 41,
+        "full_tokens": 2873,
+        "selected_tokens_mean": 927,
+        "reduction": 0.6773
       },
       "PYPI": {
         "objects": 2,
@@ -658,9 +658,9 @@
         "reduction": 0.2182
       },
       "austin": {
-        "objects": 10,
-        "full_tokens": 683,
-        "selected_tokens_mean": 683,
+        "objects": 6,
+        "full_tokens": 505,
+        "selected_tokens_mean": 505,
         "reduction": 0.0
       },
       "bbc": {
@@ -700,10 +700,10 @@
         "reduction": 0.0
       },
       "cms_data": {
-        "objects": 52,
-        "full_tokens": 7707,
-        "selected_tokens_mean": 2426,
-        "reduction": 0.6852
+        "objects": 41,
+        "full_tokens": 6415,
+        "selected_tokens_mean": 3078,
+        "reduction": 0.5202
       },
       "covid19_jhu_world_bank": {
         "objects": 15,
@@ -778,10 +778,10 @@
         "reduction": 0.8603
       },
       "fec": {
-        "objects": 486,
-        "full_tokens": 691066,
-        "selected_tokens_mean": 1442,
-        "reduction": 0.9979
+        "objects": 474,
+        "full_tokens": 689930,
+        "selected_tokens_mean": 2596,
+        "reduction": 0.9962
       },
       "fhir_synthea": {
         "objects": 17,
@@ -814,10 +814,10 @@
         "reduction": 0.4417
       },
       "ghcn_d": {
-        "objects": 266,
-        "full_tokens": 13119,
-        "selected_tokens_mean": 596,
-        "reduction": 0.9546
+        "objects": 142,
+        "full_tokens": 6981,
+        "selected_tokens_mean": 627,
+        "reduction": 0.9102
       },
       "gnomAD": {
         "objects": 71,
@@ -850,10 +850,10 @@
         "reduction": 0.0
       },
       "irs_990": {
-        "objects": 18,
-        "full_tokens": 22351,
-        "selected_tokens_mean": 4165,
-        "reduction": 0.8137
+        "objects": 4,
+        "full_tokens": 4598,
+        "selected_tokens_mean": 1313,
+        "reduction": 0.7144
       },
       "libraries_io": {
         "objects": 7,
@@ -892,58 +892,58 @@
         "reduction": 0.5545
       },
       "new_york": {
-        "objects": 22,
-        "full_tokens": 3220,
-        "selected_tokens_mean": 1762,
-        "reduction": 0.4527
+        "objects": 10,
+        "full_tokens": 1514,
+        "selected_tokens_mean": 1492,
+        "reduction": 0.0149
       },
       "new_york_geo": {
-        "objects": 38,
-        "full_tokens": 4558,
-        "selected_tokens_mean": 1587,
-        "reduction": 0.6518
+        "objects": 26,
+        "full_tokens": 2840,
+        "selected_tokens_mean": 1776,
+        "reduction": 0.3746
       },
       "new_york_ghcn": {
-        "objects": 288,
-        "full_tokens": 17203,
-        "selected_tokens_mean": 945,
-        "reduction": 0.9451
+        "objects": 152,
+        "full_tokens": 8951,
+        "selected_tokens_mean": 1289,
+        "reduction": 0.856
       },
       "new_york_noaa": {
-        "objects": 119,
-        "full_tokens": 21774,
-        "selected_tokens_mean": 1900,
-        "reduction": 0.9127
+        "objects": 12,
+        "full_tokens": 1815,
+        "selected_tokens_mean": 1793,
+        "reduction": 0.0121
       },
       "new_york_plus": {
-        "objects": 43,
-        "full_tokens": 5701,
-        "selected_tokens_mean": 1542,
-        "reduction": 0.7295
+        "objects": 18,
+        "full_tokens": 2208,
+        "selected_tokens_mean": 1648,
+        "reduction": 0.2536
       },
       "nhtsa_traffic_fatalities": {
-        "objects": 108,
-        "full_tokens": 22437,
-        "selected_tokens_mean": 3294,
-        "reduction": 0.8532
+        "objects": 23,
+        "full_tokens": 8154,
+        "selected_tokens_mean": 2261,
+        "reduction": 0.7227
       },
       "nhtsa_traffic_fatalities_plus": {
-        "objects": 122,
-        "full_tokens": 23517,
-        "selected_tokens_mean": 1696,
-        "reduction": 0.9279
+        "objects": 37,
+        "full_tokens": 9149,
+        "selected_tokens_mean": 2227,
+        "reduction": 0.7566
       },
       "noaa_data": {
-        "objects": 215,
-        "full_tokens": 44669,
-        "selected_tokens_mean": 2542,
-        "reduction": 0.9431
+        "objects": 34,
+        "full_tokens": 5806,
+        "selected_tokens_mean": 2253,
+        "reduction": 0.612
       },
       "noaa_gsod": {
-        "objects": 97,
-        "full_tokens": 18413,
-        "selected_tokens_mean": 2178,
-        "reduction": 0.8817
+        "objects": 2,
+        "full_tokens": 279,
+        "selected_tokens_mean": 279,
+        "reduction": 0.0
       },
       "noaa_ports": {
         "objects": 18,
@@ -1036,10 +1036,10 @@
         "reduction": 0.0
       },
       "usda_nass_agriculture": {
-        "objects": 11,
-        "full_tokens": 2610,
-        "selected_tokens_mean": 2640,
-        "reduction": -0.0115
+        "objects": 7,
+        "full_tokens": 1705,
+        "selected_tokens_mean": 1723,
+        "reduction": -0.0106
       },
       "usfs_fia": {
         "objects": 11,

@@ -128,10 +128,10 @@ The same count on public schemas nobody here wrote (no model called;
 [BENCHMARKS.md](BENCHMARKS.md#prompt-tokens-on-public-schemas-the-saving-grows-with-the-schema)
 has the script). On Spider 2.0's real BigQuery and Snowflake warehouses, the
 median database with 50 or more tables went from its full schema to a
-selection **92.9% smaller** (33 databases). On BIRD, whose databases have a median of seven
+selection **91.1% smaller** (24 databases). On BIRD, whose databases have a median of seven
 tables, the median saving was 8.8%: there was little to cut. The price of
 cutting is that a needed table can be left out. On the warehouses, every
-table the gold query reads was in the selection for 79.6% of questions.
+table the gold query reads was in the selection for 86.7% of questions.
 Worked example, with a price you should replace with your own: a 260-object
 schema, 5,000 questions a day, an input price of $3 per million tokens. Full
 schema: 16,095 × 5,000 × 30 = 2.4 billion tokens a month, about $7,200. With

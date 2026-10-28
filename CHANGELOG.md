@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- **Tables split per year or quarter fold into one entry.** `collapse_partitions()` already folded daily and
+  monthly families (`events_20240131` → `events_*`); it now folds `storms_2014` .. `storms_2024`, `gsod2014` .. and
+  `sales_2020_q1` .. too. A bare four digits counts only as a year (19xx/20xx), so `port_8080` is left alone, and a
+  family still needs three members. On Spider 2.0-lite's BigQuery and Snowflake questions, 11 more have every gold
+  table selected and none fewer.
+- **Token-savings benchmark scores folded families correctly.** `benchmarks/token_savings/measure.py` now counts a
+  gold table as selected when its family was. Warehouse coverage, every gold table selected: 79.6% → 86.7% (83.6%
+  from the scoring fix alone). The 50+ table median saving is now 91.1% over 24 databases (was 92.9% over 33),
+  because folding also shrinks the full schema it is measured against; tokens sent went down. BENCHMARKS.md keeps the
+  old numbers and the reason.
+
 ## 1.14.0
 
 - **LlamaIndex retriever.** `schemagate.integrations.llamaindex.SchemagateRetriever` (`schemagate[llamaindex]`), the
