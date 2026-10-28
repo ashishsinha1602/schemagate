@@ -98,8 +98,8 @@ Selecting inside the caller's visible set closes both. A table this caller
 cannot read is never a candidate, so it never reaches the prompt and never
 produces a query that comes back empty for the wrong reason.
 
-See [row-level security](/schemagate/row-level-security/) for the measured
-version of that failure on Oracle 26ai, and [the benchmarks](/schemagate/benchmarks/)
+See [row-level security](row-level-security.md) for the measured
+version of that failure on Oracle 26ai, and [the benchmarks](../BENCHMARKS.md)
 for table recall on Spider, BIRD and Spider 2.0.
 
 ## Settings

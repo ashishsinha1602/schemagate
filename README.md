@@ -132,6 +132,11 @@ selection **91.1% smaller** (24 databases). On BIRD, whose databases have a medi
 tables, the median saving was 8.8%: there was little to cut. The price of
 cutting is that a needed table can be left out. On the warehouses, every
 table the gold query reads was in the selection for 86.7% of questions.
+Against the retrievers other tools use, at the same number of tables and no
+model calls, schemagate selected every needed table for 85.3% of warehouse
+questions where BM25 managed 78.7% and embedding search 78.2%, and 98.7% of
+BIRD questions against 81.0% and 89.4%
+([head-to-head](BENCHMARKS.md#head-to-head-schemagate-against-the-retrievers-other-tools-use)).
 Worked example, with a price you should replace with your own: a 260-object
 schema, 5,000 questions a day, an input price of $3 per million tokens. Full
 schema: 16,095 × 5,000 × 30 = 2.4 billion tokens a month, about $7,200. With
@@ -465,12 +470,11 @@ Both re-runs are done and [BENCHMARKS.md](BENCHMARKS.md) keeps the
 corrections rather than deleting them.
 
 **End to end, on the metric those boards actually score:** schemagate plus
-claude-opus-5 gets **68.0% execution accuracy on BIRD dev** (102/150, seeded
-sample), with 97.3% of questions producing SQL that runs. The published GPT-4
-baseline on BIRD dev is around 46%.
-
-None of these is a leaderboard placing — that needs the held-out test set, and
-nothing here has been submitted.
+Claude Opus 5.5 gets **77.12% execution accuracy on all 1,534 BIRD dev
+questions**, one model call per question (table above). The BIRD Mini-Dev
+rows are on BIRD's own leaderboard. A main-board placing needs the held-out
+test set: a submission was sent on 2026-10-22 and is being evaluated by the
+BIRD team.
 
 Everything below is measured on schemas I invented, which is worth less and
 is why the public numbers come first.
