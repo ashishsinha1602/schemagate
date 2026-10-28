@@ -141,6 +141,6 @@ variable "schemagate_version" {
 
   validation {
     condition     = var.schemagate_version == "" || can(regex("^[0-9]+\\.[0-9]+(\\.[0-9]+)?([a-z0-9.]*)$", var.schemagate_version))
-    error_message = "Give a version like 1.14.0, or \"\" for the newest on PyPI."
+    error_message = "Give a version like 1.15.0, or \"\" for the newest on PyPI."
   }
 }
