@@ -1,0 +1,56 @@
+[
+  {
+    "benchmark": "Spider 2.0-lite, BigQuery and Snowflake",
+    "top_k": 12,
+    "questions": 225,
+    "methods": {
+      "full schema": {
+        "gold_tables_all_selected": 0.9378,
+        "mean_tokens": 56237
+      },
+      "BM25": {
+        "gold_tables_all_selected": 0.7867,
+        "mean_tokens": 1513,
+        "paired_schemagate_only": 18,
+        "paired_other_only": 3
+      },
+      "embeddings (MiniLM)": {
+        "gold_tables_all_selected": 0.7822,
+        "mean_tokens": 1555,
+        "paired_schemagate_only": 17,
+        "paired_other_only": 1
+      },
+      "schemagate": {
+        "gold_tables_all_selected": 0.8533,
+        "mean_tokens": 1677
+      }
+    }
+  },
+  {
+    "benchmark": "BIRD dev",
+    "top_k": 6,
+    "questions": 1534,
+    "methods": {
+      "full schema": {
+        "gold_tables_all_selected": 1.0,
+        "mean_tokens": 579
+      },
+      "BM25": {
+        "gold_tables_all_selected": 0.8103,
+        "mean_tokens": 407,
+        "paired_schemagate_only": 277,
+        "paired_other_only": 6
+      },
+      "embeddings (MiniLM)": {
+        "gold_tables_all_selected": 0.8944,
+        "mean_tokens": 438,
+        "paired_schemagate_only": 151,
+        "paired_other_only": 9
+      },
+      "schemagate": {
+        "gold_tables_all_selected": 0.987,
+        "mean_tokens": 468
+      }
+    }
+  }
+]

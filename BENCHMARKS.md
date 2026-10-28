@@ -288,6 +288,37 @@ Folding also shrinks the full schema the saving is measured against: eleven `sto
 tables now count as one. That is why the median table count fell from 16 to 11, nine
 databases dropped below 50 tables, and the 50+ median moved from 92.9% to 91.1%. The
 tokens actually sent went down, from 1,469 to 1,450 per question.
+
+## Head-to-head: schemagate against the retrievers other tools use
+
+`benchmarks/token_savings/compare.py` picks tables four ways, on the same questions and the
+same catalog, with no model calls: **full schema** (no selection); **BM25** keyword search over
+each table's definition; **embeddings**, `all-MiniLM-L6-v2` similarity, the default way
+LangChain, LlamaIndex and Vanna pick tables from a vector store; and **schemagate**, with
+sentence-transformers installed so it uses the same MiniLM model -- the difference is ranking
+and join expansion, not the embedder. Every method gets the same number of tables (12 on
+Spider 2.0, 6 on BIRD), and the baselines get schemagate's partition folding for free, which
+flatters them. Results are in `benchmarks/token_savings/compare_results.json`.
+
+| | Spider 2.0-lite warehouses, 225 questions | | BIRD dev, 1,534 questions | |
+|---|---|---|---|---|
+| | every gold table selected | mean tokens | every gold table selected | mean tokens |
+| full schema | 93.8% | 56,237 | 100% | 579 |
+| BM25 | 78.7% | 1,513 | 81.0% | 407 |
+| embeddings (MiniLM) | 78.2% | 1,555 | 89.4% | 438 |
+| **schemagate** | **85.3%** | 1,677 | **98.7%** | 468 |
+
+Paired, on the same question: schemagate had every gold table where embeddings did not on 17
+warehouse questions, and the reverse happened on 1; against BM25, 18 to 3. On BIRD, 151 to 9
+against embeddings and 277 to 6 against BM25.
+
+What it costs: schemagate sends 8-11% more tokens than plain retrieval, mostly the tables
+needed to join the ones it picked. What it does not show: selectors that ask a model to pick
+tables (LangChain's table-selection chain, research systems such as CHESS) were not run, since
+they need a model call per question. The full schema stays below 100% on the warehouses
+because some gold SQL reads tables that are not in the benchmark's catalog files. With the
+default hashed embedder (`pip install schemagate`, no extras) schemagate's warehouse figure is
+86.7%, as in the table above this one.
 ## What the dropped questions say about the tool
 
 They are not noise. Spider 2.0's `ga4` database is 92 tables named
