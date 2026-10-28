@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.15.0
 
 - **Tables split per year or quarter fold into one entry.** `collapse_partitions()` already folded daily and
   monthly families (`events_20240131` → `events_*`); it now folds `storms_2014` .. `storms_2024`, `gsod2014` .. and
@@ -12,6 +12,11 @@
   from the scoring fix alone). The 50+ table median saving is now 91.1% over 24 databases (was 92.9% over 33),
   because folding also shrinks the full schema it is measured against; tokens sent went down. BENCHMARKS.md keeps the
   old numbers and the reason.
+
+- **Head-to-head against standard retrieval.** `benchmarks/token_savings/compare.py` picks tables four ways with no
+  model calls. Every gold table selected: Spider 2.0-lite warehouses, schemagate 85.3% vs BM25 78.7% and MiniLM
+  embeddings 78.2%; BIRD dev, 98.7% vs 81.0% and 89.4%. schemagate sends 8-11% more tokens (join tables).
+- **Docs.** The README no longer quotes an old 150-question BIRD sample; two links in `docs/langchain.md` work on GitHub.
 
 ## 1.14.0
 
