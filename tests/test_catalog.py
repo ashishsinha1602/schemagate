@@ -137,6 +137,49 @@ def test_two_annual_snapshots_are_not_a_partition_set():
     assert len(cat) == 2
 
 
+def test_a_table_split_per_year_collapses_to_one():
+    """`storms_2014` .. `storms_2024`: a question over the decade needs all eleven.
+
+    Held apart they took eleven of twelve slots on Spider 2.0's NOAA data, so
+    the other table the question joined to never fit.
+    """
+    from schemagate import Catalog, Column, ObjectDoc
+    cat = Catalog()
+    for y in range(2014, 2025):
+        cat.add(ObjectDoc(name="storms_%d" % y, schema="noaa", kind="TABLE",
+                          columns=[Column("zip", "STRING", True, None, False)]))
+    for y in range(2014, 2017):                     # no separator: `gsod2014`
+        cat.add(ObjectDoc(name="gsod%d" % y, schema="noaa", kind="TABLE",
+                          columns=[Column("temp", "FLOAT64", True, None, False)]))
+    assert cat.collapse_partitions() == 10 + 2
+    cat.index()
+    assert {d.name for d in cat.objects()} == {"storms_*", "gsod*"}
+    doc = next(d for d in cat.objects() if d.name == "storms_*")
+    assert "11 of them, 2014 to 2024" in (doc.description or "")
+
+
+def test_a_table_split_per_quarter_collapses_to_one():
+    from schemagate import Catalog, Column, ObjectDoc
+    cat = Catalog()
+    for y in (2020, 2021):
+        for q in range(1, 5):
+            cat.add(ObjectDoc(name="sales_%d_q%d" % (y, q), schema="s", kind="TABLE",
+                              columns=[Column("amount", "NUMERIC", True, None, False)]))
+    assert cat.collapse_partitions() == 7
+    assert {d.name for d in cat.objects()} == {"sales_*"}
+
+
+def test_four_digits_that_are_not_a_year_do_not_collapse():
+    """`port_8080` .. are three tables, not one table per year."""
+    from schemagate import Catalog, Column, ObjectDoc
+    cat = Catalog()
+    for p in (8080, 8081, 8082):
+        cat.add(ObjectDoc(name="port_%d" % p, schema="s", kind="TABLE",
+                          columns=[Column("id", "INT", False, None, True)]))
+    assert cat.collapse_partitions() == 0
+    assert len(cat) == 3
+
+
 def test_collapsing_puts_the_family_back_in_reach():
     """The point of it: the family can be selected at all."""
     from schemagate import Catalog, Column, ObjectDoc

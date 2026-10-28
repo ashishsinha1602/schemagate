@@ -256,8 +256,8 @@ are in `benchmarks/token_savings/results.json`.
 |---|---|---|---|---|---|---|---|
 | BIRD dev | 1,534 | 11 | 7 | 579 | 462 | 20.1% | 8.8% |
 | Spider 2.0-lite, local SQLite | 135 | 30 | 13 | 924 | 642 | 30.6% | 6.3% |
-| Spider 2.0-lite, BigQuery and Snowflake | 412 | 128 | 16 | 46,560 | 1,469 | 96.8% | 48.8% |
-| the same, databases with 50+ tables | | 33 | | | | | **92.9%** |
+| Spider 2.0-lite, BigQuery and Snowflake | 412 | 128 | 11 | 44,571 | 1,450 | 96.7% | 44.3% |
+| the same, databases with 50+ tables | | 24 | | | | | **91.1%** |
 
 Small schemas leave little to cut: on BIRD's seven-table databases the whole schema is
 already a few hundred tokens. The saving is where schemas are big. The mean on the
@@ -265,9 +265,29 @@ warehouses is pulled up by a few very large databases, so the per-database media
 the fairer single number.
 
 The cost of cutting: on BIRD, every table the gold SQL reads was in the selection for
-98.4% of questions. On the warehouses (questions with public gold SQL) it was 79.6%. A
+98.4% of questions. On the warehouses (questions with public gold SQL) it was 86.7%. A
 question whose table was cut can't be answered from the prompt. That is what the
 retrieval sections above measure in detail.
+
+**This table was revised after 1.14.0.** It first said 79.6% for the warehouses, with a
+median of 16 tables, 46,560 full-schema tokens and a median saving of 92.9% over 33
+databases with 50+ tables. Two things changed, and both are in the numbers above:
+
+- *Scoring.* The script compared bare table names, so a gold `storms_2014` counted as
+  missed even when the selection held the `storms_*` entry it had been folded into, and
+  a gold wildcard such as `2000_*` never matched anything. It now counts a gold table as
+  selected when the family it belongs to was selected (`covers()` in `measure.py`).
+  That alone takes 79.6% to 83.6%: the same selections, scored correctly.
+- *The library.* Tables split per year or quarter (`storms_2014` .. `storms_2024`,
+  `gsod2014` ..) are now folded like the daily and monthly ones. Eleven NOAA, IRS and
+  Citi Bike questions needed more of those tables than top_k could hold; folded, all
+  eleven have every gold table selected, and no question lost one (83.6% to 86.7% here;
+  the paired run on the 225 questions with gold tables was 11 wins, 0 losses).
+
+Folding also shrinks the full schema the saving is measured against: eleven `storms_`
+tables now count as one. That is why the median table count fell from 16 to 11, nine
+databases dropped below 50 tables, and the 50+ median moved from 92.9% to 91.1%. The
+tokens actually sent went down, from 1,469 to 1,450 per question.
 ## What the dropped questions say about the tool
 
 They are not noise. Spider 2.0's `ga4` database is 92 tables named

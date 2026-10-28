@@ -696,9 +696,18 @@ class Catalog:
         self.index()
         return self
 
-    #: `events_20240131`, `ga_sessions_20170801`, `logs_202401`. Three of them
-    #: in one schema is a partitioned table, not three tables.
-    _DATED_SUFFIX = re.compile(r"^(.*?[_\-]?)(\d{6}|\d{8})$")
+    #: `events_20240131`, `ga_sessions_20170801`, `logs_202401`, and per year
+    #: or quarter, `storms_2014`, `gsod2014`, `sales_2020_q1`. Three of them
+    #: in one schema is a partitioned table, not three tables. A bare four
+    #: digits counts only as a year (19xx or 20xx), so `port_8080` stays put.
+    #:
+    #: Years and quarters were added after Spider 2.0's NOAA data: eleven
+    #: questions over a run of years needed `storms_2014` .. `storms_2024` or
+    #: `gsod2014` .. as separate tables, more than top_k could hold, and every
+    #: one of them was answered once each family folded to one entry
+    #: (benchmarks/token_savings, 11 more questions with every gold table
+    #: selected, none fewer).
+    _DATED_SUFFIX = re.compile(r"^(.*?[_\-]?)((?:19|20)\d{2}(?:_?[qQ][1-4])?|\d{6}|\d{8})$")
 
     #: Below this many siblings it is more likely to be a coincidence -- two
     #: tables ending in a year are a pair of annual snapshots someone may well
