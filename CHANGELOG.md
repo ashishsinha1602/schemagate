@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.15.1
+
+- **Security: a query hidden in a string the database runs is refused**
+  ([GHSA-r77g-5v43-wh54](https://github.com/ashishsinha1602/schemagate/security/advisories/GHSA-r77g-5v43-wh54)).
+  `run_query` read table names from the statement's syntax and emptied string literals first, so on PostgreSQL
+  `SELECT query_to_xml('SELECT * FROM payroll', true, true, '')`, and on Oracle `DBMS_XMLGEN.GETXML('SELECT ...')`,
+  read a restricted table that neither check saw. `check_read_only` now refuses functions that run text as SQL or
+  reach outside the database (the PostgreSQL `*_to_xml` family, `dblink`, `ts_stat`, file and `set_config`
+  functions; Oracle `DBMS_*`, `UTL_*` and `ora:view`; SQL Server `OPENQUERY`, `OPENROWSET`, `sp_executesql`;
+  Snowflake and Databricks `IDENTIFIER()`), and the scope check refuses a string handed to any function that is a
+  query naming a hidden table, or is exactly a hidden table's name. Reported by Artur Chlebicki (@Artur12555).
+- 1.15.0 was never published to PyPI; 1.15.1 carries its changes too.
+
 ## 1.15.0
 
 - **Tables split per year or quarter fold into one entry.** `collapse_partitions()` already folded daily and

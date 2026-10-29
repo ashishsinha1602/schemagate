@@ -588,6 +588,34 @@ def _parsed_refs(sql: str):
     return tables, cols, star
 
 
+#: words before a bracket that make it a list or a group, not a function call
+_NOT_A_CALL = {"in", "values", "and", "or", "not", "select", "where", "on", "exists", "any", "all", "some",
+               "as", "from", "join", "when", "then", "else", "case", "by", "having", "over"}
+
+
+def _calling(masked: str, pos: int) -> Optional[str]:
+    """The function whose argument list holds position ``pos``, or None.
+
+    ``masked`` is the statement with string literals blanked, so the brackets
+    counted are the statement's own. Walks back to the innermost unclosed `(`
+    and reads the name in front of it: `run_sql(` is a call; `IN (`, `VALUES (`
+    and a bare `(` are not.
+    """
+    depth = 0
+    for i in range(pos - 1, -1, -1):
+        ch = masked[i]
+        if ch == ")":
+            depth += 1
+        elif ch == "(":
+            if depth == 0:
+                name = re.search(r"([A-Za-z_][\w$#]*(?:\s*\.\s*[A-Za-z_][\w$#]*)*)\s*$", masked[:i])
+                if not name or name.group(1).lower() in _NOT_A_CALL:
+                    return None
+                return name.group(1).lower()
+            depth -= 1
+    return None
+
+
 def _check_scope(cat: Catalog, sql: str, who: Optional[Principal]) -> Optional[str]:
     """Refuse SQL that reads anything this caller may not see.
 
@@ -652,6 +680,33 @@ def _check_scope(cat: Catalog, sql: str, who: Optional[Principal]) -> Optional[s
     visible_names = set(vis_q) | set(vis_bare)
     unknown += sorted(n for n in (idents & (hid_q | hid_bare)) - visible_names
                       if n not in {u.lower() for u in unknown})
+    # A string the database may run as SQL. `check_read_only` refuses the known
+    # functions that do (query_to_xml, DBMS_XMLGEN, ...), but a list of names
+    # is never complete: an extension or a user-defined function can execute
+    # its text argument too. So a string that is itself a query naming a hidden
+    # table, or is exactly a hidden table's name handed to a function, is
+    # refused here whatever the function is (GHSA-r77g-5v43-wh54).
+    hidden_only = (hid_q | hid_bare) - visible_names
+    if hidden_only:
+        body = re.sub(r"--[^\n]*", " ", sql)
+        body = re.sub(r"/\*.*?\*/", " ", body, flags=re.S)
+        # the same text with every literal blanked to spaces, so brackets inside strings do not count
+        masked = _STRING.sub(lambda m: " " * len(m.group(0)), body)
+        for m in _STRING.finditer(body):
+            # Only a string handed to a function can be run: `SELECT 'from secret' AS label` is a
+            # label and `x IN ('a', 'secret')` a list.
+            if _calling(masked, m.start()) is None:
+                continue
+            text = m.group(0)[1:-1].replace("''", "'")
+            names = {".".join(_unquote(p).lower() for p in re.findall(_PART, r))
+                     for r in re.findall(_REF, text)}
+            names |= {_unquote(p).lower() for p in re.findall(_PART, text)}
+            as_query = re.search(r"\b(?:select|from|join|table|with|values)\b", text, re.I)
+            as_name = ".".join(_unquote(p).lower() for p in re.findall(_PART, text.strip())) in hidden_only
+            hit = sorted(names & hidden_only) if as_query else []
+            if as_name:
+                hit = hit or [text.strip().lower()]
+            unknown += [n for n in hit if n not in {u.lower() for u in unknown}]
     if unknown:
         # A bare name refused only because it is ambiguous can still be used
         # qualified. Say so by naming the visible objects it could mean --

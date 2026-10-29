@@ -185,6 +185,31 @@ def _strip_fences(sql: str) -> str:
     return s.strip().rstrip(";").strip()
 
 
+#: Functions that take SQL, or a table name, as text and have the database run
+#: it -- or that reach outside the database. The scope check reads table names
+#: from the statement's syntax, and a name inside a string literal is not
+#: syntax: `query_to_xml('SELECT * FROM payroll', ...)` reads a table no check
+#: ever saw (GHSA-r77g-5v43-wh54). These are refused by name, outside literals.
+_DYNAMIC = re.compile(
+    r"\b(?:"
+    # PostgreSQL: the XML export family runs its text argument as a query or
+    # reads the named table; dblink and ts_stat/ts_rewrite run text too.
+    r"(?:query|cursor|table|schema|database)_to_xml(?:schema|_and_xmlschema)?|"
+    r"dblink\w*|ts_stat|ts_rewrite|"
+    r"pg_read_file|pg_read_binary_file|pg_ls_dir|pg_stat_file|lo_import|lo_export|set_config|"
+    # Oracle: DBMS_XMLGEN.GETXML('SELECT ...'), DBMS_SQL, UTL_HTTP and the rest
+    r"dbms_\w+|utl_\w+|httpuritype|"
+    # SQL Server
+    r"openquery|openrowset|opendatasource|sp_executesql|xp_\w+|"
+    # MySQL, SQLite
+    r"load_file|load_extension|readfile|writefile|"
+    # Snowflake / Databricks: IDENTIFIER('payroll') is the table payroll
+    r"identifier"
+    r")(?:\s*\.\s*\w+)?\s*\(",          # a package member too: DBMS_XMLGEN.GETXML(
+    re.I,
+)
+
+
 def check_read_only(sql: str) -> str:
     """Return ``sql`` if it is a single read, otherwise raise ``UnsafeSQL``.
 
@@ -211,6 +236,13 @@ def check_read_only(sql: str) -> str:
     bad = _FORBIDDEN.search(scan)
     if bad:
         raise UnsafeSQL(f"contains {bad.group(0).upper()}")
+    dyn = _DYNAMIC.search(scan)
+    if dyn:
+        raise UnsafeSQL(f"calls {dyn.group(0).rstrip('( ').upper()}, which runs text as SQL "
+                        "or reaches outside the database")
+    # Oracle's XQuery reads a table named in a string: XMLQUERY('ora:view("PAYROLL")' ...)
+    if re.search(r"\bora\s*:\s*view\b", bare, re.I):
+        raise UnsafeSQL("uses ora:view, which reads a table named in a string")
     return s
 
 
