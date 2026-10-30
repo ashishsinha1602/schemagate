@@ -1,0 +1,24 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "schemagate",
+  "version": "1.15.1",
+  "description": "Ask a SQL database questions through a local, read-only MCP server that hands the model only the tables and columns the caller may read. Includes a skill for the select-schema, write-SQL, run-query workflow.",
+  "author": {
+    "name": "Ashish Sinha",
+    "url": "https://github.com/ashishsinha1602"
+  },
+  "homepage": "https://github.com/ashishsinha1602/schemagate",
+  "repository": "https://github.com/ashishsinha1602/schemagate",
+  "license": "Apache-2.0",
+  "keywords": [
+    "sql",
+    "database",
+    "text-to-sql",
+    "schema",
+    "access-control",
+    "mcp",
+    "postgres",
+    "mysql",
+    "sqlite"
+  ]
+}
