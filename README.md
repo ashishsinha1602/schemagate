@@ -1077,10 +1077,13 @@ Keep a URL with a password in `env`, as above, not in `--url`: command arguments
 visible to every process on the machine. Without uv: `pip install 'schemagate[mcp,postgres]'`,
 then run `schemagate-mcp` (or `python -m schemagate.mcp_server`, which still works).
 
-Seven tools, all read-only: `select_schema` (the DDL for a question, scoped to
+Nine tools, all read-only: `select_schema` (the DDL for a question, scoped to
 the caller), `list_objects` (what this caller can see), `describe_object` (one
 object's full DDL), `run_query` (runs a single read, refused if it names
-anything the caller may not see), `answer`, `refresh_catalog` and `health`.
+anything the caller may not see), `semantic_query` (a read whose rows the
+server's model then filters or annotates by what a text column says),
+`answer`, `deep_answer` (like `answer`, but may explore in steps),
+`refresh_catalog` and `health`.
 They take `principal` and `roles`. If the client leaves them out, the caller
 is anonymous and sees only unrestricted objects. A restricted object and a
 missing one return the same error, so existence doesn't leak.
