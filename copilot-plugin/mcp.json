@@ -1,0 +1,17 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "schemagate": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "schemagate[mcp]==1.15.1",
+        "schemagate-mcp"
+      ],
+      "env": {
+        "SCHEMAGATE_DATABASE_URL": "demo"
+      }
+    }
+  }
+}
