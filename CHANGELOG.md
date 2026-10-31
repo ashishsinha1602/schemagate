@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.15.3
 
 - **LangChain and LlamaIndex retrievers render each table for their bound caller.** Both called `render_ddl()`
   without the principal, so a caller with a role that unlocks a restricted column still got the anonymous DDL,
