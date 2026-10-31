@@ -23,7 +23,7 @@ SQL. Every prediction file and evaluator output is in
 |---|---|---|---|
 | **BIRD dev**, all 1,534 questions (SQLite) | Claude Opus 5.5 | **77.12** (simple 80.97 / moderate 71.34 / challenging 71.03) | main board, hidden test set: 82.95; a test-set submission was sent on 2026-10-22 |
 | **BIRD Mini-Dev**, 500 questions, SQLite | Claude Opus 5.5 | **81.00** | 75.60 (Jitto Build, the same model) |
-| BIRD Mini-Dev, PostgreSQL | Claude Opus 5.5 | **72.60** | 65.80 (Ontology2SQL, deepseek-v4-flash as a 12-step agent) |
+| BIRD Mini-Dev, PostgreSQL | Claude Opus 5.5 | **72.60** | 65.80 (Ontology2SQL, deepseek-v4-flash as a 12-step agent); 69.00 since (SDIP + gemini-3.8-flash), still below |
 | BIRD Mini-Dev, MySQL | Claude Opus 5.5 | **72.40** | 49.20 (TA + GPT-4) |
 | BIRD Mini-Dev, SQLite / PostgreSQL / MySQL | Gemini 2.5 Flash, a light model, one query per question (the row on BIRD's board) | 63.60 / 55.60 / 54.80 | above the MySQL leader; below the other two |
 | **UniQL, Oracle dialect**, 1,534 questions, first try only | Gemini 2.5 Flash | **64.47** (67.60 with one execution repair) | 49.61 (Claude Sonnet 4.5, UniQL's own baseline) |

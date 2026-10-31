@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **LangChain and LlamaIndex retrievers render each table for their bound caller.** Both called `render_ddl()`
+  without the principal, so a caller with a role that unlocks a restricted column still got the anonymous DDL,
+  without that column. It failed safe (nothing leaked), but authorised callers lost columns they may read. The
+  `columns` metadata also counted every column, restricted ones included, which revealed that hidden columns
+  existed; it now counts the columns this caller can see.
+
 ## 1.15.2
 
 Documentation only; the code is unchanged from 1.15.1.

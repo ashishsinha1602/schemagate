@@ -45,6 +45,21 @@ def test_bound_principal_sees_what_it_may(retriever):
     assert hr.catalog is retriever.catalog
 
 
+def test_restricted_column_follows_the_bound_principal(cat):
+    """The DDL and the column count are rendered for the retriever's caller, not for an anonymous one."""
+    cat.restrict_column("hr_employee", "employee_number", ["payroll"])
+    anon = SchemagateRetriever(cat, top_k=4)
+    hr = anon.with_principal(Principal("okta:hr", roles={"payroll"}))
+
+    def employee(r):
+        return next(n.node for n in r.retrieve("employees by department")
+                    if n.node.metadata["name"] == "main.hr_employee")
+
+    assert "employee_number" not in employee(anon).get_content()
+    assert "employee_number" in employee(hr).get_content()
+    assert employee(hr).metadata["columns"] == employee(anon).metadata["columns"] + 1
+
+
 def test_prompt_fragment_round_trips(retriever):
     fragment = prompt_fragment(retriever.retrieve("stock per warehouse"))
     assert "inv_stock_level" in fragment
