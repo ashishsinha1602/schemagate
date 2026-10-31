@@ -43,49 +43,49 @@ dependencies = ["SQLAlchemy>=2.0"]
 
 [project.optional-dependencies]
 # database drivers -- reflection itself works on any SQLAlchemy dialect
-oracle      = ["oracledb>=2.4"]
-postgres    = ["psycopg[binary]>=3.1"]
-mssql       = ["pyodbc>=5.0"]
-mysql       = ["PyMySQL>=1.1"]
+oracle      = ["oracledb>=26.1.0"]
+postgres    = ["psycopg[binary]>=3.3.6"]
+mssql       = ["pyodbc>=5.3.0"]
+mysql       = ["PyMySQL>=1.2.3"]
 # every driver in one go, for people who do not want to pick. Kept out of the
 # base install on purpose: `pip install schemagate` stays one dependency, so
 # importing the library cannot fail because of a driver nobody is using.
-databases   = ["oracledb>=2.4", "psycopg[binary]>=3.1", "pyodbc>=5.0",
-               "PyMySQL>=1.1"]
+databases   = ["oracledb>=26.1.0", "psycopg[binary]>=3.3.6", "pyodbc>=5.3.0",
+               "PyMySQL>=1.2.3"]
 # optional AI cataloguing -- bring your own key; none of this is required
-anthropic   = ["anthropic>=0.40"]
-openai      = ["openai>=1.40"]
-gemini      = ["google-genai>=1.0"]
-ai          = ["anthropic>=0.40", "openai>=1.40", "google-genai>=1.0"]   # small SDKs; oci is separate (big)
-oci         = ["oci>=2.130"]
-huggingface = ["sentence-transformers>=3.0", "transformers>=4.40", "torch>=2.1"]
+anthropic   = ["anthropic>=2.3.0"]
+openai      = ["openai>=3.40.0"]
+gemini      = ["google-genai>=2.33.0"]
+ai          = ["anthropic>=2.3.0", "openai>=3.40.0", "google-genai>=2.33.0"]   # small SDKs; oci is separate (big)
+oci         = ["oci>=2.189.0"]
+huggingface = ["sentence-transformers>=6.2.0", "transformers>=5.20.2", "torch>=2.14.1"]
 # the everything-you-are-likely-to-want install: every database driver, the
 # model SDKs and MCP. Deliberately without `huggingface` (a torch download) and
 # `oci`, which is 488 MB and 17,505 modules on its own -- against 217 MB for
 # all of this put together. Adding it would make the default install eight
 # times heavier for a service most users never call, so it stays one word
 # away: `pip install "schemagate[all,oci]"`.
-all         = ["oracledb>=2.4", "psycopg[binary]>=3.1", "pyodbc>=5.0",
-               "PyMySQL>=1.1", "anthropic>=0.40", "openai>=1.40",
-               "google-genai>=1.0", "mcp>=1.2", "sqlglot>=25"]
+all         = ["oracledb>=26.1.0", "psycopg[binary]>=3.3.6", "pyodbc>=5.3.0",
+               "PyMySQL>=1.2.3", "anthropic>=2.3.0", "openai>=3.40.0",
+               "google-genai>=2.33.0", "mcp>=2.3.0", "sqlglot>=30.25.0"]
 # quantum-safe signed audit log (ML-DSA-65, FIPS 204) -- PyCA cryptography, OpenSSL-backed;
 # 48 is the first release where ML-DSA works on every platform
-pq          = ["cryptography>=48"]
+pq          = ["cryptography>=50.0.2"]
 # integrations
-mcp         = ["mcp>=1.2", "sqlglot>=25"]  # sqlglot: run_query reads SQL with a parser
-langchain   = ["langchain-core>=0.3"]
-llamaindex  = ["llama-index-core>=0.12"]
-dev         = ["pytest>=8", "cryptography>=48", "ruff", "mypy", "sqlglot>=25", "anyio>=4",
-               "langchain-core>=0.3",
+mcp         = ["mcp>=2.3.0", "sqlglot>=30.25.0"]  # sqlglot: run_query reads SQL with a parser
+langchain   = ["langchain-core>=1.7.0"]
+llamaindex  = ["llama-index-core>=0.14.25"]
+dev         = ["pytest>=9.2.0", "cryptography>=50.0.2", "ruff", "mypy", "sqlglot>=30.25.0", "anyio>=4.15.1",
+               "langchain-core>=1.7.0",
                # tests/test_oci_stack.py parses cloud-init.yaml; it was relying
                # on whatever the runner happened to have installed.
-               "pyyaml>=6",
-               "mcp>=1.2",
-               "hypothesis>=6",
+               "pyyaml>=6.0.3",
+               "mcp>=2.3.0",
+               "hypothesis>=6.168.5",
                # tests/test_site.py builds the Pages site and reads it back;
                # without this it skipped in CI, and an assertion about the
                # image tag drifted for three releases unnoticed.
-               "markdown>=3"]
+               "markdown>=3.10.3"]
 
 [project.scripts]
 schemagate = "schemagate.cli:main"
