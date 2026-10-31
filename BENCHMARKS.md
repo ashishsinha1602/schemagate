@@ -21,7 +21,7 @@ SQL. Every prediction file and evaluator output is in
 
 | Benchmark | Model | Execution accuracy | Best published, on 2026-10-19 |
 |---|---|---|---|
-| **BIRD dev**, all 1,534 questions (SQLite) | Claude Opus 5.5 | **77.12** (simple 80.97 / moderate 71.34 / challenging 71.03) | main board, hidden test set: 82.95; our first test-set result from BIRD is 72.11 EX, and a re-run of the second configuration is pending |
+| **BIRD dev**, all 1,534 questions (SQLite) | Claude Opus 5.5 | **77.12** (simple 80.97 / moderate 71.34 / challenging 71.03) | main board, hidden test set: 82.95; our hidden test-set results from BIRD are 72.11 EX for this setup and 74.34 EX (simple 81.03 / moderate 72.25 / challenging 56.14) for the second configuration, which adds the four closest training questions to each prompt (dev 84.03) |
 | **BIRD Mini-Dev**, 500 questions, SQLite | Claude Opus 5.5 | **81.00** | 75.60 (Jitto Build, the same model) |
 | BIRD Mini-Dev, PostgreSQL | Claude Opus 5.5 | **72.60** | 65.80 (Ontology2SQL, deepseek-v4-flash as a 12-step agent); 69.00 since (SDIP + gemini-3.8-flash), still below |
 | BIRD Mini-Dev, MySQL | Claude Opus 5.5 | **72.40** | 49.20 (TA + GPT-4) |
