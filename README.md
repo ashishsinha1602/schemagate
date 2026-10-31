@@ -433,7 +433,7 @@ call per question, about 2,100 prompt tokens, no candidates, no voting, no agent
 
 | | Model | EX | Best published, 2026-10-19 |
 |---|---|---|---|
-| BIRD dev, all 1,534 questions | Claude Opus 5.5 | **77.12** | test-set submission sent 2026-10-22 |
+| BIRD dev, all 1,534 questions | Claude Opus 5.5 | **77.12** | first hidden test-set result 72.11; a re-run is pending |
 | BIRD Mini-Dev, SQLite / PostgreSQL / MySQL | Claude Opus 5.5 | **81.0 / 72.6 / 72.4**, #1 on all three | next best on BIRD's board, 2026-10-31: 75.6 / 69.0 / 49.2 |
 | UniQL, Oracle dialect, first try | Gemini 2.5 Flash | **64.47** | 49.61 (Claude Sonnet 4.5) |
 | Spider 2.0-lite, the 135 SQLite questions only | Claude Sonnet 5.5 | **71.9** | 57.78 Pass@1 (FlexSQL agent, gpt-oss-120b) |
@@ -475,8 +475,8 @@ corrections rather than deleting them.
 Claude Opus 5.5 gets **77.12% execution accuracy on all 1,534 BIRD dev
 questions**, one model call per question (table above). The BIRD Mini-Dev
 rows are on BIRD's own leaderboard. A main-board placing needs the held-out
-test set: a submission was sent on 2026-10-22 and is being evaluated by the
-BIRD team.
+test set, which only the BIRD team runs: the first result is 72.11 execution
+accuracy, and a re-run of the second configuration is pending.
 
 Everything below is measured on schemas I invented, which is worth less and
 is why the public numbers come first.
