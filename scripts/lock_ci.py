@@ -51,6 +51,13 @@ LOCKS = {
     "build":          (None, ["build"]),
 }
 
+#: locks whose only consumer runs a newer Python than the 3.10 floor. Resolving them from 3.10 adds
+#: a `python_full_version < '3.11'` branch nobody installs, which pins whatever last supported 3.10
+#: (pillow 12.3.0 for llama-index) and keeps Dependabot alerts open on a version CI never uses.
+MIN_PYTHON = {
+    "dev-llamaindex": "3.11",   # ci.yml's llamaindex job runs on 3.12; pillow 13 needs >= 3.11
+}
+
 
 def target(name: str) -> pathlib.Path:
     return {"docker": DOCKER, "fuzz": FUZZ}.get(name, OUT / f"{name}.txt")
@@ -68,7 +75,7 @@ def lock(name: str, extras, lines) -> None:
             extra.write_text("\n".join(lines) + "\n", "utf-8")
             inputs.append(str(extra))
         # --no-annotate: the "# via" notes would name machine-local temp files
-        cmd = ["uv", "pip", "compile", *inputs, "--universal", "--python-version", "3.10",
+        cmd = ["uv", "pip", "compile", *inputs, "--universal", "--python-version", MIN_PYTHON.get(name, "3.10"),
                "--generate-hashes", "--no-header", "--no-annotate", "--quiet", "-o", str(out)]
         # existing pins are kept unless named here: LOCK_UPGRADE="uv requests" moves just those (a security fix)
         for pkg in os.environ.get("LOCK_UPGRADE", "").split():
