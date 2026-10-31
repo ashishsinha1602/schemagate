@@ -1008,10 +1008,13 @@ failed. Point it at a scratch schema.
 | Oracle | certified live on Oracle AI Database 26ai (Autonomous Database), Sep 2026: certify script 10/10, the native `VECTOR(512, FLOAT32)` store conformance suite, and the dialect suite. Also stress-tested against a 127-object, 3-domain schema with ~7M rows |
 | SQL Server | certified live on SQL Server 2022 (16.0.4295.3), 10/10, **in CI on every push** against a service container, plus 13 live dialect tests covering alias types, `hierarchyid`/`sql_variant`, and `max_length` being bytes |
 | MySQL / MariaDB | certified live on MySQL 8.4.11, 10/10, **in CI on every push** against a service container, plus the GRANT reader suite: all three privilege levels, the role graph, and the role-only blind spot MySQL cannot report. MariaDB has not been run |
+| DuckDB | 9/10 locally, Oct 2026, on DuckDB 2.0.0 through `duckdb-engine` 0.17.0 (`pip install duckdb-engine`, URL `duckdb:///path/to/file.duckdb`). Tables, columns, foreign keys, selection and identity scoping pass; primary keys are not reported by the driver. Needs SQLAlchemy 2.0.44 or older: from 2.0.45, `duckdb-engine` cannot reflect columns at all ([duckdb_engine#1379](https://github.com/Mause/duckdb_engine/issues/1379)). Not in CI |
 
 Every row above has a real database behind it. The one thing still worth
 saying plainly: MariaDB is inferred from MySQL rather than run. Point the
-script at one and tell me what happens.
+script at one and tell me what happens. DuckDB has no `SERIAL` type, so its
+run created the three test tables with `autoincrement=False` on their keys
+(the suite inserts no rows).
 
 The same checks run under pytest if you export a URL, which is how CI certifies
 a dialect for good:
