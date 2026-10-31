@@ -6,6 +6,11 @@ predicted query's result must equal the gold query's result. Every number here c
 `evaluation/evaluation_ex.py`, run on the prediction files in this folder. The `*.ex.txt` files are its
 output.
 
+**Status, 2026-10-31:** the Claude Opus 5.5 row is on [BIRD's leaderboard](https://bird-bench.github.io/)
+([PR #251](https://github.com/bird-bench/bird-bench.github.io/pull/251)) and is #1 in all three dialects. The
+next entries are 75.60 on SQLite (Jitto Build), 69.00 on PostgreSQL (SDIP + gemini-3.8-flash, listed after
+the 2026-10-19 snapshot below) and 49.20 on MySQL (TA + GPT-4).
+
 ## Results (EX, all 500 questions)
 
 The headline model is **Gemini 2.5 Flash**, a light model (OCI Generative AI, on demand).

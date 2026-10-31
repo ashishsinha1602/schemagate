@@ -1285,8 +1285,8 @@ The retrieval numbers are not a leaderboard placing: the boards score
 generated SQL, and table recall is one step before it. They are not end-to-end
 accuracy either — a perfect table selection still leaves the model to write a
 correct query, which is why the execution-accuracy section at the top exists.
-And the execution-accuracy numbers are not yet a verified placing: the Mini-Dev
-rows are self-reported until BIRD merges them, and the test-set result is
+The Mini-Dev rows are on BIRD's own leaderboard (PR #251, merged 2026-10-25),
+#1 in all three dialects as of 2026-10-31; the main-board test-set result is
 BIRD's to report.
 
 What they are is a claim you can check without trusting me, on data neither
