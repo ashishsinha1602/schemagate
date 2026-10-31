@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.15.2
+
+Documentation only; the code is unchanged from 1.15.1.
+
+- **#1 on BIRD Mini-Dev in all three dialects.** BIRD merged the entry (bird-bench.github.io#251); on the live
+  leaderboard, checked 2026-10-31, schemagate + Claude Opus 5.5 is first on SQLite (81.00), PostgreSQL (72.60) and
+  MySQL (72.40). The README badge and headline say so, and the "self-reported until BIRD merges" notes are gone.
+- **The package summary no longer claims "75% fewer prompt tokens"**, which BENCHMARKS.md does not support; it cites
+  the measured 91% median saving on warehouses with 50+ tables.
+- **The README lists all nine MCP tools** (it said seven; `semantic_query` and `deep_answer` were missing).
+- **A GitHub Copilot plugin** in `copilot-plugin/`: the local read-only MCP server on the bundled demo schema, plus a
+  skill for the select-schema, write-SQL, run-query workflow.
+
 ## 1.15.1
 
 - **Security: a query hidden in a string the database runs is refused**
