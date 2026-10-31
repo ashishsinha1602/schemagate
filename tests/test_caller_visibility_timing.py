@@ -1,4 +1,4 @@
-# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
+﻿# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Two boundaries a final-prompt check cannot see.
 
 1. A caller who may see nothing. An empty selection proves the prompt is
@@ -105,32 +105,38 @@ def test_role_list_revoke_on_a_reused_catalog_takes_effect_on_the_next_call():
     q = "pay per employee and invoices"
     cat = Catalog(name="vt-reuse")
     cat.add_all(_docs())
+    # carol's membership (payroll) never changes. She is checked on the SAME
+    # catalog object at every step, interleaved with alice, so the test holds
+    # two properties at once: alice's view follows each restrict() on the next
+    # call, and changing alice's view never touches carol's. Checking carol
+    # once, after the revoke, could not tell "always visible to her" from
+    # "survived that one transition".
+    carol = Principal("okta:carol", roles=frozenset({"payroll"}))
 
-    before = cat.select(q, top_k=3, principal=ALICE)
-    assert "vt_salaries" in _names(before), (        # unrestricted: alice may see it
-        f"control failed before any change: alice did not get vt_salaries, got {_names(before)}")
+    def sees(principal):
+        return "vt_salaries" in _names(cat.select(q, top_k=3, principal=principal))
 
-    cat.restrict("vt_salaries", ["payroll"])        # revoke; same caller, same catalog object
+    assert sees(ALICE), "control before any change: alice (sales) did not get vt_salaries"
+    assert sees(carol), "control before any change: carol (payroll) did not get vt_salaries"
+
+    cat.restrict("vt_salaries", ["payroll"])        # transition 1: sales removed
     revoked = cat.select(q, top_k=3, principal=ALICE)
     assert "vt_salaries" not in _names(revoked), (
-        f"sales removed from vt_salaries; the next select for alice still returned it: {_names(revoked)}")
+        f"transition 1, sales removed from vt_salaries: the next select for alice still returned it: {_names(revoked)}")
     assert "vt_salaries" not in revoked.prompt_fragment()
     assert "annual_amount" not in revoked.prompt_fragment()
+    assert sees(carol), (
+        "transition 1, sales removed from vt_salaries: carol (payroll, unchanged) lost it on the same catalog object")
 
-    # The control that an always-deny path or a refresh of something unrelated
-    # would fail: a caller whose membership did NOT change keeps seeing the table
-    # on the same catalog object, before and after the change to alice's view.
-    carol = Principal("okta:carol", roles=frozenset({"payroll"}))
-    kept = cat.select(q, top_k=3, principal=carol)
-    assert "vt_salaries" in _names(kept), (
-        f"carol's membership was unchanged (payroll); after alice's revoke she lost vt_salaries: {_names(kept)}")
-
-    cat.restrict("vt_salaries", ["payroll", "sales"])   # grant back
+    cat.restrict("vt_salaries", ["payroll", "sales"])   # transition 2: sales granted back
+    assert sees(carol), (
+        "transition 2, sales granted back on vt_salaries: carol (payroll, unchanged) lost it on the same catalog object")
     regranted = cat.select(q, top_k=3, principal=ALICE)
 
     fresh = Catalog(name="vt-fresh")
     fresh.add_all(_docs())
     fresh.restrict("vt_salaries", ["payroll", "sales"])
     expected = fresh.select(q, top_k=3, principal=ALICE)
-    assert _names(regranted) == _names(expected)
+    assert _names(regranted) == _names(expected), (
+        f"transition 2, sales granted back: alice's reused catalog gave {_names(regranted)}, a fresh one {_names(expected)}")
     assert regranted.prompt_fragment() == expected.prompt_fragment()
