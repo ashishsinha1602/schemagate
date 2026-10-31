@@ -39,7 +39,7 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules",
   "Typing :: Typed",
 ]
-dependencies = ["SQLAlchemy>=2.0"]
+dependencies = ["SQLAlchemy>=2.0.55"]
 
 [project.optional-dependencies]
 # database drivers -- reflection itself works on any SQLAlchemy dialect
