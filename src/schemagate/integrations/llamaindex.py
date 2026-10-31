@@ -53,12 +53,12 @@ class SchemagateRetriever(BaseRetriever):
             NodeWithScore(
                 node=TextNode(
                     id_=hit.doc.qname,
-                    text=hit.doc.render_ddl(self.max_columns),
+                    text=hit.doc.render_ddl(self.max_columns, principal=self.principal),
                     metadata={
                         "name": hit.doc.qname,
                         "kind": hit.doc.kind,
                         "reason": hit.reason,
-                        "columns": len(hit.doc.columns),
+                        "columns": len(hit.doc.visible_columns(self.principal)),
                     },
                 ),
                 score=hit.score,

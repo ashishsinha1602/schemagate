@@ -46,6 +46,20 @@ def test_bound_principal_sees_what_it_may(retriever):
     assert retriever.principal is None
 
 
+def test_restricted_column_follows_the_bound_principal(cat):
+    """The DDL and the column count are rendered for the retriever's caller, not for an anonymous one."""
+    cat.restrict_column("hr_employee", "employee_number", ["payroll"])
+    anon = SchemagateRetriever(catalog=cat, top_k=4)
+    hr = anon.with_principal(Principal("okta:hr", roles={"payroll"}))
+
+    def employee(r):
+        return next(d for d in r.invoke("employees by department") if d.metadata["name"] == "main.hr_employee")
+
+    assert "employee_number" not in employee(anon).page_content
+    assert "employee_number" in employee(hr).page_content
+    assert employee(hr).metadata["columns"] == employee(anon).metadata["columns"] + 1
+
+
 def test_with_principal_shares_the_catalog(retriever):
     other = retriever.with_principal(Principal("okta:x"))
     assert other.catalog is retriever.catalog
