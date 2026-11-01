@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.15.4
 
 - **Joins are inferred on warehouses that declare no primary keys** (#204). `infer_foreign_keys` only accepted
   a target with a single-column primary key, so a schema with none at all inferred nothing: BEAVER's 97-table
