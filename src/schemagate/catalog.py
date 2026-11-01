@@ -1124,8 +1124,21 @@ class Catalog:
                principal: Optional[Principal] = None,
                expand_fks: bool = True, pin: Optional[Sequence[str]] = None,
                vector_weight: float = 1.0, lexical_weight: float = 1.0,
-               reranker=None, rerank_candidates: int = 20) -> Selection:
+               reranker=None, rerank_candidates: int = 20,
+               expand_inward: int = 0) -> Selection:
         """``reranker`` is any provider with ``.complete(system, prompt)``.
+
+        ``expand_inward`` (off by default) also adds tables that join *into*
+        the selection: of the ``expand_inward`` best-ranked objects, any not
+        yet chosen whose foreign key points at a chosen table. FK expansion
+        only follows a chosen table's own keys outward, so a bridge or child
+        table -- `TIP_DETAIL` pointing at `TIP_SUBJECT_OFFERED` -- was never
+        pulled in by its parent. On BEAVER's dw at top_k=25, 50 lifted "every
+        gold table selected" from 78 to 89 of 100 questions. Like FK
+        expansion it grows the answer beyond ``top_k`` instead of displacing
+        a ranked pick.
+
+        The rest of this docstring is about ``reranker``.
 
         Given one, the maths still runs first and still decides which objects
         are even eligible -- it just narrows the field to ``rerank_candidates``
@@ -1426,6 +1439,17 @@ class Catalog:
                         if d.name.lower() == fk.ref_table.lower() and q not in taken:
                             chosen.append(Scored(d, 0.0, "fk"))
                             taken.add(q)
+
+        if expand_inward > 0:
+            # `ranked` is already filtered by principal, so nothing hidden can enter here
+            picked = {sc.doc.name.lower() for sc in chosen}
+            for q, sc_val in ranked[:expand_inward]:
+                if q in taken:
+                    continue
+                d = self._docs[q]
+                if any((fk.ref_table or "").split(".")[-1].lower() in picked for fk in d.foreign_keys):
+                    chosen.append(Scored(d, sc_val, "fk"))
+                    taken.add(q)
 
         # Whether anything at all is withheld from this caller -- a yes/no, never which object.
         restricted = self.restriction_notice and any(

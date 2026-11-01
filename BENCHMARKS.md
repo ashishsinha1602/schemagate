@@ -1178,6 +1178,34 @@ And the ceiling is embedder-dependent too: health's reference question peaks
 at **8 with the hashed embedder and 5 with MiniLM**. `closure.py` names the
 embedder in its output for the same reason the paraphrase harness does.
 
+## Bridge tables that share no word with the question
+
+Suggested on r/LangChain: finding the two business tables is not enough if
+the selected DDL omits the table that joins them, and that table often shares
+no word with the question. So `benchmarks/bridge_tables.py` isolates them. A
+gold table is *zero-overlap* when no word of its name, split on `_` and
+stemmed, appears in the question. No model is called.
+
+| | questions with one | zero-overlap tables all selected | every gold table selected |
+|---|---|---|---|
+| BIRD dev, top_k=8 | 965 / 1,534 | 964 / 965 (99.9%) | 1,533 / 1,534 (99.9%) |
+| BIRD dev, + `expand_inward=16` | | 965 / 965 (100%) | 1,534 / 1,534 (100%) |
+| BEAVER dw (first 500), top_k=25 | 104 / 500 | 74 / 104 (71.2%) | 466 / 500 (93.2%) |
+| BEAVER dw, + `expand_inward=50` | | **94 / 104 (90.4%)** | **486 / 500 (97.2%)** |
+
+BIRD's largest database is 13 tables, so a top_k of 8 already holds most of
+it; the case only bites on a warehouse. BEAVER's 97-table `dw` (MIT's
+enterprise benchmark) is one, and it declares no primary keys, so until
+1.15.4 join inference found no edges there at all.
+
+FK expansion follows a chosen table's own keys outward. A bridge or child
+table points *into* the selection -- `TIP_DETAIL.TIP_SUBJECT_OFFERED_KEY` into
+`TIP_SUBJECT_OFFERED` -- and was never pulled in by its parent.
+`select(..., expand_inward=N)` adds, from the N best-ranked objects, any not
+yet chosen whose foreign key points at a chosen table. It is off by default:
+with it off, `tests/bench.py` prints the same 57 lines as before, and BIRD dev
+selection is identical on every question.
+
 ## The gate these numbers had to pass
 
 Before any figure above was written down it was re-measured with one part of
