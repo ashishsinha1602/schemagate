@@ -782,8 +782,9 @@ class Catalog:
 
         Conservative on purpose. An edge is added only when the column ends
         in `_id`, its stem names an object in the same schema (singular or
-        plural), that object has a single-column primary key, and no declared
-        constraint already covers the column. Everything added is marked
+        plural), that object has a single-column primary key -- or, if it
+        declares no primary key at all, a column spelled exactly like the key
+        -- and no declared constraint already covers the column. Everything added is marked
         `inferred` so `render_ddl` can label it.
         """
         # Every way a table might be named for the same thing. Conventions
@@ -830,8 +831,23 @@ class Catalog:
                 # worse than a missing one: the model writes it confidently
                 # and the rows come back quietly incorrect.
                 return None
-            doc = self._docs[next(iter(hits))]
-            return doc if len([c for c in doc.columns if c.pk]) == 1 else None
+            return self._docs[next(iter(hits))]
+
+        def key_of(ref: ObjectDoc, col_name: str):
+            """The column of `ref` the key points at, or None.
+
+            Its single-column primary key when it declares one. Warehouses
+            often declare none at all (BEAVER's 97-table `dw` has no primary
+            key anywhere), and then the edge is added only when `ref` carries
+            a column spelled exactly like the key -- `TIP_DETAIL.
+            TIP_SUBJECT_OFFERED_KEY` into `TIP_SUBJECT_OFFERED.
+            TIP_SUBJECT_OFFERED_KEY` -- which is how such schemas say it.
+            """
+            pk = [c.name for c in ref.columns if c.pk]
+            if pk:
+                return pk if len(pk) == 1 else None
+            same = [c.name for c in ref.columns if (c.name or "").lower() == col_name]
+            return same if len(same) == 1 else None
 
         def stem_of(name: str):
             """The object a key column points at, however the shop spells it.
@@ -861,7 +877,9 @@ class Catalog:
                 ref = target(stem, doc.schema)
                 if ref is None or ref is doc:
                     continue
-                pk = [c.name for c in ref.columns if c.pk]
+                pk = key_of(ref, name)
+                if pk is None:
+                    continue
                 doc.foreign_keys.append(ForeignKey(
                     columns=[col.name], ref_table=ref.name,
                     ref_columns=pk, inferred=True))
