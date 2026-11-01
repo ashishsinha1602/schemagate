@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- **Joins are inferred on warehouses that declare no primary keys** (#204). `infer_foreign_keys` only accepted
+  a target with a single-column primary key, so a schema with none at all inferred nothing: BEAVER's 97-table
+  `dw` got 0 joins and now gets 55. With no primary key, an edge is added only when the target has a column
+  spelled exactly like the key. Targets with a primary key behave as before; BIRD dev selection is unchanged.
+- **`select(..., expand_inward=N)`**, off by default, adds tables that join *into* the selection: of the N
+  best-ranked objects, any not yet chosen whose foreign key points at a chosen table. FK expansion only
+  followed keys outward, so a bridge table pointing at its parent was never pulled in. On BEAVER dw it selects
+  every zero-overlap bridge table on 90.4% of the questions that have one, against 71.2% without. Only objects
+  the caller may see are considered.
+- **`benchmarks/bridge_tables.py`**: recall on gold tables that share no word with the question, on BIRD dev and
+  (optionally) BEAVER. Results in BENCHMARKS.md.
+
 ## 1.15.3
 
 - **LangChain and LlamaIndex retrievers render each table for their bound caller.** Both called `render_ddl()`
