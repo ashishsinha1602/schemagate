@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.15.5
+
+Dependencies and documentation; the library code is unchanged from 1.15.4.
+
+- **pyasn1 0.6.5 in the Docker image** (#208). The image's hash-pinned lock carried pyasn1 0.6.4, which has four
+  high-severity decoding denial-of-service advisories (GHSA-2qm8-x737-gmw5, GHSA-mm57-4v3p-rchx,
+  GHSA-9m75-vc3g-4x39, GHSA-fm9c-5rcf-2q5p). Re-locked with `LOCK_UPGRADE=pyasn1`, so no other pin moved.
+- **The README leads with the token saving** (#207): 91.1% fewer schema tokens (median, databases with 50+ tables),
+  with a before/after GIF that `docs/media/make_token_gif.py` measures when it runs. Released so PyPI shows it too.
+
 ## 1.15.4
 
 - **Joins are inferred on warehouses that declare no primary keys** (#204). `infer_foreign_keys` only accepted
