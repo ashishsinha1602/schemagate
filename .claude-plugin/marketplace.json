@@ -1,0 +1,20 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "schemagate",
+  "owner": {
+    "name": "Ashish Sinha",
+    "url": "https://github.com/ashishsinha1602"
+  },
+  "metadata": {
+    "description": "schemagate for Claude Code: text-to-SQL with only the tables a question needs"
+  },
+  "plugins": [
+    {
+      "name": "schemagate",
+      "description": "Text-to-SQL with ~91% fewer schema tokens: Claude sees only the tables a question needs, and only the ones the caller may read. #1 on BIRD Mini-Dev.",
+      "source": "./plugins/schemagate",
+      "category": "database",
+      "homepage": "https://github.com/ashishsinha1602/schemagate"
+    }
+  ]
+}
