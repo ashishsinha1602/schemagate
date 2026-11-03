@@ -1,0 +1,10 @@
+# Pins the MCP server that .mcp.json launches, so uv.lock next to it records
+# exact versions and hashes for the whole dependency tree.
+[project]
+name = "schemagate-claude-plugin"
+version = "1.15.5"
+requires-python = ">=3.11"
+dependencies = ["schemagate[mcp,databases]==1.15.5"]
+
+[tool.uv]
+package = false
