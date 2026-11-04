@@ -1038,9 +1038,11 @@ def describe_object(name: ObjectName, principal: PrincipalArg = None,
             if not cat._visible(doc, who):
                 reason = "restricted"
                 break
-            return {"name": doc.qname, "kind": doc.kind, "ddl": doc.render_ddl(),
+            # an FK to an object this caller cannot see would name it, so it goes too
+            seen = cat._ref_visible(who)
+            return {"name": doc.qname, "kind": doc.kind, "ddl": doc.render_ddl(ref_visible=seen),
                     "foreign_keys": [{"columns": fk.columns, "references": fk.ref_table}
-                                     for fk in doc.foreign_keys]}
+                                     for fk in doc.foreign_keys if seen(fk.ref_table)]}
     # same message whether it is missing or restricted: no existence leak.
     # The audit record gets the distinction; `_guard` strips it from the reply.
     return {"error": f"no visible object named {name!r}", "_denied_reason": reason}
@@ -1269,7 +1271,8 @@ def deep_answer(question: Question, principal: PrincipalArg = None,
                          principal=who, expand_fks=True)
         new = [d for d in sel.objects if d.qname not in shown]
         shown.extend(d.qname for d in new)
-        return "\n\n".join(d.render_ddl(40, principal=who, question=topic) for d in new)
+        return "\n\n".join(d.render_ddl(40, principal=who, question=topic,
+                                          ref_visible=sel.ref_visible) for d in new)
 
     def run(sql: str, limit: int) -> Dict[str, Any]:
         token = _QUERY_TIMEOUT.set(EXPLORE_SECONDS if D.EXPLORING.get() else None)
