@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.15.6
+
+Security fix.
+
+- **A foreign key no longer names a table the caller cannot see** (GHSA-xp79-wpv4-qj59, reported by @VIPERQ88).
+  A restricted table was hidden from selection, from FK expansion and from `describe_object`, but a visible table
+  with a foreign key into it still named it: in `describe_object`'s `foreign_keys`, and in the
+  `-- FK ... -> <table>` line of the DDL that `select_schema`, `deep_answer` and the LangChain and LlamaIndex
+  retrievers return. Only the name and the FK columns leaked, never the hidden table's columns or rows. Both paths
+  now drop an edge whose target the caller cannot see (`Catalog._ref_visible`, matched the way FK expansion
+  matches targets).
+
 ## 1.15.5
 
 Dependencies and documentation; the library code is unchanged from 1.15.4.
