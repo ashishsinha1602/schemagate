@@ -35,7 +35,8 @@ def api():
         if body is None:
             return json.load(urllib.request.urlopen(base))
         req = urllib.request.Request(base, data=json.dumps(body).encode(),
-                                     headers={"Content-Type": "application/json"})
+                                     headers={"Content-Type": "application/json",
+                                              "X-Schemagate-Token": state.token})
         return json.load(urllib.request.urlopen(req))
 
     yield call, state
