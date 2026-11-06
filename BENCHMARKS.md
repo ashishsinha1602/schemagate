@@ -21,11 +21,11 @@ SQL. Every prediction file and evaluator output is in
 
 | Benchmark | Model | Execution accuracy | Best published, on 2026-10-19 |
 |---|---|---|---|
-| **BIRD dev**, all 1,534 questions (SQLite) | Claude Opus 5.5 | **77.12** (simple 80.97 / moderate 71.34 / challenging 71.03) | main board, hidden test set: 82.95; a test-set submission was sent on 2026-10-22 |
+| **BIRD dev**, all 1,534 questions (SQLite) | Claude Opus 5.5 | **77.12** (simple 80.97 / moderate 71.34 / challenging 71.03) | main board, hidden test set: 82.95; our hidden test-set results from BIRD are 72.11 EX for this setup and 74.34 EX (simple 81.03 / moderate 72.25 / challenging 56.14) for the second configuration, which adds the four closest training questions to each prompt (dev 84.03) |
 | **BIRD Mini-Dev**, 500 questions, SQLite | Claude Opus 5.5 | **81.00** | 75.60 (Jitto Build, the same model) |
 | BIRD Mini-Dev, PostgreSQL | Claude Opus 5.5 | **72.60** | 65.80 (Ontology2SQL, deepseek-v4-flash as a 12-step agent); 69.00 since (SDIP + gemini-3.8-flash), still below |
 | BIRD Mini-Dev, MySQL | Claude Opus 5.5 | **72.40** | 49.20 (TA + GPT-4) |
-| BIRD Mini-Dev, SQLite / PostgreSQL / MySQL | Gemini 2.5 Flash, a light model, one query per question (the row on BIRD's board) | 63.60 / 55.60 / 54.80 | above the MySQL leader; below the other two |
+| BIRD Mini-Dev, SQLite / PostgreSQL / MySQL | Gemini 2.5 Flash, a light model, one query per question (also on BIRD's board) | 63.60 / 55.60 / 54.80 | above the MySQL leader; below the other two |
 | **UniQL, Oracle dialect**, 1,534 questions, first try only | Gemini 2.5 Flash | **64.47** (67.60 with one execution repair) | 49.61 (Claude Sonnet 4.5, UniQL's own baseline) |
 | **Spider 2.0-lite, the 135 SQLite questions** (one third of the set; not a leaderboard row) | Claude Sonnet 5.5 | **71.9** (97 of 135) | 57.78 Pass@1 / 64.44 Majority@8 (FlexSQL, gpt-oss-120b, an agent) |
 | Spider 2.0-lite SQLite, same 135 | Gemini 2.5 Flash | 39.3 (full schema, no schemagate: 40.7) | the light model is not competitive here |
@@ -41,9 +41,9 @@ results folder.
 
 What to read with care. Opus is not deterministic: a re-run of the Mini-Dev
 SQLite setting gave 80.20 against 81.00, so treat single-run numbers as about
-±1. Mini-Dev and dev rows on BIRD's site are self-reported; ours are in
-[bird-bench PR #251](https://github.com/bird-bench/bird-bench.github.io/pull/251)
-awaiting the maintainers, and the hidden test set, which only the BIRD team
+±1. Mini-Dev and dev rows on BIRD's site are self-reported; ours were added in
+[bird-bench PR #251](https://github.com/bird-bench/bird-bench.github.io/pull/251),
+merged on 2026-10-25, and the hidden test set, which only the BIRD team
 runs, is the one number that is not self-reported. BIRD's `evidence` string is
 passed through with the question, as the benchmark intends and as published
 systems do. The Spider 2.0 row is one third of that benchmark: the BigQuery and
@@ -1177,6 +1177,34 @@ printed.
 And the ceiling is embedder-dependent too: health's reference question peaks
 at **8 with the hashed embedder and 5 with MiniLM**. `closure.py` names the
 embedder in its output for the same reason the paraphrase harness does.
+
+## Bridge tables that share no word with the question
+
+Suggested on r/LangChain: finding the two business tables is not enough if
+the selected DDL omits the table that joins them, and that table often shares
+no word with the question. So `benchmarks/bridge_tables.py` isolates them. A
+gold table is *zero-overlap* when no word of its name, split on `_` and
+stemmed, appears in the question. No model is called.
+
+| | questions with one | zero-overlap tables all selected | every gold table selected |
+|---|---|---|---|
+| BIRD dev, top_k=8 | 965 / 1,534 | 964 / 965 (99.9%) | 1,533 / 1,534 (99.9%) |
+| BIRD dev, + `expand_inward=16` | | 965 / 965 (100%) | 1,534 / 1,534 (100%) |
+| BEAVER dw (first 500), top_k=25 | 104 / 500 | 74 / 104 (71.2%) | 466 / 500 (93.2%) |
+| BEAVER dw, + `expand_inward=50` | | **94 / 104 (90.4%)** | **486 / 500 (97.2%)** |
+
+BIRD's largest database is 13 tables, so a top_k of 8 already holds most of
+it; the case only bites on a warehouse. BEAVER's 97-table `dw` (MIT's
+enterprise benchmark) is one, and it declares no primary keys, so until
+1.15.4 join inference found no edges there at all.
+
+FK expansion follows a chosen table's own keys outward. A bridge or child
+table points *into* the selection -- `TIP_DETAIL.TIP_SUBJECT_OFFERED_KEY` into
+`TIP_SUBJECT_OFFERED` -- and was never pulled in by its parent.
+`select(..., expand_inward=N)` adds, from the N best-ranked objects, any not
+yet chosen whose foreign key points at a chosen table. It is off by default:
+with it off, `tests/bench.py` prints the same 57 lines as before, and BIRD dev
+selection is identical on every question.
 
 ## The gate these numbers had to pass
 

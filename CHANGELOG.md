@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.15.6
+
+Security fix.
+
+- **A foreign key no longer names a table the caller cannot see** (GHSA-xp79-wpv4-qj59, reported by @VIPERQ88).
+  A restricted table was hidden from selection, from FK expansion and from `describe_object`, but a visible table
+  with a foreign key into it still named it: in `describe_object`'s `foreign_keys`, and in the
+  `-- FK ... -> <table>` line of the DDL that `select_schema`, `deep_answer` and the LangChain and LlamaIndex
+  retrievers return. Only the name and the FK columns leaked, never the hidden table's columns or rows. Both paths
+  now drop an edge whose target the caller cannot see (`Catalog._ref_visible`, matched the way FK expansion
+  matches targets).
+
+## 1.15.5
+
+Dependencies and documentation; the library code is unchanged from 1.15.4.
+
+- **pyasn1 0.6.5 in the Docker image** (#208). The image's hash-pinned lock carried pyasn1 0.6.4, which has four
+  high-severity decoding denial-of-service advisories (GHSA-2qm8-x737-gmw5, GHSA-mm57-4v3p-rchx,
+  GHSA-9m75-vc3g-4x39, GHSA-fm9c-5rcf-2q5p). Re-locked with `LOCK_UPGRADE=pyasn1`, so no other pin moved.
+- **The README leads with the token saving** (#207): 91.1% fewer schema tokens (median, databases with 50+ tables),
+  with a before/after GIF that `docs/media/make_token_gif.py` measures when it runs. Released so PyPI shows it too.
+
+## 1.15.4
+
+- **Joins are inferred on warehouses that declare no primary keys** (#204). `infer_foreign_keys` only accepted
+  a target with a single-column primary key, so a schema with none at all inferred nothing: BEAVER's 97-table
+  `dw` got 0 joins and now gets 55. With no primary key, an edge is added only when the target has a column
+  spelled exactly like the key. Targets with a primary key behave as before; BIRD dev selection is unchanged.
+- **`select(..., expand_inward=N)`**, off by default, adds tables that join *into* the selection: of the N
+  best-ranked objects, any not yet chosen whose foreign key points at a chosen table. FK expansion only
+  followed keys outward, so a bridge table pointing at its parent was never pulled in. On BEAVER dw it selects
+  every zero-overlap bridge table on 90.4% of the questions that have one, against 71.2% without. Only objects
+  the caller may see are considered.
+- **`benchmarks/bridge_tables.py`**: recall on gold tables that share no word with the question, on BIRD dev and
+  (optionally) BEAVER. Results in BENCHMARKS.md.
+
 ## 1.15.3
 
 - **LangChain and LlamaIndex retrievers render each table for their bound caller.** Both called `render_ddl()`

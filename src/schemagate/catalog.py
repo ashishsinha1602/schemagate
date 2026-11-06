@@ -782,8 +782,9 @@ class Catalog:
 
         Conservative on purpose. An edge is added only when the column ends
         in `_id`, its stem names an object in the same schema (singular or
-        plural), that object has a single-column primary key, and no declared
-        constraint already covers the column. Everything added is marked
+        plural), that object has a single-column primary key -- or, if it
+        declares no primary key at all, a column spelled exactly like the key
+        -- and no declared constraint already covers the column. Everything added is marked
         `inferred` so `render_ddl` can label it.
         """
         # Every way a table might be named for the same thing. Conventions
@@ -830,8 +831,23 @@ class Catalog:
                 # worse than a missing one: the model writes it confidently
                 # and the rows come back quietly incorrect.
                 return None
-            doc = self._docs[next(iter(hits))]
-            return doc if len([c for c in doc.columns if c.pk]) == 1 else None
+            return self._docs[next(iter(hits))]
+
+        def key_of(ref: ObjectDoc, col_name: str):
+            """The column of `ref` the key points at, or None.
+
+            Its single-column primary key when it declares one. Warehouses
+            often declare none at all (BEAVER's 97-table `dw` has no primary
+            key anywhere), and then the edge is added only when `ref` carries
+            a column spelled exactly like the key -- `TIP_DETAIL.
+            TIP_SUBJECT_OFFERED_KEY` into `TIP_SUBJECT_OFFERED.
+            TIP_SUBJECT_OFFERED_KEY` -- which is how such schemas say it.
+            """
+            pk = [c.name for c in ref.columns if c.pk]
+            if pk:
+                return pk if len(pk) == 1 else None
+            same = [c.name for c in ref.columns if (c.name or "").lower() == col_name]
+            return same if len(same) == 1 else None
 
         def stem_of(name: str):
             """The object a key column points at, however the shop spells it.
@@ -861,7 +877,9 @@ class Catalog:
                 ref = target(stem, doc.schema)
                 if ref is None or ref is doc:
                     continue
-                pk = [c.name for c in ref.columns if c.pk]
+                pk = key_of(ref, name)
+                if pk is None:
+                    continue
                 doc.foreign_keys.append(ForeignKey(
                     columns=[col.name], ref_table=ref.name,
                     ref_columns=pk, inferred=True))
@@ -1102,12 +1120,45 @@ class Catalog:
     def _visible(self, doc: ObjectDoc, principal: Optional[Principal]) -> bool:
         return allowed(doc.roles, principal)
 
+    def _ref_visible(self, principal: Optional[Principal]):
+        """A test for whether ``principal`` may see a foreign key's target.
+
+        An FK line or entry names the table it points at, so one from a visible
+        table to a hidden one discloses that the hidden table exists. Matched
+        the way FK expansion matches (bare name, case-insensitive), plus a
+        schema-qualified reference. A name some visible object also has stays
+        visible; a target outside the catalog hides nothing and is kept.
+        """
+        hidden, shown = set(), set()
+        for d in self._docs.values():
+            (shown if self._visible(d, principal) else hidden).update(
+                {(d.name or "").lower(), (d.qname or "").lower()})
+        hidden -= shown
+
+        def visible(ref: str) -> bool:
+            ref = (ref or "").lower()
+            return ref not in hidden and ref.split(".")[-1] not in hidden
+        return visible
+
     def select(self, question: str, top_k: int = 6,
                principal: Optional[Principal] = None,
                expand_fks: bool = True, pin: Optional[Sequence[str]] = None,
                vector_weight: float = 1.0, lexical_weight: float = 1.0,
-               reranker=None, rerank_candidates: int = 20) -> Selection:
+               reranker=None, rerank_candidates: int = 20,
+               expand_inward: int = 0) -> Selection:
         """``reranker`` is any provider with ``.complete(system, prompt)``.
+
+        ``expand_inward`` (off by default) also adds tables that join *into*
+        the selection: of the ``expand_inward`` best-ranked objects, any not
+        yet chosen whose foreign key points at a chosen table. FK expansion
+        only follows a chosen table's own keys outward, so a bridge or child
+        table -- `TIP_DETAIL` pointing at `TIP_SUBJECT_OFFERED` -- was never
+        pulled in by its parent. On BEAVER's dw at top_k=25, 50 lifted "every
+        gold table selected" from 78 to 89 of 100 questions. Like FK
+        expansion it grows the answer beyond ``top_k`` instead of displacing
+        a ranked pick.
+
+        The rest of this docstring is about ``reranker``.
 
         Given one, the maths still runs first and still decides which objects
         are even eligible -- it just narrows the field to ``rerank_candidates``
@@ -1409,6 +1460,17 @@ class Catalog:
                             chosen.append(Scored(d, 0.0, "fk"))
                             taken.add(q)
 
+        if expand_inward > 0:
+            # `ranked` is already filtered by principal, so nothing hidden can enter here
+            picked = {sc.doc.name.lower() for sc in chosen}
+            for q, sc_val in ranked[:expand_inward]:
+                if q in taken:
+                    continue
+                d = self._docs[q]
+                if any((fk.ref_table or "").split(".")[-1].lower() in picked for fk in d.foreign_keys):
+                    chosen.append(Scored(d, sc_val, "fk"))
+                    taken.add(q)
+
         # Whether anything at all is withheld from this caller -- a yes/no, never which object.
         restricted = self.restriction_notice and any(
             not self._visible(d, principal) or len(d.visible_columns(principal)) < len(d.columns)
@@ -1421,7 +1483,8 @@ class Catalog:
         return Selection(question=question, hits=chosen,
                          total_objects=len(order), principal=principal,
                          meanings=self._meanings(_matched, {sc.doc.qname for sc in chosen}, principal),
-                         restricted=restricted, rules=rules)
+                         restricted=restricted, rules=rules,
+                         ref_visible=self._ref_visible(principal))
 
     def _meanings(self, matched, selected, principal) -> List[str]:
         """Meaning lines for the concepts this question used, for this caller.

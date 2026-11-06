@@ -1,4 +1,4 @@
-# schemagate — text-to-SQL access control at schema selection
+# schemagate — fewer tokens for text-to-SQL, and only the tables the caller may read
 
 [![PyPI](https://img.shields.io/pypi/v/schemagate.svg)](https://pypi.org/project/schemagate/)
 [![Python](https://img.shields.io/pypi/pyversions/schemagate.svg)](https://pypi.org/project/schemagate/)
@@ -14,13 +14,17 @@
 [![MCP Registry](https://img.shields.io/badge/MCP%20Registry-listed-16a34a.svg)](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.ashishsinha1602/schemagate)
 [![Try it in the browser](https://img.shields.io/badge/demo-in%20your%20browser-0F7B6C)](https://ashishsinha1602.github.io/schemagate/)
 
-Your text-to-SQL agent picks which tables to show the model before anyone checks what the caller is allowed to read. schemagate does the check first: it filters the schema by the caller's grants, so restricted tables are absent from the prompt rather than ranked low. Works with LangChain, LlamaIndex, MCP, or any SQL agent, on Postgres, Oracle, MySQL, SQL Server and SQLite.
+Most text-to-SQL prompts carry the whole schema, and on a big database that is most of the prompt, on every question. schemagate sends the model only the tables the question needs: **91.1% fewer schema tokens (median) on databases with 50+ tables** ([benchmark](BENCHMARKS.md)). It filters by the caller's grants first, so restricted tables are absent from the prompt rather than ranked low. Works with LangChain, LlamaIndex, MCP, or any SQL agent, on Postgres, Oracle, MySQL, SQL Server and SQLite.
 
-**#1 on BIRD's Mini-Dev leaderboard in all three dialects**: SQLite 81.0, PostgreSQL 72.6, MySQL 72.4 execution accuracy, with Claude Opus 5.5 and one model call per question ([leaderboard](https://bird-bench.github.io/), [run files](benchmarks/results/bird_minidev/README.md)).
+![One question on a 1,201-object schema: the whole schema is 146,695 prompt tokens; schemagate sends 12 tables, including all 3 the query needs, in 1,348.](https://raw.githubusercontent.com/ashishsinha1602/schemagate/main/docs/media/token-savings.gif)
+
+<sub>Measured, not drawn: `python docs/media/make_token_gif.py` rebuilds it from the seeded 1,201-object fixture, counting with tiktoken's cl100k_base.</sub>
+
+**#1 on BIRD's Mini-Dev leaderboard in all three dialects**: SQLite 81.0, PostgreSQL 72.6, MySQL 72.4 execution accuracy, with Claude Opus 5.5 and one model call per question ([leaderboard](https://bird-bench.github.io/), [run files](benchmarks/results/bird_minidev/README.md)). Smaller prompts, no accuracy given up.
+
+If it cut your prompt, a ⭐ helps other people building SQL agents find it.
 
 ![An analyst asks "salary by employee": hr_compensation is absent from the shortlist. Grant the payroll role and it becomes the top match.](https://raw.githubusercontent.com/ashishsinha1602/schemagate/main/docs/media/schemagate-demo.gif)
-
-If it keeps a table out of a prompt it should never have reached, a ⭐ helps other people building SQL agents find it.
 
 With row-level security alone the failure is quiet: the model writes valid SQL against a table the caller cannot read, RLS strips every row, and the user is told "no records found" — indistinguishable from "this data does not exist."
 
@@ -433,7 +437,7 @@ call per question, about 2,100 prompt tokens, no candidates, no voting, no agent
 
 | | Model | EX | Best published, 2026-10-19 |
 |---|---|---|---|
-| BIRD dev, all 1,534 questions | Claude Opus 5.5 | **77.12** | test-set submission sent 2026-10-22 |
+| BIRD dev, all 1,534 questions | Claude Opus 5.5 | **77.12** | hidden test set, scored by BIRD: 72.11 for this setup; 74.34 with 4 training examples per prompt (dev 84.03) |
 | BIRD Mini-Dev, SQLite / PostgreSQL / MySQL | Claude Opus 5.5 | **81.0 / 72.6 / 72.4**, #1 on all three | next best on BIRD's board, 2026-10-31: 75.6 / 69.0 / 49.2 |
 | UniQL, Oracle dialect, first try | Gemini 2.5 Flash | **64.47** | 49.61 (Claude Sonnet 4.5) |
 | Spider 2.0-lite, the 135 SQLite questions only | Claude Sonnet 5.5 | **71.9** | 57.78 Pass@1 (FlexSQL agent, gpt-oss-120b) |
@@ -475,8 +479,9 @@ corrections rather than deleting them.
 Claude Opus 5.5 gets **77.12% execution accuracy on all 1,534 BIRD dev
 questions**, one model call per question (table above). The BIRD Mini-Dev
 rows are on BIRD's own leaderboard. A main-board placing needs the held-out
-test set: a submission was sent on 2026-10-22 and is being evaluated by the
-BIRD team.
+test set, which only the BIRD team runs: 72.11 execution accuracy for this
+setup, and 74.34 for the second configuration, which adds the four closest
+BIRD training questions to each prompt.
 
 Everything below is measured on schemas I invented, which is worth less and
 is why the public numbers come first.

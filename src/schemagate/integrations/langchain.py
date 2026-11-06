@@ -57,7 +57,8 @@ class SchemagateRetriever(BaseRetriever):
                                   expand_fks=self.expand_fks)
         return [
             Document(
-                page_content=hit.doc.render_ddl(self.max_columns, principal=self.principal),
+                page_content=hit.doc.render_ddl(self.max_columns, principal=self.principal,
+                                                ref_visible=sel.ref_visible),
                 metadata={
                     "name": hit.doc.qname,
                     "kind": hit.doc.kind,

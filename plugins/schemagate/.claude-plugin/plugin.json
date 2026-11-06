@@ -1,0 +1,13 @@
+{
+  "name": "schemagate",
+  "version": "1.15.5",
+  "description": "Text-to-SQL with ~91% fewer schema tokens: the schemagate MCP server sends Claude only the tables a question needs, and only the ones the caller may read. #1 on BIRD Mini-Dev. PostgreSQL, MySQL, SQLite, SQL Server, Oracle, Snowflake, BigQuery, DuckDB.",
+  "author": {
+    "name": "Ashish Sinha",
+    "url": "https://github.com/ashishsinha1602"
+  },
+  "homepage": "https://github.com/ashishsinha1602/schemagate",
+  "repository": "https://github.com/ashishsinha1602/schemagate",
+  "license": "Apache-2.0",
+  "keywords": ["text-to-sql", "sql", "database", "mcp", "schema", "tokens", "postgresql", "access-control"]
+}

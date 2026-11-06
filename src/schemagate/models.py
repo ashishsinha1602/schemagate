@@ -2,7 +2,7 @@
 """Core data types."""
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 
 def allowed(roles: Optional[List[str]], principal: Any) -> bool:
@@ -282,7 +282,8 @@ class ObjectDoc:
         return [entry[3] for entry in sorted(chosen, key=lambda e: e[2])]
 
     def render_ddl(self, max_columns: int = 40, principal: Any = None,
-                   question: Optional[str] = None) -> str:
+                   question: Optional[str] = None,
+                   ref_visible: Optional[Callable[[str], bool]] = None) -> str:
         """The DDL for this object as one caller may see it.
 
         A restricted column is absent -- not masked, not renamed, no REDACTED
@@ -295,6 +296,10 @@ class ObjectDoc:
         than ``max_columns``; it can never add one, and it is applied after
         ``visible_columns``, so it cannot reach a column this caller may not
         see. Omit it and the behaviour is exactly what it was.
+
+        ``ref_visible`` says whether this caller may see a foreign key's target
+        (``Catalog._ref_visible``). The object alone cannot know, and an FK line
+        to a hidden table names that table. Every catalog path passes it.
         """
         head = f"{self.kind} {self.qname}"
         note = _one_line(self.hint or _sentence(self.description))
@@ -330,7 +335,7 @@ class ObjectDoc:
         # identifier the loop above just withheld. Drop any line that does.
         shown = {c.name for c in visible}
         for fk in self.foreign_keys:
-            if all(c in shown for c in fk.columns):
+            if all(c in shown for c in fk.columns) and (ref_visible is None or ref_visible(fk.ref_table)):
                 note = "  (inferred from the column name, not declared)" if fk.inferred else ""
                 lines.append(
                     f"-- FK {self.name}({','.join(fk.columns)}) -> {fk.ref_table}{note}")
@@ -381,6 +386,9 @@ class Selection:
     #: Business rules for this question and caller (see ``schemagate.rules``), one ``- title: text``
     #: line each. Empty unless the catalog has rules, and then the fragment is unchanged.
     rules: List[str] = field(default_factory=list)
+    #: Whether this caller may see a foreign key's target, so the fragment
+    #: does not name a hidden table through an FK line. Set by Catalog.select.
+    ref_visible: Optional[Callable[[str], bool]] = None
 
     @property
     def objects(self) -> List[ObjectDoc]:
@@ -409,7 +417,7 @@ class Selection:
         describe the same request."""
         ddl = "\n\n".join(
             d.render_ddl(max_columns, principal=self.principal,
-                         question=self.question)
+                         question=self.question, ref_visible=self.ref_visible)
             for d in self.objects)
         body = ddl
         if self.meanings:
