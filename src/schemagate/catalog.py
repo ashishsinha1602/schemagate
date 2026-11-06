@@ -1120,6 +1120,26 @@ class Catalog:
     def _visible(self, doc: ObjectDoc, principal: Optional[Principal]) -> bool:
         return allowed(doc.roles, principal)
 
+    def _ref_visible(self, principal: Optional[Principal]):
+        """A test for whether ``principal`` may see a foreign key's target.
+
+        An FK line or entry names the table it points at, so one from a visible
+        table to a hidden one discloses that the hidden table exists. Matched
+        the way FK expansion matches (bare name, case-insensitive), plus a
+        schema-qualified reference. A name some visible object also has stays
+        visible; a target outside the catalog hides nothing and is kept.
+        """
+        hidden, shown = set(), set()
+        for d in self._docs.values():
+            (shown if self._visible(d, principal) else hidden).update(
+                {(d.name or "").lower(), (d.qname or "").lower()})
+        hidden -= shown
+
+        def visible(ref: str) -> bool:
+            ref = (ref or "").lower()
+            return ref not in hidden and ref.split(".")[-1] not in hidden
+        return visible
+
     def select(self, question: str, top_k: int = 6,
                principal: Optional[Principal] = None,
                expand_fks: bool = True, pin: Optional[Sequence[str]] = None,
@@ -1463,7 +1483,8 @@ class Catalog:
         return Selection(question=question, hits=chosen,
                          total_objects=len(order), principal=principal,
                          meanings=self._meanings(_matched, {sc.doc.qname for sc in chosen}, principal),
-                         restricted=restricted, rules=rules)
+                         restricted=restricted, rules=rules,
+                         ref_visible=self._ref_visible(principal))
 
     def _meanings(self, matched, selected, principal) -> List[str]:
         """Meaning lines for the concepts this question used, for this caller.
