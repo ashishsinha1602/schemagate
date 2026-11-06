@@ -1,4 +1,4 @@
-﻿# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
+# Copyright 2026 Ashish Sinha. Licensed under the Apache License, Version 2.0.
 """Two boundaries a final-prompt check cannot see.
 
 1. A caller who may see nothing. An empty selection proves the prompt is
