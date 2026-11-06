@@ -18,13 +18,17 @@ def server():
     cat.restrict("hr_compensation", ["payroll"])
     state = st.StudioState(cat, "Test", "test schema", ["revenue by month"])
     srv = st.serve(state, port=0, open_browser=False)   # port 0: any free port
+    _HEADERS["X-Schemagate-Token"] = state.token          # what the served page sends
     yield f"http://127.0.0.1:{srv.server_address[1]}"
     srv.shutdown()
 
 
+_HEADERS = {"Content-Type": "application/json"}
+
+
 def _post(base, payload):
     req = urllib.request.Request(base + "/api/select", data=json.dumps(payload).encode(),
-                                 headers={"Content-Type": "application/json"})
+                                 headers=_HEADERS)
     try:
         with urllib.request.urlopen(req, timeout=10) as r:
             return r.status, json.loads(r.read())
@@ -69,7 +73,7 @@ def test_bad_principal_is_400_not_500(server):
 
 def test_garbage_body_does_not_kill_the_server(server):
     req = urllib.request.Request(server + "/api/select", data=b"not json",
-                                 headers={"Content-Type": "application/json"})
+                                 headers=_HEADERS)
     with pytest.raises(urllib.error.HTTPError) as e:
         urllib.request.urlopen(req, timeout=10)
     assert e.value.code == 400

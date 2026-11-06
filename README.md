@@ -382,6 +382,7 @@ run before trusting a new database or driver.
 | `SCHEMAGATE_HOME` | where `connection.json` lives (default `~/.schemagate`) |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY` / `GOOGLE_API_KEY`, `OCI_COMPARTMENT_ID` | picked up automatically by `--provider` |
 | `SCHEMAGATE_STUDIO_LOG=1` | log Studio requests |
+| `SCHEMAGATE_STUDIO_ALLOWED_HOSTS` | comma-separated host names the Studio answers to, besides IP addresses and `localhost` (for a Studio reached by a DNS name) |
 | `SCHEMAGATE_VALUES=1` | MCP server: read column values at startup, like `--values` (`SCHEMAGATE_VALUES_BUDGET` = seconds, default 30) |
 | `SCHEMAGATE_RESTRICT_FROM_GRANTS=1` | MCP server: take visibility from the database's GRANTs, like `--restrict-from-grants` (PostgreSQL, MySQL, Oracle) |
 | `SCHEMAGATE_CATALOG_MAX_AGE` | MCP server: seconds a catalogue may be used before it is re-read; if the re-read fails, the scoping tools refuse until one succeeds (see below) |
@@ -873,7 +874,14 @@ Connecting works out of the box on `localhost`, where the only person who can
 reach the page is already sitting at a shell on that machine. Serve the Studio
 on any other address and it takes `--allow-connect`, because there it becomes
 a URL box anyone on the network can use to make your server connect to hosts
-only it can see. `--no-connect` turns it off anywhere. A failed connection reports the
+only it can see. `--no-connect` turns it off anywhere.
+
+Other web pages open in the same browser can reach `localhost` too, so the
+Studio only takes a request from the page it served: every POST must carry a
+random per-session token that is written into that page, a POST from any other
+origin is refused, and the Studio answers only to an IP address, `localhost`, or
+a name listed in `SCHEMAGATE_STUDIO_ALLOWED_HOSTS`, so a DNS-rebinding page
+cannot load it under its own name. A failed connection reports the
 exception type and nothing else, because driver errors quote the URL they
 were given and a URL carries a password.
 

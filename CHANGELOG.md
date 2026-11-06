@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.15.7
+
+Security fix. Thanks to @ogzerber and @jmstar85 for a careful report, a working proof of concept, and the
+remediation this follows.
+
+- **A web page can no longer drive a local Studio** (GHSA-5fcm-hgr8-hff5, reported by @ogzerber and @jmstar85).
+  On its default loopback bind the Studio trusted any request that reached it, but other pages open in the same
+  browser can reach `127.0.0.1` too. A `file://` page, another local port or a LAN site could send a POST to
+  `/api/connect` that needed no CORS preflight, making the Studio connect to a database URL of the page's choosing
+  and, with `sample_values`, read low-cardinality column values from it. Now:
+  - every POST must carry a random per-session token (`X-Schemagate-Token`) that only the page the Studio served
+    knows; the page adds it to each `/api` call, and sending it forces a preflight this server never approves;
+  - a POST whose `Origin` is not the Studio's own is refused, including `Origin: null` from `file://` pages;
+  - a CORS preflight gets an explicit 403 with no `Access-Control-*` headers;
+  - the Studio answers only to an IP address, `localhost`, or a name in the new `SCHEMAGATE_STUDIO_ALLOWED_HOSTS`,
+    so a DNS-rebinding page cannot load it under its own name and read the token;
+  - a refused request is answered before its body is parsed, so it has no effect at all.
+
+  Connecting stays on by default on loopback; the token is what now makes that safe.
+
 ## 1.15.6
 
 Security fix.

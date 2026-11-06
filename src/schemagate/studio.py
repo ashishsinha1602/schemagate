@@ -14,9 +14,12 @@ Standard library only -- no web framework to install for a local tool.
 """
 from __future__ import annotations
 
+import hmac
+import ipaddress
 import json
 import os
 import pathlib
+import secrets
 import sys
 import threading
 import webbrowser
@@ -122,6 +125,14 @@ class StudioState:
         #: is a URL box on the internet that will connect anywhere and read a
         #: schema back -- including to hosts only this machine can see.
         self.allow_connect = False
+        #: Required on every POST, as the X-Schemagate-Token header. A loopback
+        #: bind keeps other machines out, but not other web pages: any page the
+        #: user opens -- a file://, another local port, a LAN site -- can send
+        #: a POST to 127.0.0.1, and before this one could point the Studio at
+        #: its own database URL (GHSA-5fcm-hgr8-hff5). Only the page this
+        #: process served knows the token, and a header carrying it makes the
+        #: browser ask first (a CORS preflight), which this server never grants.
+        self.token = secrets.token_urlsafe(32)
         self.restrict_from_grants = False
         self.sample_values = False
         #: True only for the bundled sample schema. An engine alone cannot say
@@ -1097,8 +1108,45 @@ def _render_page(state: StudioState, _raw: Dict[str, str] = {}) -> bytes:
         payload["commerce"] = demo
     page = (page[:start] + json.dumps(payload, ensure_ascii=False).replace("</", "<\\/")
             + page[end:])
-    page = page.replace("<script>\n(function(){", '<script>window.SCHEMAGATE_API="/api";\n(function(){', 1)
+    # Every call the page makes to /api carries the session token. One wrapper
+    # around fetch rather than a header at each call site, so a call added
+    # later cannot forget it.
+    auth = ('window.SCHEMAGATE_API="/api";(function(){var t=%s,f=window.fetch;'
+            'window.fetch=function(u,o){if(typeof u==="string"&&u.indexOf("/api/")===0){'
+            'o=Object.assign({},o);o.headers=Object.assign({},o.headers,{"X-Schemagate-Token":t});}'
+            'return f.call(this,u,o);};})();' % json.dumps(state.token))
+    page = page.replace("<script>\n(function(){", "<script>" + auth + "\n(function(){", 1)
     return page.encode("utf-8")
+
+
+#: Host names accepted besides IP literals and localhost. A DNS-rebinding page
+#: reaches this server under its own domain name, and a page it loads is then
+#: same-origin -- able to read the session token out of the HTML. Refusing any
+#: Host that is a name, unless the operator listed it, closes that.
+def _allowed_hosts() -> set:
+    raw = os.environ.get("SCHEMAGATE_STUDIO_ALLOWED_HOSTS") or ""
+    return {"localhost"} | {h.strip().lower() for h in raw.split(",") if h.strip()}
+
+
+def _host_name(host_header: str) -> str:
+    """`127.0.0.1:8770` -> `127.0.0.1`, `[::1]:8770` -> `::1`, `Evil.example` -> `evil.example`."""
+    h = host_header.strip().lower()
+    if h.startswith("["):
+        return h[1:h.find("]")] if "]" in h else h
+    return h.rsplit(":", 1)[0] if h.count(":") == 1 else h
+
+
+def _host_ok(host_header: Optional[str]) -> bool:
+    if not host_header:
+        return False
+    name = _host_name(host_header)
+    if name in _allowed_hosts():
+        return True
+    try:
+        ipaddress.ip_address(name)
+        return True
+    except ValueError:
+        return False
 
 
 def _handler(state: StudioState):
@@ -1118,7 +1166,36 @@ def _handler(state: StudioState):
             self.end_headers()
             self.wfile.write(data)
 
+        def _refused(self, post: bool) -> Optional[str]:
+            """Why this request may not proceed, or None. Checked before the
+            body is read, so a refused request has no effect at all."""
+            host = self.headers.get("Host")
+            if not _host_ok(host):
+                return "unrecognised Host header (set SCHEMAGATE_STUDIO_ALLOWED_HOSTS to add a name)"
+            if not post:
+                return None
+            # A browser sends Origin on every cross-origin POST, "null" from a
+            # file:// page. The Studio's own page sends its own origin, or none.
+            origin = self.headers.get("Origin")
+            if origin is not None and origin != f"http://{host}":
+                return "cross-origin request refused"
+            token = self.headers.get("X-Schemagate-Token") or ""
+            if not hmac.compare_digest(token.encode(), state.token.encode()):
+                return "missing or wrong session token; reload the Studio page"
+            return None
+
+        def do_OPTIONS(self):
+            # A CORS preflight, which only a cross-origin caller sends: the
+            # Studio's own page never needs one. Refused outright, with no
+            # Access-Control-* headers, so the browser never sends the request
+            # that followed it -- a deliberate answer rather than the stdlib's
+            # 501 for a method it has no handler for.
+            return self._json(403, {"error": "cross-origin requests are not accepted"})
+
         def do_GET(self):
+            why = self._refused(post=False)
+            if why:
+                return self._json(403, {"error": why})
             if self.path in ("/", "/index.html"):
                 body = _render_page(state)
                 self.send_response(200)
@@ -1171,6 +1248,20 @@ def _handler(state: StudioState):
                                  "/api/connections", "/api/models", "/api/hints",
                                  "/api/glossary", "/api/rules"):
                 return self._json(404, {"error": "not found"})
+            why = self._refused(post=True)
+            if why:
+                # Read the body without looking at it. Answering with it still
+                # unread makes the socket reset, and the caller sees a dropped
+                # connection instead of the 403 that says why.
+                try:
+                    length = int(self.headers.get("Content-Length") or 0)
+                except ValueError:
+                    length = 0
+                if 0 < length <= 1 << 20:
+                    self.rfile.read(length)
+                else:
+                    self.close_connection = True
+                return self._json(403, {"error": why})
             try:
                 length = int(self.headers.get("Content-Length") or 0)
                 payload = json.loads(self.rfile.read(length) or b"{}")
@@ -1325,7 +1416,10 @@ def main(url: Optional[str] = None, host: str = "127.0.0.1", port: int = 8770,
         state.last_connect = {"url": url}
     # On loopback, connecting needs no permission: the only person who can
     # reach the page is someone already sitting at a shell on this machine,
-    # and they can open a database without asking the Studio to do it. The
+    # and they can open a database without asking the Studio to do it. That
+    # holds for people, not for web pages in their browser, which can reach
+    # 127.0.0.1 too; the session token and the Host and Origin checks in the
+    # handler are what keep those out (GHSA-5fcm-hgr8-hff5). The
     # guard exists for the other case -- a Studio on 0.0.0.0 is a URL box
     # anyone on the network can use to make this server connect to hosts only
     # it can see. So the default follows the bind address rather than making
