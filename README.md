@@ -1202,7 +1202,9 @@ every 5 seconds), and `health` shows `catalog_stale` and the reason. A re-read
 that neither fails nor returns, a database that took the connection and went
 quiet, is bounded too: callers wait at most `SCHEMAGATE_REREAD_TIMEOUT` seconds
 (default 30) and are then refused the same way, while the re-read runs on; if it
-returns, the next call is served from what it brought. Caller
+returns, the next call is served from what it brought. Because callers are
+bounded, their latency won't show a re-read that never finishes; `health` does,
+in `reread_running_seconds`, which you can alert on. Caller
 roles from a `groups` resolver have their own bound, its `ttl`. Every tool catches everything and returns
 `{"error": ...}`; a bad request cannot end the session for other clients.
 `health` tells a load balancer what state it's in. A test throws 125 kinds of
