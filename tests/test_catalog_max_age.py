@@ -307,6 +307,90 @@ def test_a_hung_reread_is_bounded_and_refused_not_waited_on(server):
     assert len(calls) == 1
 
 
+def _hang_reread(mp):
+    """Make the next re-read hang until the returned event is set; the list counts re-reads started."""
+    counted = mcp_server._reflect                     # the fixture's wrapper: it records the re-read
+    started, release = [], threading.Event()
+
+    def hung(url, config_path):
+        started.append(1)
+        assert release.wait(30), "the test never released the re-read"
+        return counted(url, config_path)
+
+    mp.setattr(mcp_server, "_reflect", hung)
+    return started, release
+
+
+def test_a_caller_that_times_out_leaves_the_reread_running_for_the_next_caller(server):
+    """The timeout bounds one caller's patience, not the re-read. Caller A gives up; caller B then
+    joins that same re-read while it is still running, and its late result answers B: no refusal,
+    no second re-read."""
+    clock, cfg, calls, mp = server
+    assert "crm_customer" in json.dumps(mcp_server.list_objects())
+    cfg.write_text(json.dumps({"restrict": {"crm_customer": ["finance"]}}), encoding="utf-8")
+    clock.advance(61)
+    started, release = _hang_reread(mp)
+
+    real_join, joined = mcp_server._join_reread, []
+
+    def recording_join():
+        job = real_join()
+        joined.append(job)
+        return job
+
+    mp.setattr(mcp_server, "_join_reread", recording_join)
+    answers = []
+    second = threading.Thread(target=lambda: answers.append(mcp_server.list_objects()))
+    try:
+        mp.setitem(mcp_server._STATE, "reread_timeout", 0.3)
+        first = mcp_server.list_objects()
+        assert "permissions are stale" in first["error"], first
+        assert not joined[0]["done"].is_set(), "the caller that timed out took the re-read down with it"
+
+        mp.setitem(mcp_server._STATE, "reread_timeout", 30)
+        second.start()
+        deadline = time.monotonic() + 10
+        while len(joined) < 2 and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert len(joined) == 2, "the second caller never reached the re-read"
+        assert joined[1] is joined[0], "the second caller did not join the re-read already running"
+        second.join(0.2)
+        assert answers == [], f"the second caller was answered before the re-read returned: {answers}"
+    finally:
+        release.set()
+    second.join(30)
+    assert len(answers) == 1, "the second caller never got an answer"
+    assert "error" not in answers[0], answers[0]
+    assert "crm_customer" not in json.dumps(answers[0]), "the second caller was not served the revoke"
+    assert started == [1] and len(calls) == 1, f"{len(started)} re-reads started for one expiry"
+    h = mcp_server.health()
+    assert h["last_refresh_ok"] is True and h["last_error"] is None, h
+
+
+def test_health_reports_how_long_a_reread_has_been_running(server):
+    """Callers are bounded, so their latency never shows a re-read that does not finish. Health
+    counts from when the re-read began, a later caller joining does not restart the count, and it
+    is None whenever nothing is running."""
+    clock, cfg, calls, mp = server
+    assert mcp_server.health()["reread_running_seconds"] is None
+    clock.advance(61)
+    _, release = _hang_reread(mp)
+    mp.setitem(mcp_server._STATE, "reread_timeout", 0.05)
+    try:
+        assert "permissions are stale" in mcp_server.list_objects()["error"]
+        assert mcp_server.health()["reread_running_seconds"] == 0
+
+        clock.advance(600)
+        assert "permissions are stale" in mcp_server.list_objects()["error"]    # joins, not restarts
+        h = mcp_server.health()
+        assert h["reread_running_seconds"] == 600 and h["reread_in_flight"] is True, h
+    finally:
+        release.set()
+    assert mcp_server._REREAD_JOB["job"]["done"].wait(30), "the released re-read never finished"
+    h = mcp_server.health()
+    assert h["reread_running_seconds"] is None and h["reread_in_flight"] is False, h
+
+
 @pytest.mark.parametrize("bad", ["abc", "0", "-5", "inf", "nan"])
 def test_an_invalid_reread_timeout_stops_the_server_before_any_database_work(monkeypatch, bad):
     monkeypatch.setenv("SCHEMAGATE_DATABASE_URL", "demo")

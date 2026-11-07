@@ -97,7 +97,7 @@ def _names(sel):
     return sorted(d.name for d in sel.objects)
 
 
-def test_role_list_revoke_on_a_reused_catalog_takes_effect_on_the_next_call():
+def test_role_list_revoke_on_a_reused_catalog_takes_effect_on_the_next_call(monkeypatch):
     """Role-list path only: `restrict` changes the catalog in place and
     visibility is evaluated per call, so the next call sees the revoke. It
     says nothing about GRANTs read from the database, which are a snapshot
@@ -112,6 +112,19 @@ def test_role_list_revoke_on_a_reused_catalog_takes_effect_on_the_next_call():
     # once, after the revoke, could not tell "always visible to her" from
     # "survived that one transition".
     carol = Principal("okta:carol", roles=frozenset({"payroll"}))
+
+    # Record the object that actually serves each read. Comparing the local
+    # `cat` to itself would prove nothing; this fails if the setup is ever
+    # refactored to rebuild between callers, which would keep the expected
+    # outputs while no longer exercising shared state.
+    served = []
+    real_select = Catalog.select
+
+    def recording_select(self, *args, **kwargs):
+        served.append(self)
+        return real_select(self, *args, **kwargs)
+
+    monkeypatch.setattr(Catalog, "select", recording_select)
 
     def sees(principal):
         return "vt_salaries" in _names(cat.select(q, top_k=3, principal=principal))
@@ -132,6 +145,8 @@ def test_role_list_revoke_on_a_reused_catalog_takes_effect_on_the_next_call():
     assert sees(carol), (
         "transition 2, sales granted back on vt_salaries: carol (payroll, unchanged) lost it on the same catalog object")
     regranted = cat.select(q, top_k=3, principal=ALICE)
+    assert len(served) == 6 and all(s is served[0] for s in served), (
+        f"alice and carol must share one catalog object across all six reads; got {len(set(map(id, served)))} objects in {len(served)} reads")
 
     fresh = Catalog(name="vt-fresh")
     fresh.add_all(_docs())

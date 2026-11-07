@@ -121,7 +121,7 @@ _clock: Callable[[], float] = time.monotonic
 #: Only one call re-reads an expired catalogue; the others join that re-read.
 #: The lock guards the bookkeeping, never the re-read itself.
 _REFRESH_LOCK = threading.Lock()
-#: The re-read in flight, if any: {"done": Event, "ok": bool}. It runs on its
+#: The re-read in flight, if any: {"done": Event, "ok": bool, "started_mono": float}. It runs on its
 #: own thread so that a caller's wait for it can be bounded.
 _REREAD_JOB: Dict[str, Any] = {"job": None}
 #: A failed automatic re-read is retried at most this often, so a database
@@ -802,7 +802,7 @@ def _join_reread() -> Optional[Dict[str, Any]]:
         if last is not None and _clock() - last < STALE_RETRY_SECONDS:
             return None
         _STATE["last_attempt_mono"] = _clock()
-        job = {"done": threading.Event(), "ok": False}
+        job = {"done": threading.Event(), "ok": False, "started_mono": _clock()}
         _REREAD_JOB["job"] = job
         threading.Thread(target=_run_reread, args=(job,), daemon=True,
                          name="schemagate-reread").start()
@@ -821,6 +821,16 @@ def _run_reread(job: Dict[str, Any]) -> None:
 def _reread_in_flight() -> bool:
     job = _REREAD_JOB.get("job")
     return job is not None and not job["done"].is_set()
+
+
+def _reread_running_seconds() -> Optional[float]:
+    """How long the re-read in flight has been running, None if there is none.
+    Callers' waits are bounded, so their latency never shows a re-read that does
+    not finish; this does."""
+    job = _REREAD_JOB.get("job")
+    if job is None or job["done"].is_set():
+        return None
+    return round(max(0.0, _clock() - job["started_mono"]), 1)
 
 
 def _principal(subject: Optional[str], roles: Optional[List[str]]) -> Optional[Principal]:
@@ -1359,6 +1369,7 @@ def health() -> Dict[str, Any]:
         "catalog_max_age_seconds": _STATE.get("max_age"),
         "catalog_reread_timeout_seconds": _STATE.get("reread_timeout"),
         "reread_in_flight": _reread_in_flight(),
+        "reread_running_seconds": _reread_running_seconds(),
         "rerank": bool(_STATE.get("rerank")),
         "semantic": bool(_STATE.get("semantic")),
         "deep": bool(_STATE.get("deep")),
