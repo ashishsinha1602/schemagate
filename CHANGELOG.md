@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.17.0
 
 - **The schema as a property graph** (`schemagate graph`, `Catalog.graph(principal)`). Tables, views, columns and
   concepts, joined by foreign keys, joins read from view SQL and concept mappings, as JSON or GraphML. Built for one
