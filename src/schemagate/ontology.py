@@ -57,7 +57,7 @@ class Concept:
     filter: Optional[str] = None
     definition: Optional[str] = None
     broader: List[str] = field(default_factory=list)            # concept names
-    source: str = "manual"                                      # manual | dbt | snowflake | csv | learned
+    source: str = "manual"                                      # manual | dbt | snowflake | csv | learned | pulled
 
     def phrases(self) -> List[str]:
         return [self.name] + [s for s in self.synonyms if s]

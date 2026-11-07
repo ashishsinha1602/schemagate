@@ -332,6 +332,23 @@ def _reflect(url: str, config_path: Optional[str]) -> Catalog:
             log.info("%s", restrict_from_policies(cat, engine, report=True))
         finally:
             engine.dispose()
+    if url != "demo" and _truthy("SCHEMAGATE_QUERY_LOG"):
+        # Joins from the engine's own statement store. Values are never kept; the
+        # store needs a privilege to read, and without it this only logs why.
+        from .introspect import engine_from_url
+        from .querylog import LogUnavailable
+        engine = engine_from_url(url, pool_pre_ping=True)
+        try:
+            log.info("%s", cat.learn_from_log(engine, dialect=engine.dialect.name))
+        except LogUnavailable as e:
+            log.warning("query log: %s", e)
+        finally:
+            engine.dispose()
+    if url != "demo" and _truthy("SCHEMAGATE_ONTOLOGY_PULL"):
+        # After the config, so a concept written by hand is never replaced. It runs
+        # on every re-read, so a comment or view changed in the database is picked up.
+        from sqlalchemy.engine import make_url
+        log.info("%s", cat.pull_concepts(apply=True, dialect=make_url(url).get_backend_name()))
     if url != "demo":
         # The catalogue, without being asked for it -- after the config so a
         # hint or a database comment is never overwritten. No key: no-op.
@@ -633,6 +650,12 @@ def _check_scope(cat: Catalog, sql: str, who: Optional[Principal]) -> Optional[s
     # a visible object together -- the same table name in two schemas, or two
     # quoted names that differ only in case -- the reference is refused: the
     # database may resolve it to the hidden one, so the safe answer is no.
+    # A property graph reads tables this check would never see named: its labels
+    # and properties are not table and column names. Refused by name, not left to
+    # the parser failing on it, because a newer sqlglot may well read the syntax.
+    if re.search(r"\bGRAPH_TABLE\b", _sql_body(sql), re.I):
+        return ("not available to this caller: GRAPH_TABLE reads tables through a property graph, "
+                "which this check cannot follow. Write it as a plain SELECT with joins.")
     vis_q, vis_bare, hid_q, hid_bare = {}, {}, set(), set()
     for doc in cat.objects():
         q, b = doc.qname.lower(), (doc.name or "").lower()

@@ -29,6 +29,32 @@ def test_the_command_does_not_just_print_a_link(tmp_path):
     assert out.returncode == 0
 
 
+def test_a_golden_question_that_fails_means_not_certified(tmp_path, monkeypatch, capsys):
+    from schemagate import certify
+    monkeypatch.setattr(certify, "GOLDEN", [("invoice totals", [{"a_table_that_does_not_exist"}], 3, None)])
+    assert certify.main(f"sqlite:///{tmp_path/'f.db'}") == 1
+    out = capsys.readouterr().out
+    assert "FAIL  golden: 'invoice totals'" in out and "NOT CERTIFIED" in out
+
+
+def test_what_the_engine_lacks_is_skipped_with_a_reason_not_failed(tmp_path, capsys):
+    from schemagate import certify
+    assert certify.main(f"sqlite:///{tmp_path/'s.db'}") == 0
+    out = capsys.readouterr().out
+    assert "SKIP  captures comments: sqlite has no table or column comments" in out
+    assert "SKIP  query log: the engine's own statement store" in out
+    assert "0 failed" in out and "SQLITE CERTIFIED" in out
+
+
+def test_nothing_is_left_behind(tmp_path):
+    from sqlalchemy import create_engine, inspect
+    from schemagate import certify
+    url = f"sqlite:///{tmp_path/'l.db'}"
+    assert certify.main(url) == 0
+    insp = inspect(create_engine(url))
+    assert not [t for t in insp.get_table_names() + insp.get_view_names() if t.startswith(certify.PREFIX)]
+
+
 def test_it_does_not_depend_on_the_scripts_directory():
     """The failure was a path relative to the installed module. Run from a
     directory with no `scripts/` in sight, from a copy of the source tree that

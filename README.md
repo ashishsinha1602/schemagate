@@ -775,6 +775,17 @@ schemagate ontology check                        --url ... --config catalog.json
 them (`--memory` reads schemagate's own query memory). CSV headers from Collibra
 and Microsoft Purview exports work as they are.
 
+**Or pull them from the database, and get the schema as a property graph.** No file
+and no model call: `schemagate ontology pull --url ...` proposes concepts from table
+and column comments, view filters and computed view columns, for you to review.
+`schemagate graph --url ...` writes tables, columns, foreign keys, joins read from
+view SQL and concepts as JSON or GraphML, for one caller, so nothing they may not see
+is in it. `--query-log` adds the joins people's own queries declare, read from the
+engine's statement store with every value stripped first. On Oracle 23ai and later,
+`--format sql` writes `CREATE PROPERTY GRAPH` for you to review and run.
+`schemagate certify <url>` runs a golden set of questions with known answers through
+all of it on your engine. See [docs/property-graph.md](docs/property-graph.md).
+
 **What it does to accuracy, measured.**
 
 | | setting | without | with |

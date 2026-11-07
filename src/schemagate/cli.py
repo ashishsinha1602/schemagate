@@ -439,6 +439,62 @@ def cmd_audit(args) -> int:
     return 0 if rep.ok else 1
 
 
+def _backend(url: str) -> Optional[str]:
+    """The SQLAlchemy dialect name of a URL, or None if it is not one."""
+    from sqlalchemy.engine import make_url
+    try:
+        return make_url(url).get_backend_name()
+    except Exception:                                            # noqa: BLE001
+        return None
+
+
+def _learn_from_log(cat, args, dialect) -> None:
+    """``--query-log``: the engine's statement store, or a file. Reported on stderr; never fatal."""
+    source = getattr(args, "query_log", None)
+    if not source:
+        return
+    from .querylog import LogUnavailable
+    engine = None
+    try:
+        if source == "engine":
+            from .introspect import engine_from_url
+            engine = engine_from_url(args.url)
+            source = engine
+        print(cat.learn_from_log(source, dialect=dialect), file=sys.stderr)
+    except LogUnavailable as e:
+        print(f"query log: {e}", file=sys.stderr)
+    finally:
+        if engine is not None:
+            engine.dispose()
+
+
+def cmd_graph(args) -> int:
+    """Print or write the schema as a property graph, for one caller."""
+    cat = _open(args)
+    dialect = _backend(args.url)
+    _learn_from_log(cat, args, dialect)
+    if not args.no_pull:
+        cat.pull_concepts(apply=True, dialect=dialect)
+    who = _resolved_principal(args)
+    g = cat.graph(who, dialect=dialect)
+    if args.format == "sql":
+        try:
+            text = cat.create_graph_sql(who, dialect=dialect, name=args.graph_name)
+        except ValueError as e:
+            sys.exit(f"schemagate: {e}")
+    else:
+        text = g.to_graphml() if args.format == "graphml" else g.to_json()
+    if args.out:
+        with open(args.out, "w", encoding="utf-8") as f:
+            f.write(text)
+    else:
+        print(text)
+    print(g.summary(), file=sys.stderr)
+    for note in g.notes:
+        print(f"note: {note}", file=sys.stderr)
+    return 0
+
+
 def cmd_ontology(args) -> int:
     from . import config as _config
     if args.save and not args.config:
@@ -472,6 +528,17 @@ def cmd_ontology(args) -> int:
             print(f"{len(report.examples)} verified question(s) found; learning from them")
             for s in cat.learn_concepts(report.examples, apply=True):
                 new.setdefault(s["phrase"], onto.to_dict()["concepts"][s["phrase"]])
+        if args.save:
+            print(f"saved {_config.merge_concepts(args.config, new)} concept(s) to {args.config}")
+        else:
+            print(json.dumps({"ontology": {"concepts": new}}, indent=2, ensure_ascii=False))
+        return 0
+    if args.action == "pull":
+        _learn_from_log(cat, args, _backend(args.url))
+        report = cat.pull_concepts(apply=True, dialect=_backend(args.url))
+        print(report)
+        concepts = onto.to_dict()["concepts"]
+        new = {p.name: concepts[p.name] for p in report.proposals if p.name in concepts}
         if args.save:
             print(f"saved {_config.merge_concepts(args.config, new)} concept(s) to {args.config}")
         else:
@@ -651,12 +718,18 @@ def build_parser() -> argparse.ArgumentParser:
     describe.add_argument("--cache", metavar="FILE", help="description cache for --provider")
     describe.set_defaults(func=cmd_describe)
 
+    def _query_log_option(p):
+        p.add_argument("--query-log", nargs="?", const="engine", metavar="FILE",
+                       help="also learn joins from the database's own query log (pg_stat_statements, "
+                            "performance_schema, V$SQL, dm_exec_query_stats; needs the privilege to read it), "
+                            "or from FILE, a file of SQL. Values are never kept")
+
     onto = sub.add_parser(
         "ontology",
         help="your business vocabulary: check it, show it, import it, learn it",
         description="Concepts live in the 'ontology' block of catalog.json. "
                     "import and suggest print what they found; with --config they also save it there.")
-    onto.add_argument("action", choices=("check", "show", "import", "suggest"))
+    onto.add_argument("action", choices=("check", "show", "import", "suggest", "pull"))
     onto.add_argument("file", nargs="?", help="import: the file to read; suggest: a history file "
                                               "(JSONL with question and sql, or CSV with those columns)")
     onto.add_argument("--url", required=True, help="SQLAlchemy URL")
@@ -665,11 +738,37 @@ def build_parser() -> argparse.ArgumentParser:
                       help="import: dbt semantic_manifest.json, a Snowflake semantic model, or a glossary CSV")
     onto.add_argument("--memory", metavar="PATH|1", help="suggest: learn from schemagate's query memory")
     onto.add_argument("--save", action="store_true",
-                      help="import/suggest: write the result into --config (otherwise only printed)")
+                      help="import/suggest/pull: write the result into --config (otherwise only printed)")
     onto.add_argument("--include", action="append", metavar="PATTERN")
     onto.add_argument("--exclude", action="append", metavar="PATTERN")
     onto.add_argument("--schema", action="append", metavar="NAME")
+    _query_log_option(onto)
     onto.set_defaults(func=cmd_ontology)
+
+    graph = sub.add_parser(
+        "graph",
+        help="the schema as a property graph: tables, columns, joins and concepts",
+        description="Built from the database with no file and no model call, for one caller: "
+                    "nothing they may not see is a node or an edge.")
+    graph.add_argument("--url", required=True, help="SQLAlchemy URL")
+    graph.add_argument("--config", metavar="JSON", help="catalog.json to read")
+    graph.add_argument("--format", choices=("json", "graphml", "sql"), default="json",
+                       help="sql: CREATE PROPERTY GRAPH for Oracle 23ai and later, "
+                            "printed for review and never run")
+    graph.add_argument("--graph-name", default="schemagate_graph", metavar="NAME",
+                       help="the graph's name in --format sql")
+    graph.add_argument("--out", metavar="FILE", help="write here instead of printing")
+    graph.add_argument("--no-pull", action="store_true",
+                       help="leave out concepts implied by comments and view SQL")
+    _query_log_option(graph)
+    graph.add_argument("--principal", metavar="SOURCE:ID", help="caller identity, e.g. okta:jdoe")
+    graph.add_argument("--role", action="append", metavar="ROLE", help="repeatable")
+    graph.add_argument("--restrict-from-grants", action="store_true",
+                       help="set object visibility from the database's own GRANTs")
+    graph.add_argument("--include", action="append", metavar="PATTERN")
+    graph.add_argument("--exclude", action="append", metavar="PATTERN")
+    graph.add_argument("--schema", action="append", metavar="NAME")
+    graph.set_defaults(func=cmd_graph)
 
     audit = sub.add_parser(
         "audit",
