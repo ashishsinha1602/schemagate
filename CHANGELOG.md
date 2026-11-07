@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased
+
+- **The schema as a property graph** (`schemagate graph`, `Catalog.graph(principal)`). Tables, views, columns and
+  concepts, joined by foreign keys, joins read from view SQL and concept mappings, as JSON or GraphML. Built for one
+  caller: nothing they may not see is a node or an edge. It doesn't change `select()`.
+- **Concepts pulled from the database** (`schemagate ontology pull`, `Catalog.pull_concepts()`). Proposes terms and
+  definitions from table and column comments, view filters and computed view columns, with no file and no model call.
+  `SCHEMAGATE_ONTOLOGY_PULL=1` does it on every catalogue read of an MCP server; off by default. The effect on answers
+  hasn't been measured. Reading view SQL needs `pip install 'schemagate[graph]'`.
+- **`CREATE PROPERTY GRAPH` for Oracle 23ai and later** (`schemagate graph --format sql`), written for you to review and
+  run; schemagate never runs it. Tested on a real Oracle 26ai Free server, where the database refused withheld columns
+  and hidden tables read through the graph. PostgreSQL isn't supported: 19rc1 rejects the syntax.
+- **Joins from the query log** (`--query-log` on `schemagate graph` and `ontology pull`, `Catalog.learn_from_log`,
+  `SCHEMAGATE_QUERY_LOG=1` for the server). Reads the engine's statement store (`pg_stat_statements`,
+  `performance_schema`, `V$SQL`, `dm_exec_query_stats`) or a file of SQL. A join seen twice whose far side is a
+  primary key becomes an inferred foreign key, so `select()` follows it; the rest becomes `JOINS` and
+  `QUERIED_WITH` edges and `common_filters` in the graph. Every literal is dropped before a statement is read and no
+  statement text is kept.
+- **`schemagate certify` is now a golden set**: fixed questions with known answers through reflection, selection,
+  visibility, pulled concepts, the graph, query-log mining and what `run_query` refuses, on any SQLAlchemy URL, with
+  `SKIP` and a reason for what the engine or user lacks. Certified on Oracle 26ai Free, PostgreSQL 16, MySQL 8.4,
+  MariaDB 11, SQL Server 2022 and SQLite. The catalog it checks is built through `bootstrap`, as a user's is.
+- **`run_query` now refuses `GRAPH_TABLE` by name.** It was already refused, but only because sqlglot can't parse it yet,
+  which a release could change. See `docs/property-graph.md`.
+
 ## 1.16.0
 
 - **A Pydantic AI capability** (`pip install 'schemagate[pydantic-ai]'`). `SchemagateCapability` gives an agent one tool,

@@ -399,6 +399,9 @@ class Catalog:
         #: columns that are left. On a 100-question BIRD pilot of the RBAC Text-to-SQL benchmark
         #: this took answers to denied questions from 16% to 5% (BENCHMARKS.md). Off only to measure it.
         self.restriction_notice = True
+        #: What the query log said (``schemagate.querylog.LogFacts``), for ``graph()``; None until
+        #: ``learn_from_log``. Holds no statement text and no values.
+        self.query_log = None
 
     # ---------------- build ----------------
 
@@ -635,6 +638,81 @@ class Catalog:
             for s in found:
                 self.concept(s["phrase"], maps=[s["object"]], source="learned")
         return found
+
+    def pull_concepts(self, *, apply: bool = False, dialect: Optional[str] = None):
+        """Propose concepts from what the database already says: table and column
+        comments, view filters and computed view columns. No file, no model call.
+
+        Returns a ``schemagate.graph.PullReport``. With ``apply=True`` each proposal
+        becomes a concept with ``source="pulled"``; without it nothing changes, so a
+        person can review them first. A phrase the vocabulary already has is left
+        alone, and one that would mean two different things is reported, not
+        guessed. ``dialect`` is the SQLAlchemy name used to read view SQL. Pulled
+        concepts obey access exactly like written ones.
+        """
+        from .graph import pull_concepts as _pull
+        report = _pull(self, dialect=dialect)
+        if apply:
+            for p in list(report.proposals):
+                try:
+                    self.concept(p.name, maps=p.maps, definition=p.definition, source="pulled")
+                except (KeyError, ValueError) as e:      # a view column the catalog did not read
+                    report.proposals.remove(p)
+                    report.skipped.append(f"{p.name!r}: {e}")
+        return report
+
+    def learn_from_log(self, source, *, dialect: Optional[str] = None, apply: bool = True,
+                       min_count: int = 2, limit: int = 2000):
+        """Learn joins from the database's own query log (see ``schemagate.querylog``).
+
+        ``source`` is an Engine (its statement store is read with one bounded query),
+        a path to a file of SQL, or an iterable of SQL strings. A join seen at least
+        ``min_count`` times whose far side is a single-column primary key becomes an
+        inferred foreign key, so FK expansion follows it; the rest (joins, tables read
+        together, filters) is kept for ``graph()``. Every literal is dropped before a
+        statement is looked at, and no statement text is kept. With ``apply=False``
+        nothing changes. Returns a ``LogReport``. ``LogUnavailable`` if a store cannot
+        be read.
+        """
+        from .querylog import LogReport, key_candidates, mine, read
+        facts = mine(self, read(source, limit=limit), dialect=dialect)
+        report = LogReport(facts)
+        keys, report.keys_skipped = key_candidates(self, facts, min_count=min_count)
+        for qa, ca, qb, cb, n in keys:
+            a, b = self._docs[qa], self._docs[qb]
+            if any(c.lower() == ca.lower() for fk in a.foreign_keys for c in fk.columns):
+                report.keys_skipped.append(f"{qa}.{ca}: already a foreign key")
+                continue
+            report.keys_added.append(f"{qa}.{ca} -> {qb}.{cb} (seen {n} times)")
+            if apply:
+                a.foreign_keys.append(ForeignKey(columns=[ca], ref_table=b.name, ref_columns=[cb],
+                                                 inferred=True))
+        if apply:
+            self.query_log = facts
+            self._dims = None                        # the join graph changed
+        return report
+
+    def graph(self, principal: Optional[Principal] = None, *, dialect: Optional[str] = None):
+        """The schema as a ``schemagate.graph.PropertyGraph``, for this caller only.
+
+        Tables, views, columns and concepts, joined by foreign keys, the joins view
+        SQL declares, and concept mappings. Nothing this caller may not see is a
+        node or an edge; with no ``principal`` restricted objects are left out.
+        """
+        from .graph import build_graph
+        return build_graph(self, principal, dialect=dialect)
+
+    def create_graph_sql(self, principal: Optional[Principal] = None, *, dialect: Optional[str] = None,
+                         name: str = "schemagate_graph") -> str:
+        """``CREATE PROPERTY GRAPH`` for Oracle 23ai and later, as text to review.
+
+        Nothing is run. Vertices are the tables this caller may see that have a
+        primary key, with only the columns they may read as properties; edges are
+        foreign keys, inferred ones and joins read from view SQL, when they point
+        at a key. ``ValueError`` for any other ``dialect``.
+        """
+        from .graph import create_graph_sql
+        return create_graph_sql(self, principal, dialect=dialect, name=name)
 
     def term(self, phrase: str, objects: Union[str, Sequence[str]]) -> None:
         """Teach the catalog a business word: ``phrase`` means ``objects``.
@@ -1496,7 +1574,7 @@ class Catalog:
         column's name back into the prompt, which is the one thing a column
         restriction exists to prevent.
         """
-        from .ontology import identifiers, meaning_line
+        from .ontology import meaning_line
         candidates = []
         for c, _ in matched:
             line = meaning_line(c)
@@ -1508,9 +1586,13 @@ class Catalog:
                 candidates.append((c, line, tables))
         if not candidates:
             return []
-        # Everything this caller may not see, by name: hidden objects and
-        # withheld columns anywhere in the catalog. Built only when a line is
-        # about to be written, which is rare.
+        # Built only when a line is about to be written, which is rare.
+        hidden = self._hidden_names(principal)
+        return [line for c, line, _ in candidates if self._concept_allowed(c, principal, hidden)]
+
+    def _hidden_names(self, principal) -> set:
+        """Everything this caller may not see, by name: hidden objects and
+        withheld columns anywhere in the catalog."""
         hidden = set()
         for d in self._docs.values():
             if not self._visible(d, principal):
@@ -1527,19 +1609,21 @@ class Catalog:
             if self._visible(d, principal):
                 seen.add(d.name.lower())
                 seen |= {col.name.lower() for col in d.visible_columns(principal)}
-        hidden -= seen
-        out = []
-        for c, line, tables in candidates:
-            if any(self._docs.get(q) is None or not self._visible(self._docs[q], principal) for q in tables):
-                continue
-            if any(col.lower() in hidden for _, col in c.columns):
-                continue
-            if (identifiers(c.filter) | identifiers(c.definition)) & hidden:
-                continue
-            if self._names_withheld_column(f"{c.filter or ''} {c.definition or ''}", principal):
-                continue
-            out.append(line)
-        return out
+        return hidden - seen
+
+    def _concept_allowed(self, c, principal, hidden: set) -> bool:
+        """Whether this caller may be told about a concept: it maps only to objects
+        they may see, and names no withheld object or column in its mapping, its
+        filter or its definition. ``hidden`` comes from `_hidden_names`."""
+        from .ontology import identifiers
+        if any(self._docs.get(q) is None or not self._visible(self._docs[q], principal)
+               for q in c.all_objects()):
+            return False
+        if any(col.lower() in hidden for _, col in c.columns):
+            return False
+        if (identifiers(c.filter) | identifiers(c.definition)) & hidden:
+            return False
+        return not self._names_withheld_column(f"{c.filter or ''} {c.definition or ''}", principal)
 
     def _names_withheld_column(self, text: str, principal) -> bool:
         """True if ``text`` spells ``table.column`` (or ``schema.table.column``)
