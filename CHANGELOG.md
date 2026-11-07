@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.16.0
 
 - **A Pydantic AI capability** (`pip install 'schemagate[pydantic-ai]'`). `SchemagateCapability` gives an agent one tool,
   `select_schema(question)`, plus instructions to call it before writing SQL, and works in agent spec files. The tool
