@@ -34,6 +34,7 @@ LOCKS = {
     "dev-ai":         (["dev", "ai"], []),
     "dev-floor":      (["dev"], ["langchain-core==0.3.*"]),
     "dev-llamaindex": (["dev", "llamaindex"], []),
+    "dev-pydantic-ai": (["dev", "pydantic-ai"], []),
     "dev-mssql":      (["dev"], ["pyodbc"]),
     "dev-mysql":      (["dev", "mcp"], ["pymysql"]),
     "dev-postgres":   (["dev", "postgres", "mcp"], []),

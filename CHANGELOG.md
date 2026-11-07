@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **A Pydantic AI capability** (`pip install 'schemagate[pydantic-ai]'`). `SchemagateCapability` gives an agent one tool,
+  `select_schema(question)`, plus instructions to call it before writing SQL, and works in agent spec files. The tool
+  takes a question and nothing else, so the model can't choose who it's asking as. Tested against pydantic-ai-slim in
+  its own CI job. See `docs/pydantic-ai.md`.
 - **`health` now reports `reread_running_seconds`**: how long the automatic catalogue re-read in flight has been
   running, `null` when none is. Callers' waits are bounded by `SCHEMAGATE_REREAD_TIMEOUT`, so their latency never
   showed a re-read that does not finish; this makes it a number you can alert on.

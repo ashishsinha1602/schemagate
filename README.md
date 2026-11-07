@@ -1245,6 +1245,22 @@ ddl = prompt_fragment(retriever.retrieve("revenue by month"))
 
 See [docs/llamaindex.md](docs/llamaindex.md).
 
+**Pydantic AI.** A capability that gives the agent one tool, `select_schema(question)`. The tool takes a question and
+nothing else, so the model can't choose who it's asking as:
+
+```bash
+pip install 'schemagate[pydantic-ai]'
+```
+
+```python
+from schemagate.integrations.pydantic_ai import SchemagateCapability
+
+agent = Agent("anthropic:claude-haiku-4-5", capabilities=[
+    SchemagateCapability(cat, principal=lambda ctx: ctx.deps.user)])
+```
+
+See [docs/pydantic-ai.md](docs/pydantic-ai.md).
+
 **jev4pg.** `schemagate.integrations.jev4pg.ScopedCatalog` wraps
 [jev4pg](https://github.com/Sheltercosmo/jev4pg)'s per-tenant catalogue so its
 planner, SQL validator and semantic operators see only what each caller may
@@ -1436,6 +1452,7 @@ may not read is never in it.
 | MCP server | done, tested through a real MCP client |
 | LangChain retriever | done, tested against langchain-core |
 | LlamaIndex retriever | done, tested against llama-index-core |
+| Pydantic AI capability | done, tested against pydantic-ai-slim |
 | `OracleStore` | written and statically verified, needs a live run |
 | pgvector store | not started |
 
