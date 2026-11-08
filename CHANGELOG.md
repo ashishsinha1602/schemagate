@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.18.0
 
 - **Rank fusion that knows how sure each channel is.** Three changes to `select()`, measured on Snowflake's
   SQL-Schema-Retrieval benchmark (table level, recall@10) and on the shipped schemas. A **column channel**: each
