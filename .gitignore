@@ -32,3 +32,5 @@ complex_desc_*.json
 _kept_objects.json
 oracle_catalog*.json
 .claude/
+# downloaded by benchmarks/schema_retrieval.py (Snowflake/SQL-Schema-Retrieval, ~90 MB)
+benchmarks/data/

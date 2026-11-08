@@ -1206,6 +1206,71 @@ yet chosen whose foreign key points at a chosen table. It is off by default:
 with it off, `tests/bench.py` prints the same 57 lines as before, and BIRD dev
 selection is identical on every question.
 
+## Schema retrieval, scored by Snowflake's benchmark
+
+Snowflake AI Research published a retrieval benchmark for exactly this job
+(Zeng, Yu, Mehta, Zhao, Samdani, *Finding the Right Tables and Columns*,
+arXiv:2607.13311; data at `Snowflake/SQL-Schema-Retrieval` on Hugging Face):
+five text-to-SQL sets recast as "given the question, rank this database's
+tables", scored by recall@10 and nDCG@10. The hard one is LiveSQLBench-Large:
+18 databases, 971 tables, column names that are codes (`questregistry`,
+`climtune`, `huecatch`) with the meaning only in a comment. The paper's
+strongest model there is Qwen3-Embedding-4B at 75.8 recall@10; BM25 scores 31.3.
+
+`benchmarks/schema_retrieval.py` runs schemagate on it. Each table is loaded
+the way a catalog would hold it (name, columns, keys, comments, sample values
+where the benchmark gives them; no sample rows, no DDL text); the ranking is
+`select(top_k=10)` with foreign-key expansion off, so it is the ranking alone.
+No model is called for the hashed row; the second row swaps in the 22M-parameter
+all-MiniLM-L6-v2 that `pip install schemagate[huggingface]` picks up.
+
+| recall@10 / nDCG@10 | Spider | BIRD | BEAVER | LiveSQLBench | LiveSQLBench-Large |
+|---|---|---|---|---|---|
+| schemagate, hashed embedder | **100.0** / 95.8 | **99.2** / 90.5 | **65.9** / 61.7 | **95.3** / 77.9 | 64.9 / 55.7 |
+| schemagate, all-MiniLM-L6-v2 | **100.0** / 96.1 | **99.8** / 91.7 | **66.2** / 62.4 | **97.6** / 80.8 | 73.9 / 61.0 |
+| paper's best per column (model) | 98.5 / 91.1 (Qwen3-8B) | 99.1 / 93.6 (corpus-adaptive Qwen3-8B) | 65.8 / 58.6 (Qwen3-4B) | 91.7 / 82.5 (Qwen3-8B) | **75.8** / 65.4 (Qwen3-4B) |
+| paper's BM25 | — | — | — | — | 31.3 / 21.9 |
+
+The paper's rows are its schema-metadata setting, the one whose documents
+carry the table name and columns as ours do (its value-only setting, sample
+rows alone, is a different task). Spider and BIRD databases are small enough
+that recall@10 is nearly a floor for everyone.
+
+**What this benchmark changed in the library.** Before 1.18.0 schemagate
+scored 48.2 (hashed) and 51.9 (MiniLM) on LiveSQLBench-Large, while its vector
+channel *alone* scored 60.8 and 72.1. The fusion was losing to its own lexical
+channels: with the textbook RRF constant of 60, first place in a channel is
+worth 1/61 and thirtieth is worth 1/91, so on a 50-table database an object
+that three lexical channels rank *anywhere* beats one the vector channel ranks
+first and the lexical channels cannot see at all. On a schema whose column
+names are codes, that is every table that matters, and the readable distractor
+tables that share one word with the question take the slots. Three changes,
+each measured on all five subsets with both embedders before it was kept:
+
+* the constant is 10 (rank counts again): LiveSQLBench-Large 48.2 → 54.8
+  hashed, nothing else down;
+* a **column channel**, the object scored by its single best column (name and
+  comment) rather than a sum, so the one column whose comment says what the
+  question asked counts and a wide table cannot win by breadth; it is the only
+  lexical channel that reads comments. Alone it scores 60.8 on
+  LiveSQLBench-Large against 43.5 for the body channel;
+* each lexical vote is scaled by **how much of the question the match
+  explains**, relative to the channel's best match (`Catalog.lexical_confidence
+  = "relative"`), so a one-word match on a six-word question keeps a sixth of
+  its vote; and the body channel (name and column names summed), the one that
+  rewards breadth, votes at half weight (`lexical_weight=0.5`).
+
+Together: 64.9 hashed and 73.9 MiniLM, the fusion now *above* the vector
+channel alone (72.1), BEAVER +1.0 and −0.4 (one question), the rest flat or
+up. Two things that did not help and were dropped: a vector vote scaled by how
+far its best similarity stands out from the crowd (marginal both ways), and
+embedding long tables in chunks for MiniLM (823 of the 971 tables exceed its
+256-token window, yet mean- or max-pooled chunks scored 66.5 against 69.3 for
+the truncated whole). The remaining gap to 75.8 is the 22M-parameter sentence
+model, not the fusion: `BAAI/bge-small-en-v1.5` (33M) scores 74.2 on this set
+as a vector channel alone in the same pipeline, above every model in the
+paper under 4B parameters.
+
 ## The gate these numbers had to pass
 
 Before any figure above was written down it was re-measured with one part of

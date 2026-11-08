@@ -21,7 +21,19 @@ from .identity import Principal
 from .models import ObjectDoc, Scored, Selection, allowed, ForeignKey
 from .stores.memory import MemoryStore
 
-_RRF_K = 60
+#: The rank-fusion constant: each channel votes ``weight / (K + rank + 1)``.
+#:
+#: 60 is the textbook value, chosen for ranked lists a thousand long. On a
+#: schema it made presence worth more than rank: at K=60 first place in a
+#: channel is 1/61 and thirtieth is 1/91, so an object three lexical channels
+#: rank anywhere beat one the vector channel ranks first and the others cannot
+#: see at all. On a schema whose column names are codes that is every table
+#: that matters: measured on LiveSQLBench-Large (Snowflake's SQL-Schema-
+#: Retrieval, table level, recall@10) the vector channel alone scored 60.8 and
+#: the fusion of all channels 48.2. At 10, first place is 1/11 and thirtieth
+#: 1/41, rank counts again, and the same fusion scored 64.9 -- with BEAVER,
+#: BIRD, Spider and LiveSQLBench unchanged or better. See `select`.
+_RRF_K = 10
 
 #: Name suffixes that, in practice, mean "a copy of the table without this
 #: suffix". An object is treated as a shadow only when the un-suffixed base
@@ -232,10 +244,43 @@ class _BM25:
         n = len(self.docs)
         self.idf = {t: math.log(1 + (n - c + 0.5) / (c + 0.5)) for t, c in df.items()}
 
-    def scores(self, query: str) -> List[float]:
+    def _query_terms(self, query: str) -> List[str]:
         toks = tokenize(query)
         q = [_stem(t) for t in expand_joins(toks)]
         q.extend(t for t in expand_acronyms(toks, self.idf) if t not in q)
+        return q
+
+    def explained(self, query: str) -> List[float]:
+        """How much of the question each document accounts for, 0..1.
+
+        The share of the query's idf mass -- over the terms this field knows
+        at all -- that the document contains. A document that matches one
+        common word of a six-word question explains little of it; one that
+        carries every informative word explains it all. BM25's score cannot
+        say this: it grows with term frequency and shrinks with length, and
+        its scale differs between fields and between questions, so it cannot
+        be compared across channels. A share can.
+        """
+        # Sorted, so the floating-point sum is the same here and in the JS
+        # twin: a set iterates in one order in Python and another in a
+        # browser, and two near-tied objects then swapped places between them.
+        q = sorted(set(self._query_terms(query)))
+        total = 0.0
+        for t in q:
+            total += self.idf.get(t, 0.0)
+        if total <= 0:
+            return [0.0] * len(self.tf)
+        out = []
+        for tf in self.tf:
+            m = 0.0
+            for t in q:
+                if t in self.idf and tf.get(t):
+                    m += self.idf[t]
+            out.append(m / total)
+        return out
+
+    def scores(self, query: str) -> List[float]:
+        q = self._query_terms(query)
         out = []
         for i, tf in enumerate(self.tf):
             s = 0.0
@@ -328,6 +373,31 @@ def _abstains(index: Optional[_BM25], question: str) -> bool:
     return best < ABSTAIN_MIN_IDF
 
 
+def _full_vote(qname: str) -> float:
+    return 1.0
+
+
+def _share_vote(mode: str, shares: Dict[str, float], best: float):
+    """How much of its vote a lexical channel keeps for each object.
+
+    ``channel``: every object gets the channel's best share -- the channel as
+    a whole is trusted as far as its best document explains the question.
+    ``relative``: each object's own share against that best, so the top
+    match keeps its full vote and a one-word match keeps a fraction.
+    ``object``: each object's own share, unscaled.
+    """
+    if mode == "channel":
+        def vote(qname: str) -> float:
+            return best
+    elif mode == "relative":
+        def vote(qname: str) -> float:
+            return (shares.get(qname, 0.0) / best) if best else 0.0
+    else:
+        def vote(qname: str) -> float:
+            return shares.get(qname, 0.0)
+    return vote
+
+
 def _competition_rank(pairs: Sequence[Tuple[str, float]]) -> Dict[str, int]:
     """Rank by score, giving equal scores the SAME rank. Fix A of two.
 
@@ -402,6 +472,25 @@ class Catalog:
         #: What the query log said (``schemagate.querylog.LogFacts``), for ``graph()``; None until
         #: ``learn_from_log``. Holds no statement text and no values.
         self.query_log = None
+        #: The rank-fusion constant (see `_RRF_K`). Per catalog so a benchmark can
+        #: compare settings on one index without rebuilding it.
+        self.rrf_k = _RRF_K
+        #: How much of its vote a lexical channel keeps per object. ``"relative"``:
+        #: the object's share of the question's idf mass, against the best share
+        #: in that channel -- the top match keeps its full vote, a one-word match
+        #: on a six-word question keeps a sixth. ``"channel"``: every object gets
+        #: the channel's best share. ``"object"``: the object's own share, unscaled.
+        #: ``"none"``: every vote at full weight, which is what a textbook RRF does
+        #: and what let one shared word out-vote a vector match (see `_RRF_K`).
+        self.lexical_confidence = "relative"
+        #: Weight of the column channel: an object scored by its single best
+        #: column (name and comment), never the sum, so a wide table cannot win by
+        #: breadth and the one column whose comment says what the question asked
+        #: counts. The only lexical channel that reads column comments; the body
+        #: channel leaves them out because summed they flood (see `_body_text`).
+        #: Measured on LiveSQLBench-Large: this channel alone 60.8 recall@10
+        #: against 43.5 for the body channel. 0 turns it off.
+        self.column_weight = 1.0
 
     # ---------------- build ----------------
 
@@ -1057,6 +1146,19 @@ class Catalog:
         # useless. The name and the columns are untouched, so the floor is
         # "no better than before cataloguing" instead of "worse".
         self._bm25_prose = _BM25([_prose_text(self._docs[q]) for q in self._order])
+        # One document per column -- its name and its comment -- and the
+        # object scored by its best column, never the sum. The sum is what
+        # made comments flood a wide table (see `_body_text`); the max cannot
+        # flood, because a hundred columns that each match one word score the
+        # same as one column that does. What it finds is the table whose one
+        # column says what the question asked, however cryptic the rest is.
+        col_docs, owners = [], []
+        for i, q in enumerate(self._order):
+            for c in self._docs[q].columns:
+                col_docs.append(" ".join(x for x in (c.name.replace("_", " "), c.name, c.comment or "") if x))
+                owners.append(i)
+        self._bm25_col = _BM25(col_docs) if col_docs else None
+        self._col_owner = owners
         self._shadows = self._find_shadows()
         self._dims = None                       # recomputed on next request
         vecs = self.embedder.embed(texts)
@@ -1221,10 +1323,21 @@ class Catalog:
     def select(self, question: str, top_k: int = 6,
                principal: Optional[Principal] = None,
                expand_fks: bool = True, pin: Optional[Sequence[str]] = None,
-               vector_weight: float = 1.0, lexical_weight: float = 1.0,
+               vector_weight: float = 1.0, lexical_weight: float = 0.5,
                reranker=None, rerank_candidates: int = 20,
                expand_inward: int = 0) -> Selection:
         """``reranker`` is any provider with ``.complete(system, prompt)``.
+
+        ``lexical_weight`` is the body channel's vote (name and column names,
+        summed) against 1.0 for the vector channel, the name channel, the
+        prose channel and the column channel. Half, since the column channel
+        exists: the body is the one channel that rewards a table for how many
+        of its column names brush the question, which is right when a question
+        is asked in the schema's own words (BEAVER) and wrong when the schema's
+        words are codes and a readable table merely shares one (LiveSQLBench-
+        Large). Measured with the sentence embedder: 1.0 scored 66.4 there and
+        0.5 scored 73.9, with BEAVER 67.1 and 66.2 -- a question's worth either
+        way. 1.0 is still right for a schema whose questions name columns.
 
         ``expand_inward`` (off by default) also adds tables that join *into*
         the selection: of the ``expand_inward`` best-ranked objects, any not
@@ -1281,6 +1394,42 @@ class Catalog:
         lex_rank = _rank(self._bm25)
         name_rank = _rank(self._bm25_name)
         prose_rank = _rank(self._bm25_prose)
+        _k = self.rrf_k
+
+        def _confidence(index: Optional[_BM25], ranked: Dict[str, int]):
+            """Per-object multiplier for one lexical channel's vote."""
+            if self.lexical_confidence == "none" or index is None or not ranked:
+                return _full_vote
+            shares = index.explained(question)
+            by_q = {order[i]: sh for i, sh in enumerate(shares)}
+            best = max((by_q.get(q, 0.0) for q in ranked), default=0.0)
+            return _share_vote(self.lexical_confidence, by_q, best)
+
+        lex_conf = _confidence(self._bm25, lex_rank)
+        name_conf = _confidence(self._bm25_name, name_rank)
+        prose_conf = _confidence(self._bm25_prose, prose_rank)
+
+        # The column channel: an object scored by its single best column (name
+        # and comment), never the sum, so a wide table cannot win by breadth.
+        col_rank: Dict[str, int] = {}
+        col_conf = _full_vote
+        _col_index = getattr(self, "_bm25_col", None)
+        if self.column_weight and _col_index is not None and not _abstains(_col_index, question):
+            best_s: Dict[str, float] = {}
+            best_e: Dict[str, float] = {}
+            col_scores = _col_index.scores(question)
+            col_shares = _col_index.explained(question) if self.lexical_confidence != "none" else None
+            for j, s_val in enumerate(col_scores):
+                q = order[self._col_owner[j]]
+                if q not in allowed_set or s_val <= 0:
+                    continue
+                if s_val > best_s.get(q, 0.0):
+                    best_s[q] = s_val
+                if col_shares is not None and col_shares[j] > best_e.get(q, 0.0):
+                    best_e[q] = col_shares[j]
+            col_rank = _competition_rank(list(best_s.items()))
+            if col_shares is not None:
+                col_conf = _share_vote(self.lexical_confidence, best_e, max(best_e.values(), default=0.0))
         q_tokens = expand_joins(tokenize(question), vocab=_vocab)
         _q_stems = {_stem(t) for t in q_tokens if len(t) > 2 and t not in _BOOST_STOP}
 
@@ -1314,17 +1463,19 @@ class Catalog:
         for q in allowed:
             s = 0.0
             if q in _term_objs:
-                s += TERM_WEIGHT / (_RRF_K + 1)
+                s += TERM_WEIGHT / (_k + 1)
             elif q in _related_objs:
-                s += RELATED_WEIGHT / (_RRF_K + 1)
+                s += RELATED_WEIGHT / (_k + 1)
             if q in vec_rank:
-                s += vector_weight / (_RRF_K + vec_rank[q] + 1)
+                s += vector_weight / (_k + vec_rank[q] + 1)
             if q in lex_rank:
-                s += lexical_weight / (_RRF_K + lex_rank[q] + 1)
+                s += lexical_weight * lex_conf(q) / (_k + lex_rank[q] + 1)
             if q in name_rank:
-                s += NAME_WEIGHT / (_RRF_K + name_rank[q] + 1)
+                s += NAME_WEIGHT * name_conf(q) / (_k + name_rank[q] + 1)
             if q in prose_rank:
-                s += PROSE_WEIGHT / (_RRF_K + prose_rank[q] + 1)
+                s += PROSE_WEIGHT * prose_conf(q) / (_k + prose_rank[q] + 1)
+            if q in col_rank:
+                s += self.column_weight * col_conf(q) / (_k + col_rank[q] + 1)
             # A backup or staging copy carries the same name words in a
             # shorter document, and cosine similarity rewards exactly that.
             # Demote it -- only while the object it shadows is visible to

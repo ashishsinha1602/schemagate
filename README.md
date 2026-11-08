@@ -143,6 +143,11 @@ model calls, schemagate selected every needed table for 85.3% of warehouse
 questions where BM25 managed 78.7% and embedding search 78.2%, and 98.7% of
 BIRD questions against 81.0% and 89.4%
 ([head-to-head](BENCHMARKS.md#head-to-head-schemagate-against-the-retrievers-other-tools-use)).
+On Snowflake's SQL-Schema-Retrieval benchmark (table level, recall@10) the
+hashed embedder scores Spider 100.0, BIRD 99.2, BEAVER 65.9, LiveSQLBench 95.3
+and LiveSQLBench-Large 64.9 (73.9 with all-MiniLM-L6-v2), above the paper's best
+model on four of the five and below Qwen3-Embedding-4B (75.8) on the fifth
+([details](BENCHMARKS.md#schema-retrieval-scored-by-snowflakes-benchmark)).
 Worked example, with a price you should replace with your own: a 260-object
 schema, 5,000 questions a day, an input price of $3 per million tokens. Full
 schema: 16,095 × 5,000 × 30 = 2.4 billion tokens a month, about $7,200. With
@@ -373,6 +378,21 @@ schemagate certify "postgresql+psycopg://user:pw@host/db"
 Reflects, selects, and reports what a real engine actually did — the check to
 run before trusting a new database or driver.
 
+```bash
+schemagate certify "postgresql+psycopg://user:pw@host/db" --golden --save golden.jsonl
+```
+
+`--golden` certifies *your* schema instead of the engine: one question per table
+written from the table's own words (its comment, or its name, and its most
+distinctive columns), one per foreign key, one per view, each with the answer known
+by construction, run through `select()`. Nothing is created and no model is called.
+What it prints that matters is the list of tables not found even by their own
+description, because no question will reach those; the fix is a comment or a hint.
+`--save` writes the set as JSONL (`{"question": ..., "tables": [...]}`) so you can
+edit the questions into real ones and rerun with `--golden golden.jsonl`;
+`--provider ... --model ...` has a model rewrite each question the way a person
+would ask it, which is the harder test. Exit status is 1 when a table is unreachable.
+
 ### Environment
 
 | variable | what it does |
@@ -504,7 +524,7 @@ they disagree, which is the point of showing both.
 |---|---|---|---|
 | commerce | 42 | 100% | 50.0% |
 | clinical claims | 27 | 100% | 46.7% |
-| claims warehouse (star) | 51 | 100% | 50.0% |
+| claims warehouse (star) | 51 | 100% | 58.3% |
 | bank ledger and trading | 39 | 100% | 64.3% |
 | IoT telemetry | 40 | 100% | 60.0% |
 | hostile (4 schemas, copies of everything) | 260 | 100% | 85.7% |
@@ -512,9 +532,9 @@ they disagree, which is the point of showing both.
 | | |
 |---|---|
 | real table beats its backup/staging copy, 19 cases across schemas | 19/19 |
-| recall without foreign-key expansion | 93.8% |
+| recall without foreign-key expansion | 100% |
 | prompt tokens, full schema every call | 2,812 |
-| prompt tokens, schemagate average | 764 (−72.8%) |
+| prompt tokens, schemagate average | 757 (−73.1%) |
 
 Measured with the **hashed embedder** — what `pip install schemagate` gives
 you, no extras. `schemagate[huggingface]` swaps in sentence-transformers and

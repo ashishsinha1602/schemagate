@@ -21,7 +21,13 @@
 })(typeof self !== "undefined" ? self : this, function (blakejs) {
   "use strict";
 
-  const RRF_K = 60;
+  // The rank-fusion constant, the twin of catalog.py's _RRF_K: 10, not the
+  // textbook 60, so that first place in one channel outweighs mere presence
+  // in three others (the reasoning is in catalog.py).
+  const RRF_K = 10;
+  // A field abstains when the best query term it knows is less informative
+  // than this (catalog.py's ABSTAIN_MIN_IDF).
+  const ABSTAIN_MIN_IDF = 0.1;
 
   // FIX A of two, the twin of _competition_rank in catalog.py. Every ranked
   // list feeding rank fusion used to be positional -- sorted by score, then
@@ -198,10 +204,24 @@
   function nameText(d) {
     return [d.schema || "", d.name || "", (d.name || "").replace(/_/g, " ")].filter(Boolean).join(" ");
   }
+  // Everything written about the object as a whole -- not the per-column
+  // comments, exactly as catalog.py's _prose_text (the column channel reads those).
   function proseText(d) {
-    const parts = [d.hint || "", d.description || ""];
-    for (const c of d.columns || []) if (c.comment) parts.push(c.comment);
-    return parts.filter(Boolean).join(" ");
+    return [d.hint || "", d.description || ""].filter(Boolean).join(" ");
+  }
+  // The body channel's text, catalog.py's _body_text: embedText without the
+  // per-column comments, so one sentence does not vote three times.
+  function bodyText(d) {
+    const parts = [d.name.split("_").join(" "), d.name];
+    if (d.hint) parts.push(d.hint);
+    if (d.description) parts.push(d.description);
+    for (const c of d.columns || []) parts.push(c.name.split("_").join(" "));
+    if (d.definition) parts.push(identifiers(d.definition));
+    return parts.filter(Boolean).join(" \n");
+  }
+  // One document per column, catalog.py's column channel: its name and its comment.
+  function columnText(c) {
+    return [c.name.split("_").join(" "), c.name, c.comment || ""].filter(Boolean).join(" ");
   }
   function embedText(d) {
     const parts = [d.name.split("_").join(" "), d.name];
@@ -246,10 +266,29 @@
       const n = this.docs.length;
       this.idf = new Map(); for (const [t, c] of df) this.idf.set(t, Math.log(1 + (n - c + 0.5) / (c + 0.5)));
     }
-    scores(query) {
+    queryTerms(query) {
       const toks = tokenize(query);
       const q = expandJoins(toks).map(stemToken);
       for (const a of expandAcronyms(toks, this.idf)) if (!q.includes(a)) q.push(a);
+      return q;
+    }
+    // How much of the question each document accounts for, 0..1: its share
+    // of the query's idf mass over the terms this field knows (catalog.py's
+    // _BM25.explained).
+    explained(query) {
+      // Sorted, like catalog.py, so both sides add the same terms in the same order.
+      const q = [...new Set(this.queryTerms(query))].sort();
+      let total = 0.0;
+      for (const t of q) total += this.idf.get(t) || 0.0;
+      if (total <= 0) return this.tf.map(() => 0.0);
+      return this.tf.map((tf) => {
+        let m = 0.0;
+        for (const t of q) if (this.idf.has(t) && tf.get(t)) m += this.idf.get(t);
+        return m / total;
+      });
+    }
+    scores(query) {
+      const q = this.queryTerms(query);
       return this.tf.map((tf, i) => {
         let s = 0.0;
         for (const t of q) {
@@ -260,6 +299,18 @@
         return s;
       });
     }
+  }
+  function abstains(bm, question) {
+    if (!bm || !bm.idf.size) return false;
+    let best = 0.0;
+    for (const t of tokenize(question)) { const v = bm.idf.get(stemToken(t)); if (v !== undefined && v > best) best = v; }
+    return best < ABSTAIN_MIN_IDF;
+  }
+  // How much of its vote a lexical channel keeps per object (catalog.py's _share_vote).
+  function shareVote(mode, shares, best) {
+    if (mode === "channel") return () => best;
+    if (mode === "relative") return (q) => (best ? (shares.get(q) || 0.0) / best : 0.0);
+    return (q) => shares.get(q) || 0.0;
   }
 
   // ---------------- principal ----------------
@@ -277,6 +328,10 @@
       for (const d of docs) this.docs.set(qname(d), Object.assign({ columns: [], foreign_keys: [], roles: null }, d));
       this.shadowSuffixes = opts.shadowSuffixes || SHADOW_SUFFIXES;
       this.shadowPrefixes = opts.shadowPrefixes || SHADOW_PREFIXES;
+      // The fusion knobs, the twins of Catalog.rrf_k, .lexical_confidence and .column_weight.
+      this.rrfK = opts.rrfK ?? RRF_K;
+      this.lexicalConfidence = opts.lexicalConfidence ?? "relative";
+      this.columnWeight = opts.columnWeight ?? 1.0;
       this.dims = null;
       this.stale = true;
     }
@@ -286,12 +341,19 @@
     index() {
       this.order = [...this.docs.keys()];
       const texts = this.order.map((q) => embedText(this.docs.get(q)));
-      this.bm25 = new BM25(texts);
+      // Vectors from `texts`; the body channel from its own text without the
+      // column comments, as catalog.py does.
+      this.bm25 = new BM25(this.order.map((q) => bodyText(this.docs.get(q))));
       // Fields, as in catalog.py: the name and the written prose each get
       // their own idf and their own length, so a long description cannot
       // drown the name and a weak catalogue cannot poison either.
       this.bm25Name = new BM25(this.order.map((q) => nameText(this.docs.get(q))));
       this.bm25Prose = new BM25(this.order.map((q) => proseText(this.docs.get(q))));
+      // One document per column; an object is scored by its best column, never the sum.
+      const colDocs = [], owners = [];
+      this.order.forEach((q, i) => { for (const c of (this.docs.get(q).columns || [])) { colDocs.push(columnText(c)); owners.push(i); } });
+      this.bm25Col = colDocs.length ? new BM25(colDocs) : null;
+      this.colOwner = owners;
       this.shadows = this._findShadows();
       this.dims = null;           // recomputed on next request
       this.vecs = new Map(); const vs = this.embedder.embed(texts);
@@ -368,7 +430,7 @@
     _visible(d, who) { if (!d.roles || !d.roles.length) return true; if (!who) return false; return d.roles.some((r) => who.roles.has(r)); }
     select(question, opts = {}) {
       const topK = opts.topK ?? 6, who = opts.principal ?? null, expandFks = opts.expandFks ?? true;
-      const vw = opts.vectorWeight ?? 1.0, lw = opts.lexicalWeight ?? 1.0, pin = opts.pin || [];
+      const vw = opts.vectorWeight ?? 1.0, lw = opts.lexicalWeight ?? 0.5, pin = opts.pin || [];
       if (this.stale || !this.order) this.index();
       const allowed = this.order.filter((q) => this._visible(this.docs.get(q), who));
       const allowedSet = new Set(allowed);
@@ -381,15 +443,40 @@
       // insertion order, which is reflection order.
       hits.sort((a, b) => (a.d - b.d) || (a.q < b.q ? -1 : a.q > b.q ? 1 : 0));
       const vecRank = new Map(); hits.filter((h) => allowedSet.has(h.q)).forEach((h, i) => vecRank.set(h.q, i));
-      const bm = this.bm25.scores(question);
-      const lexPairs = this.order.map((q, i) => [q, bm[i]]).filter(([q, s]) => allowedSet.has(q) && s > 0);
-      const lexRank = competitionRank(lexPairs);
       const rankOf = (bm) => {
+        if (!bm || abstains(bm, question)) return new Map();
         const sc = bm.scores(question);
         const pairs = this.order.map((q, i) => [q, sc[i]]).filter(([q, v]) => allowedSet.has(q) && v > 0);
         return competitionRank(pairs);
       };
+      const lexRank = rankOf(this.bm25);
       const nameRank = rankOf(this.bm25Name), proseRank = rankOf(this.bm25Prose);
+      const K = this.rrfK;
+      // Per-object vote multipliers (catalog.py's _confidence): how much of
+      // the question each lexical match explains, against the channel's best.
+      const confidence = (bm, ranked) => {
+        if (this.lexicalConfidence === "none" || !bm || !ranked.size) return () => 1.0;
+        const shares = bm.explained(question);
+        const byQ = new Map(); this.order.forEach((q, i) => byQ.set(q, shares[i]));
+        let best = 0.0; for (const q of ranked.keys()) best = Math.max(best, byQ.get(q) || 0.0);
+        return shareVote(this.lexicalConfidence, byQ, best);
+      };
+      const lexConf = confidence(this.bm25, lexRank), nameConf = confidence(this.bm25Name, nameRank),
+        proseConf = confidence(this.bm25Prose, proseRank);
+      let colRank = new Map(), colConf = () => 1.0;
+      if (this.columnWeight && this.bm25Col && !abstains(this.bm25Col, question)) {
+        const bestS = new Map(), bestE = new Map();
+        const colScores = this.bm25Col.scores(question);
+        const colShares = this.lexicalConfidence !== "none" ? this.bm25Col.explained(question) : null;
+        colScores.forEach((sv, j) => {
+          const q = this.order[this.colOwner[j]];
+          if (!allowedSet.has(q) || sv <= 0) return;
+          if (sv > (bestS.get(q) || 0.0)) bestS.set(q, sv);
+          if (colShares && colShares[j] > (bestE.get(q) || 0.0)) bestE.set(q, colShares[j]);
+        });
+        colRank = competitionRank([...bestS.entries()]);
+        if (colShares) { let best = 0.0; for (const v of bestE.values()) best = Math.max(best, v); colConf = shareVote(this.lexicalConfidence, bestE, best); }
+      }
       const qTokens = expandJoins(tokenize(question), vocab);
       const namedIn = (d) => { const nm = tokenize(d.name); if (!nm.length || nm.length > qTokens.length) return false; for (let i = 0; i + nm.length <= qTokens.length; i++) { let ok = true; for (let j = 0; j < nm.length; j++) if (qTokens[i + j] !== nm[j]) { ok = false; break; } if (ok) return true; } return false; };
       const namedToks = new Map();
@@ -404,10 +491,11 @@
       const fused = [];
       for (const q of allowed) {
         let s = 0.0;
-        if (vecRank.has(q)) s += vw / (RRF_K + vecRank.get(q) + 1);
-        if (lexRank.has(q)) s += lw / (RRF_K + lexRank.get(q) + 1);
-        if (nameRank.has(q)) s += NAME_WEIGHT / (RRF_K + nameRank.get(q) + 1);
-        if (proseRank.has(q)) s += PROSE_WEIGHT / (RRF_K + proseRank.get(q) + 1);
+        if (vecRank.has(q)) s += vw / (K + vecRank.get(q) + 1);
+        if (lexRank.has(q)) s += lw * lexConf(q) / (K + lexRank.get(q) + 1);
+        if (nameRank.has(q)) s += NAME_WEIGHT * nameConf(q) / (K + nameRank.get(q) + 1);
+        if (proseRank.has(q)) s += PROSE_WEIGHT * proseConf(q) / (K + proseRank.get(q) + 1);
+        if (colRank.has(q)) s += this.columnWeight * colConf(q) / (K + colRank.get(q) + 1);
         if (s && this.shadows.has(q)
             && (allowedSet.has(this.shadows.get(q)) || !this.docs.has(this.shadows.get(q)))
             && !namedIn(this.docs.get(q))) s *= SHADOW_PENALTY;
@@ -478,7 +566,8 @@
             let dropped = false;
             for (let i2 = chosen.length - 1; i2 >= 0; i2--)
               if (chosen[i2].reason !== "pinned" && chosen[i2].reason !== "covers") {
-                taken.delete(chosen[i2].doc.qname); chosen.splice(i2, 1); dropped = true; break;
+                // qname(doc), as above: `.doc.qname` is undefined on these objects.
+                taken.delete(qname(chosen[i2].doc)); chosen.splice(i2, 1); dropped = true; break;
               }
             if (!dropped) break;
           }
