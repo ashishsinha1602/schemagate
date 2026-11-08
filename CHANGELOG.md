@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased
+
+- **Rank fusion that knows how sure each channel is.** Three changes to `select()`, measured on Snowflake's
+  SQL-Schema-Retrieval benchmark (table level, recall@10) and on the shipped schemas. A **column channel**: each
+  object scored by its single best column, name and comment, never the sum, so the one column whose comment says
+  what the question asked counts and a wide table cannot win by breadth (the only lexical channel that reads column
+  comments). A **lexical vote scaled by how much of the question the match explains** (`Catalog.lexical_confidence`,
+  default `"relative"`): the best match keeps its full vote, a one-word match on a six-word question keeps a sixth.
+  The **rank-fusion constant is 10, not 60**: at 60, being anywhere in a channel was worth more than being first in
+  another, and three one-word lexical matches out-voted a vector match the lexical channels could not see. The body
+  channel's default weight (`lexical_weight`) is 0.5 against 1.0 for the rest. On LiveSQLBench-Large, 971 tables whose
+  column names are codes, recall@10 went from 48.2 to 64.9 with the hashed embedder and from 51.9 to 73.9 with
+  all-MiniLM-L6-v2 (the paper's best, Qwen3-Embedding-4B: 75.8); BEAVER 64.9 → 65.9 and 66.6 → 66.2; Spider, BIRD and
+  LiveSQLBench unchanged or up. On the shipped schemas every literal set stays 100%, the warehouse business-words set
+  went 50.0% → 58.3%, and recall without foreign-key expansion 93.8% → 100%. `benchmarks/schema_retrieval.py`
+  reproduces the public numbers; `Catalog.rrf_k`, `lexical_confidence` and `column_weight` put the old behaviour back.
+  The Studio's JavaScript twin (`studio/schemagate.js`) carries the same fusion and the parity test still holds on
+  all 1,789 cases; the selector embedded in the demo page (`studio.html`) had fallen behind the twin by several
+  releases and is now the twin verbatim. Fixed on the way: the twin's coverage pass evicted a table from the budget
+  without un-marking it as taken, so foreign-key expansion could not bring it back (one table short of Python).
+- **A golden set for your own schema** (`schemagate certify URL --golden [FILE] [--save FILE]`). One question per
+  table from the table's own words, one per foreign key, one per view, answers known by construction, run through
+  `select()`. Prints the tables that cannot be found even by their own description; exit 1 when there is one.
+  `--save` writes JSONL to edit and rerun; `--provider`/`--model` has a model rewrite the questions in a user's words.
+  Nothing is created on the engine and no model is called unless asked.
+
 ## 1.17.0
 
 - **The schema as a property graph** (`schemagate graph`, `Catalog.graph(principal)`). Tables, views, columns and

@@ -98,6 +98,18 @@ schemagate certify postgresql://user:pw@host/db
 
 Checks that need something the engine or the user lacks (comments on SQLite, a readable statement store, Oracle's graph privilege) are reported as `SKIP` with the reason. A failure is a bug: please open an issue with the output.
 
+### Your own schema: `--golden`
+
+```bash
+schemagate certify postgresql://user:pw@host/db --golden --save golden.jsonl
+schemagate certify postgresql://user:pw@host/db --golden golden.jsonl      # rerun an edited set
+schemagate certify postgresql://user:pw@host/db --golden --provider anthropic --model <id>
+```
+
+The same idea on the schema you actually have, with no labels: a question per table from the table's own words (its comment, or its name, plus its one or two most distinctive columns), a question per foreign key that needs both ends, a question per view. The answers are known by construction, so nobody has to label anything, and nothing is created on the engine. The report counts what `select()` found within `--top-k` (default 10), and names the tables that missed *their own* question: those are unreachable by any question, and the fix is one line, a comment in the database or `schemagate hint`.
+
+A table's own words are the easiest possible question, so a high number here is a floor, not a result. `--save` writes the set as JSONL (`{"question": ..., "tables": [...]}`) to edit into the questions people really ask; `--provider` and `--model` have a model rewrite each one in a user's words without naming the table or its columns, which is the test that matters. A model reply the command cannot read keeps the original question; the run never fails because the model did. `--principal`/`--role` build the set for one caller, so a table that caller cannot see gets no question and leaks nothing into the file.
+
 ## Which databases
 
 | `schemagate certify` on a real server | Comments | View SQL | Query log | Built-in graph |

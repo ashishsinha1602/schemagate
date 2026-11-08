@@ -575,6 +575,15 @@ def cmd_certify(args) -> int:
     """
     import traceback
 
+    if getattr(args, "golden", None) is not None:
+        # The user's own schema, not the fixture: questions written from each
+        # table's words, run through select(), tables nothing can reach named.
+        from .golden import main as golden_main
+        provider = _provider(args) if getattr(args, "provider", None) and args.provider != "none" else None
+        cat = _open(args)
+        return golden_main(cat, questions_path=args.golden or None, save_path=args.save,
+                           top_k=args.top_k, provider=provider, principal=_resolved_principal(args))
+
     from .certify import main as certify_main
     try:
         return certify_main(args.url)
@@ -789,8 +798,27 @@ def build_parser() -> argparse.ArgumentParser:
     audit.add_argument("--json", action="store_true", help="verify: print the full report as JSON")
     audit.set_defaults(func=cmd_audit)
 
-    certify = sub.add_parser("certify", help="end-to-end check on a real engine")
+    certify = sub.add_parser(
+        "certify", help="end-to-end check on a real engine, or your own schema's golden set",
+        description="Without --golden: creates a small fixture on the engine, runs known questions "
+                    "through every feature, drops the fixture. With --golden: writes a question per "
+                    "table, foreign key and view from your schema's own words, runs them through "
+                    "select(), and names the tables nothing can find. Nothing is created.")
     certify.add_argument("url")
+    certify.add_argument("--golden", nargs="?", const="", metavar="FILE",
+                         help="golden set on YOUR schema; with FILE (JSONL: question, tables) run those instead")
+    certify.add_argument("--save", metavar="FILE", help="--golden: write the question set here (JSONL) to edit and rerun")
+    certify.add_argument("--top-k", type=int, default=10, help="--golden: selection budget per question (default 10)")
+    certify.add_argument("--provider", help="--golden: rewrite each question in a user's words with this model "
+                                            "(anthropic|openai|gemini|oci|local|auto; needs --model)")
+    certify.add_argument("--model", help="model id for --provider")
+    certify.add_argument("--principal", help="--golden: run as this caller (see select)")
+    certify.add_argument("--role", action="append")
+    certify.add_argument("--include", action="append", metavar="PATTERN")
+    certify.add_argument("--exclude", action="append", metavar="PATTERN")
+    certify.add_argument("--schema", action="append", metavar="NAME")
+    certify.add_argument("--config", metavar="JSON", help="--golden: restrict / hint / describe blocks")
+    certify.add_argument("--restrict-from-grants", action="store_true")
     certify.set_defaults(func=cmd_certify)
     return parser
 
