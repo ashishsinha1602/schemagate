@@ -58,7 +58,7 @@ _GENERIC = frozenset("""
 amount cnt count id idx key max min name num qty result status sum total type val value
 """.split())
 _VIEW_AFFIX = re.compile(r"^(?:vw?|view)_|_(?:vw?|view)$", re.I)
-_XML_BAD = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f]")
+_XML_BAD = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")   # raw: the regex engine reads the escapes
 
 
 @dataclass

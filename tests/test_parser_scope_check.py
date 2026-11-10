@@ -111,6 +111,63 @@ def test_without_sqlglot_the_pattern_readers_still_guard(monkeypatch, dialect):
     assert M._check_scope(CAT, "SELECT id FROM orders", SALES) is None
 
 
+# A whole-row reference returns every column without naming one (reported by Mohamad Njadat).
+WHOLE_ROW = [
+    "SELECT s FROM staff s",
+    "SELECT row_to_json(s) FROM staff s",
+    "SELECT to_jsonb(staff) FROM staff",
+    "SELECT to_jsonb(public.staff) FROM public.staff",
+    "SELECT s::text FROM staff s",
+    "SELECT CAST(s AS text) FROM staff s",
+    "SELECT json_agg(s) FROM staff s",
+    "SELECT hstore(s) FROM staff s",
+    "SELECT id FROM staff s WHERE s::text LIKE '%9%'",
+    "SELECT o.id, row_to_json(s) FROM orders o JOIN staff s ON s.id = o.id",
+    "WITH x AS (SELECT row_to_json(s) AS r FROM staff s) SELECT r FROM x",
+]
+
+
+@pytest.mark.parametrize("sql", WHOLE_ROW)
+def test_a_whole_row_reference_is_refused_when_a_column_is_withheld(dialect, sql):
+    dialect("postgresql")
+    out = M._check_scope(CAT, sql, SALES)
+    assert out is not None and "not available" in out, sql
+
+
+@pytest.mark.parametrize("sql", WHOLE_ROW)
+def test_the_parser_alone_refuses_whole_row_references(monkeypatch, dialect, sql):
+    dialect("postgresql")
+    monkeypatch.setattr(M, "_referenced_tables", lambda s: [])
+    monkeypatch.setattr(M, "_identifiers", lambda s: set())
+    monkeypatch.setattr(M, "_STAR", NS(search=lambda s: None))
+    assert M._check_scope(CAT, sql, SALES) is not None, sql
+
+
+@pytest.mark.parametrize("sql", [
+    "SELECT s.id FROM staff s",
+    "SELECT id FROM staff",
+    "SELECT row_to_json(o) FROM orders o",          # nothing withheld on orders
+    "SELECT o FROM orders o",
+])
+def test_whole_rows_of_fully_visible_tables_and_named_columns_still_run(dialect, sql):
+    dialect("postgresql")
+    assert M._check_scope(CAT, sql, SALES) is None, M._check_scope(CAT, sql, SALES)
+
+
+def test_the_payroll_role_may_read_the_whole_row(dialect):
+    dialect("postgresql")
+    payroll = Principal("okta:p", roles=frozenset({"payroll"}))
+    assert M._check_scope(CAT, "SELECT row_to_json(s) FROM staff s", payroll) is None
+
+
+def test_without_the_parser_a_table_with_a_withheld_column_is_refused(monkeypatch, dialect):
+    dialect("postgresql")
+    monkeypatch.setattr(M, "_parsed_refs", lambda sql: None)
+    out = M._check_scope(CAT, "SELECT row_to_json(s) FROM staff s", SALES)
+    assert out is not None and "schemagate[mcp]" in out
+    assert M._check_scope(CAT, "SELECT id FROM orders", SALES) is None
+
+
 def test_the_payroll_role_can_still_read_what_it_may():
     payroll = Principal("okta:p", roles=frozenset({"payroll"}))
     assert M._check_scope(CAT, "SELECT * FROM hr.salary", payroll) is None
