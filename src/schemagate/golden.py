@@ -269,6 +269,14 @@ def main(cat, questions_path: Optional[str] = None, save_path: Optional[str] = N
         print(f"golden: {len(items)} question(s) from {questions_path}")
     else:
         items = synthesize(cat, principal)
+        if not items:
+            # An empty run used to print "no questions" and exit 0, which reads as a
+            # pass. Nothing was tested; say why that usually happens.
+            who = f" for {principal.subject}" if principal is not None else ""
+            print(f"golden: no tables or views visible{who}, so there is nothing to test. "
+                  "Check the URL points at the right database and that --schema, --include "
+                  "and --principal/--role do not filter everything out.")
+            return 2
         print(f"golden: {len(items)} question(s) written from the schema's own words")
         if provider is not None:
             items = paraphrase(items, provider)

@@ -143,6 +143,21 @@ def test_main_exit_code_follows_unreachable_tables(tmp_path, capsys):
     assert code == 1 and "not found by their own words" in out and "s.invoices" in out
 
 
+def test_an_empty_schema_is_an_error_not_a_pass(capsys):
+    cat = Catalog(name="empty")
+    assert golden.main(cat) == 2
+    out = capsys.readouterr().out
+    assert "nothing to test" in out and "--schema" in out
+
+
+def test_a_caller_who_sees_nothing_is_told_so(capsys):
+    cat = Catalog(name="hidden")
+    cat.add(ObjectDoc(name="payroll", schema="s", roles=["hr"], columns=[Column("id", "INT", pk=True)]))
+    cat.index()
+    assert golden.main(cat, principal=Principal("db:A", roles=frozenset({"analyst"}))) == 2
+    assert "visible for db:A" in capsys.readouterr().out
+
+
 def _sqlite(tmp_path):
     db = tmp_path / "own.db"
     con = sqlite3.connect(db)
