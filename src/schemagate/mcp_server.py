@@ -566,7 +566,12 @@ class _Unparsed(Exception):
 
 
 def _parsed_refs(sql: str):
-    """(tables, columns, star) as a real SQL parser reads ``sql``, or None without sqlglot.
+    """(tables, columns, star, whole_rows) as a real SQL parser reads ``sql``, or None without sqlglot.
+
+    ``whole_rows`` holds every table name or alias the statement uses as a *value*
+    rather than as a qualifier: ``SELECT e FROM t e``, ``row_to_json(e)``, ``e::text``,
+    ``to_jsonb(hr.employees)``. PostgreSQL reads each of those as the whole row, every
+    column included, without naming one -- so a column rule cannot see it.
 
     The pattern-based readers above found three bypasses in a week, each a
     dialect's own way of writing a name (a schema-qualified twin, a shadowed
@@ -588,9 +593,12 @@ def _parsed_refs(sql: str):
         raise _Unparsed(str(e).splitlines()[0][:160] if str(e) else type(e).__name__) from e
     tables: List[str] = []
     seen = set()
-    cols, star = set(), False
+    cols, star, whole_rows = set(), False, set()
     for t in trees:
         ctes = {(c.alias_or_name or "").lower() for c in t.find_all(exp.CTE)}
+        # Every name a real table is known by in this statement: its own name and its alias.
+        # A CTE is left out: its row is only as wide as its select list, which is checked.
+        row_names = set()
         for x in t.find_all(exp.Table):
             if not x.name:
                 continue
@@ -600,9 +608,20 @@ def _parsed_refs(sql: str):
             if name.lower() not in seen:
                 seen.add(name.lower())
                 tables.append(name)
-        cols |= {c.name.lower() for c in t.find_all(exp.Column) if c.name and c.name != "*"}
+            row_names |= {x.name.lower(), (x.alias_or_name or "").lower()}
+        row_names.discard("")
+        for c in t.find_all(exp.Column):
+            if not c.name or c.name == "*":
+                continue
+            cols.add(c.name.lower())
+            # A table or alias used as a value: unqualified (`e`), or qualified by something
+            # that is not itself a table here (`hr.employees`, schema-qualified). `e.id` is a
+            # column of e and `t.t` a column called t, so those are not whole rows.
+            qualifier = (c.table or "").lower()
+            if c.name.lower() in row_names and (not qualifier or qualifier not in row_names):
+                whole_rows.add(".".join(p for p in (qualifier, c.name.lower()) if p))
         star = star or any(not isinstance(st.parent, exp.Count) for st in t.find_all(exp.Star))
-    return tables, cols, star
+    return tables, cols, star, whole_rows
 
 
 #: words before a bracket that make it a list or a group, not a function call
@@ -759,6 +778,18 @@ def _check_scope(cat: Catalog, sql: str, who: Optional[Principal]) -> Optional[s
         if _STAR.search(_sql_body(sql)) or (parsed and parsed[2]):
             return ("not available to this caller: SELECT * would include columns this "
                     "caller may not see. Name the columns select_schema returned.")
+        # A whole-row reference (`SELECT e`, `row_to_json(e)`, `e::text`) returns every
+        # column without naming one. Refused while any referenced table withholds a column.
+        if parsed and parsed[3]:
+            return ("not available to this caller: %s reads the whole row, including columns "
+                    "this caller may not see. Name the columns select_schema returned."
+                    % ", ".join(sorted(parsed[3])))
+        # Without the parser a whole-row reference cannot be told from a column, so a
+        # statement on a table with a withheld column is refused rather than guessed at.
+        if parsed is None:
+            return ("not available to this caller: a table here has columns this caller may not "
+                    "see, and checking the statement needs the SQL parser: "
+                    "pip install 'schemagate[mcp]'.")
     return None
 
 

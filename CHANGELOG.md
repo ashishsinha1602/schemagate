@@ -1,7 +1,16 @@
 # Changelog
 
-## Unreleased
+## 1.18.1
 
+- **Security fix: on PostgreSQL, `run_query` could read a column hidden by `restrict_column` through a whole-row
+  reference.** The scope check refused a statement that named a withheld column and refused `SELECT *` / `t.*`, but
+  PostgreSQL also returns every column of a row through the table or its alias used as a value: `SELECT e FROM t e`,
+  `row_to_json(e)`, `to_jsonb(t)`, `e::text`, `json_agg(e)`, `hstore(e)`, also schema-qualified. None of those names
+  the column, so the statement ran and the hidden value came back. While any table in the statement withholds a
+  column from the caller, a table name or alias used as a value is now refused, and without the SQL parser such a
+  statement is refused rather than guessed at. Object-level restrictions were not affected, nor were dialects
+  without whole-row references. Thanks to Mohamad Njadat for the report, the analysis and the suggested fix.
+- A regular expression in `graph.py` is now a raw string (code scanning alert 92); behaviour is unchanged.
 - **`certify --golden` on a schema with nothing visible now fails instead of passing.** An empty database, a
   `--schema`/`--include` that filters everything out, or a `--principal` who can see nothing printed "no questions"
   and exited 0, which read as a pass. It now says nothing was tested, names the likely cause and exits 2.
