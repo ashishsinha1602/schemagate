@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- **`certify --golden` on a schema with nothing visible now fails instead of passing.** An empty database, a
+  `--schema`/`--include` that filters everything out, or a `--principal` who can see nothing printed "no questions"
+  and exited 0, which read as a pass. It now says nothing was tested, names the likely cause and exits 2.
+
 ## 1.18.0
 
 - **Rank fusion that knows how sure each channel is.** Three changes to `select()`, measured on Snowflake's
