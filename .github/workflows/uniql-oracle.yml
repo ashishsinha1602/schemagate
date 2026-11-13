@@ -69,10 +69,11 @@ jobs:
           set -euo pipefail
           cd uniql/migration/oracle
           # All 11 databases, original quoted names, ordinary users. Two patches, both reported to UniQL:
-          # 1. Each 64-row batch picks its own bind types (a CLOB column goes as text when every value in the
-          #    batch is short, as a LOB otherwise) but reuses one cursor. With python-oracledb 26 thin the
-          #    earlier batch's binds stick: posts.Body failed with ORA-01461 and postHistory read back a
-          #    different fingerprint on each run. Insert each batch through a fresh cursor.
+          # 1. The loader binds a CLOB column as VARCHAR2 text when every value in a 64-row batch is at most
+          #    4,000 UTF-8 bytes, wrapped in TO_CLOB. On Oracle Free 23-slim with python-oracledb 26 thin
+          #    that fails for posts.Body (ORA-01461, also with a fresh cursor per batch) and postHistory
+          #    reads back with a different fingerprint. Bind every CLOB value as a LOB, and insert each batch
+          #    through its own cursor so bind types never carry over between batches.
           # 2. A table whose readback fingerprint still differs is logged, not fatal: gold and prediction
           #    both run against the same loaded data. Every mismatch is listed in the run log.
           python - <<'PY'
@@ -80,6 +81,7 @@ jobs:
           p = pathlib.Path("loader_native.py")
           t = p.read_text()
           for old, new in (
+              ("scalar = physical == 'CLOB' and all(", "scalar = False and all("),
               # the table-wide bind sizes then sit unused on the readback cursor: drop them
               ("cursor.setinputsizes(*bindings)", "pass"),
               ("cursor.setinputsizes(*active_bindings)",
