@@ -47,10 +47,12 @@ def main():
     ap.add_argument("--queries", required=True, help="UniQL data/queries/oracle.json")
     ap.add_argument("--bird-db-root", required=True, help="BIRD dev_databases (for database_description/)")
     ap.add_argument("--out", required=True)
-    ap.add_argument("--provider", choices=["oci", "gemini", "anthropic"], default="oci",
-                    help="oci: Gemini on OCI Generative AI; gemini: Google's Gemini API (GEMINI_API_KEY)")
+    ap.add_argument("--provider", choices=["oci", "oci-key", "gemini", "anthropic"], default="oci",
+                    help="oci: OCI Generative AI with an ~/.oci signing key; oci-key: OCI Generative AI with a "
+                         "Generative AI API key (OCI_GENAI_API_KEY, optional OCI_GENAI_PROJECT, OCI_GENAI_REGION) "
+                         "on its OpenAI-compatible endpoint; gemini: Google's Gemini API (GEMINI_API_KEY)")
     ap.add_argument("--model", default=None,
-                    help="default: google.gemini-2.5-flash on oci, gemini-2.5-flash on gemini")
+                    help="default: google.gemini-2.5-flash on oci/oci-key, gemini-2.5-flash on gemini")
     ap.add_argument("--top-k", type=int, default=8)
     ap.add_argument("--repairs", type=int, default=3)
     ap.add_argument("--max-tokens", type=int, default=8000)
@@ -82,6 +84,16 @@ def main():
             prov = OCIGenAIProvider(model=a.model or "google.gemini-2.5-flash", timeout=300,
                                     compartment_id=os.environ.get("OCI_COMPARTMENT_ID")
                                     or oci.config.from_file()["tenancy"])
+        elif a.provider == "oci-key":
+            import openai
+
+            from schemagate.ai.providers import OpenAIProvider
+            region = os.environ.get("OCI_GENAI_REGION") or "us-chicago-1"
+            client = openai.OpenAI(
+                api_key=os.environ["OCI_GENAI_API_KEY"], timeout=300,
+                base_url=f"https://inference.generativeai.{region}.oci.oraclecloud.com/openai/v1",
+                project=os.environ.get("OCI_GENAI_PROJECT") or None)
+            prov = OpenAIProvider(model=a.model or "google.gemini-2.5-flash", client=client)
         elif a.provider == "gemini":
             from schemagate.ai.providers import GeminiProvider
             prov = GeminiProvider(model=a.model or "gemini-2.5-flash")

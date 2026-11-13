@@ -46,6 +46,7 @@ LOCKS = {
     "uniql-oracle":     (["oracle"], ["python-dateutil", "func_timeout", "sqlglot==30.23.0", "oracledb==3.4.2"]),
     "uniql-oracle-oci": (["oracle", "oci"], ["python-dateutil", "func_timeout", "sqlglot==30.23.0", "oracledb==3.4.2"]),
     "uniql-oracle-gemini": (["oracle", "gemini"], ["python-dateutil", "func_timeout", "sqlglot==30.23.0", "oracledb==3.4.2"]),
+    "uniql-oracle-openai": (["oracle"], ["openai>=1.40", "python-dateutil", "func_timeout", "sqlglot==30.23.0", "oracledb==3.4.2"]),
     "docker":         (["databases", "ai", "mcp"], []),
     "fuzz":           ([], ["sqlglot>=25"]),     # run_query's parser layer is under test too
     "ruff":           (None, ["ruff==0.16.8"]),
