@@ -142,7 +142,9 @@ def main():
             except UnsafeSQL:
                 raise
             except Exception as ex:                                # noqa: BLE001
-                if attempt == 7 or not any(s in str(ex) for s in ("429", "Circuit", "OPEN", "Timeout", "timed out")):
+                # 502/503 too: 8 questions of the 2026-11-13 run got no SQL from a passing Gemini outage
+                if attempt == 7 or not any(s in str(ex) for s in ("429", "502", "503", "UNAVAILABLE", "Circuit",
+                                                                   "OPEN", "Timeout", "timed out")):
                     raise
                 time.sleep(min(120, 15 * (attempt + 1)))
 

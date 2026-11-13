@@ -7,6 +7,53 @@ score is execution accuracy from its `evaluation/evaluate.py --dialect oracle`.
 The run is the `uniql-oracle` GitHub Actions workflow (run 39340551822, 2026-10-19). It uses Oracle Free
 23ai in a container, UniQL at e69c6b3, and Gemini 2.5 Flash on OCI Generative AI.
 
+## Re-run on UniQL's 2026-11-12 release
+
+UniQL's 2026-11-12 release (dec96c9, "dev-gold-audit-20261112") re-audited the Oracle gold. The gold now
+quotes the original table and column names, so `"frpm"` and `FRPM` are different tables. The release also
+ships a new loader that checks every source database's SHA-256 and reads every table back, and a new
+evaluator that scores in a fixed session (`NLS_DATE_FORMAT='YYYY-MM-DD'` and five more).
+GitHub Actions run 43499524319, 2026-11-13:
+
+| Gemini 3.8 Flash, Gemini API, 1,534 questions | simple (925) | moderate (464) | challenging (145) | total |
+|---|---|---|---|---|
+| **with execution repair** (UniQL's evaluator, `gemini-3.8-flash_oracle_20261112.evaluator.txt`) | 69.84 | 57.76 | 56.55 | **64.93** (996) |
+| first try only (from the per-question log) | | | | 63.69 (977) |
+
+- **The model is not the one in the rows below.** Google's Gemini API no longer serves Gemini 2.5 Flash to
+  new keys, and the OCI signing key used for the earlier runs is gone. So this run is Gemini 3.8 Flash, and
+  64.93 is not a like-for-like comparison with 64.47.
+- **Repair hardly matters any more.** 1,496 first queries ran without an error. 38 needed one repair, and 19
+  of those ended correct.
+- **8 questions got no SQL.** Gemini returned 503 or 502 for questions 270, 285, 287, 309, 310, 325, 339
+  and 657. They are scored wrong. The runner now retries those errors. If all 8 were right, the total would
+  be 65.45.
+- **The setup checked out before the model was called:**
+  - every table of the 11 databases passed the loader's readback check;
+  - all 1,534 gold queries executed and returned rows;
+  - the dry run (gold SQL as the prediction) scored 100.00 (run 43492079967);
+  - no question was refused a connection.
+
+**What it took to run UniQL's release:**
+- **BIRD's official `dev.zip`** (dev_20240627) for the databases. The minidev copies fail the loader's
+  SHA-256 check.
+- **python-oracledb 3.4.2.** On 26.x (thin mode), the loader failed on `posts.Body` with ORA-01461, and
+  `postHistory` read back a different fingerprint on every run.
+- **`processes=1000` on Oracle Free.** The evaluator opens fresh connections per question, and with the
+  image's default the listener refused 170 of 1,534 in a dry run (ORA-12516).
+  `benchmarks/uniql_oracle_rescore.py` re-scores any question that was refused, with UniQL's own evaluator.
+  It had nothing to do in this run.
+- **The runner checks queries in the evaluator's session** (`UNIQL_SESSION`). Otherwise, 81 date
+  comparisons that are correct there fail with ORA-01843 and get "repaired".
+- **schemagate quotes case-sensitive Oracle names** as reflected (#229). A table stored as `frpm` is shown to
+  the model as `"frpm"`, not `frpm`, which Oracle reads as `FRPM`.
+
+Files:
+- `gemini-3.8-flash_oracle_20261112.json`: the predictions as given to the evaluator.
+- `gemini-3.8-flash_oracle_20261112.log.jsonl`: per question, the tables selected, any errors and repairs,
+  and the final SQL.
+- `gemini-3.8-flash_oracle_20261112.verdicts.json`: the evaluator's verdict per question.
+
 ## Result
 
 | | Oracle EX (1,534 questions) |
