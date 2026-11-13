@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- **Case-sensitive names on Oracle (and Snowflake, DB2) now reach the model in quotes.** These databases fold
+  unquoted names to upper case, and SQLAlchemy reports a table stored as `FRPM` and one created as `"frpm"` with the
+  same plain `frpm`. Shown that, a model wrote `FROM frpm`, Oracle looked for `FRPM`, and the query failed. The DDL
+  in the prompt now spells such names the way SQL must write them (`"frpm"`, `"CDSCode"`, `"Free Meal Count (K-12)"`,
+  `"DATE"`), using SQLAlchemy's own quoting rules, recorded at reflection. Matching, roles and scope checks still use
+  the plain name. Other dialects' prompts are unchanged. Found when UniQL reloaded its Oracle data with the original
+  quoted names.
+
 ## 1.18.1
 
 - **Security fix: on PostgreSQL, `run_query` could read a column hidden by `restrict_column` through a whole-row
