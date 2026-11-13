@@ -83,8 +83,8 @@ def main():
             if db not in cats:
                 eng = sa.create_engine(f"oracle+oracledb://{db.upper()}:{pw}@{dsn.split('/')[0]}"
                                        f"/?service_name={dsn.split('/')[1]}", pool_size=a.workers)
-                # UniQL's loader creates each user with _ORACLE_SCRIPT=true, which marks it Oracle-maintained,
-                # and schemagate skips Oracle-maintained schemas by default. Name the user's own schema.
+                # Name the user's own schema. UniQL's loader before 2026-11-12 created each user with
+                # _ORACLE_SCRIPT=true (Oracle-maintained, which schemagate skips); naming it works for both.
                 own = sa.inspect(eng).default_schema_name
                 cat = Catalog(name=db).bootstrap(eng, schemas=[own], sample_values=True)
                 cat.infer_foreign_keys()

@@ -395,6 +395,7 @@ def reflect(engine_or_url, include=None, exclude=None,
     # with no hook returns an empty set without connecting, and this keeps
     # the reflection path for those engines exactly as it was.
     default_schema = insp.default_schema_name if maintained_objects else None
+    spell = _sql_spelling(engine)
     docs: List[ObjectDoc] = []
     seen = set()
     for schema in schemas:
@@ -472,7 +473,7 @@ def reflect(engine_or_url, include=None, exclude=None,
                                      else tuple(deny_columns),
                                      conn=_sample_conn, deadline=_deadline)
                       if sample_values else None)
-            docs.append(ObjectDoc(
+            doc = ObjectDoc(
                 name=name,
                 schema=schema,
                 kind=kind,
@@ -481,13 +482,48 @@ def reflect(engine_or_url, include=None, exclude=None,
                 columns=[Column(name=c["name"], type=str(c["type"]),
                                 nullable=bool(c.get("nullable", True)),
                                 comment=c.get("comment"), pk=c["name"] in pk,
-                                values=(values or {}).get(c["name"]))
+                                values=(values or {}).get(c["name"]),
+                                sql_name=spell(c["name"]))
                          for c in raw_cols],
                 foreign_keys=[ForeignKey(columns=list(f.get("constrained_columns") or []),
                                          ref_table=f.get("referred_table") or "",
-                                         ref_columns=list(f.get("referred_columns") or []))
+                                         ref_columns=list(f.get("referred_columns") or []),
+                                         ref_sql_name=spell(f.get("referred_table")))
                               for f in raw_fks if f.get("referred_table")],
-            ))
+            )
+            for key, value in (("sql_name", spell(name)), ("sql_schema", spell(schema))):
+                if value:
+                    doc.extra[key] = value
+            docs.append(doc)
     if _sample_stack is not None:
         _sample_stack.close()
     return docs
+
+
+def _sql_spelling(engine):
+    """``name -> how SQL must write it``, or None when it is written as shown.
+
+    Only for dialects that fold names (Oracle, Snowflake, DB2). There SQLAlchemy
+    reports a table stored as FRPM as ``frpm`` and one stored as ``frpm`` --
+    created in quotes -- also as ``frpm``, so the plain name cannot say which.
+    A model shown ``frpm`` writes ``FROM frpm``, Oracle looks for FRPM, and the
+    query fails: UniQL's Oracle data is loaded with the original quoted names,
+    so every table there broke this way. The preparer that SQLAlchemy itself
+    quotes with knows; ask it once, at reflection, while the name still carries
+    the flag. Other dialects keep the name as shown, as before.
+    """
+    dialect = engine.dialect
+    if not getattr(dialect, "requires_name_normalize", False):
+        return lambda name: None
+    prep = dialect.identifier_preparer
+
+    def spell(name):
+        if not name:
+            return None
+        try:
+            if getattr(name, "quote", None) is True or prep._requires_quotes(str(name)):
+                return prep.quote_identifier(str(name))
+        except Exception:                      # a preparer without the hook: leave it as shown
+            return None
+        return None
+    return spell

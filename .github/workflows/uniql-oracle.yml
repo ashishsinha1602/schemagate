@@ -32,6 +32,7 @@ jobs:
     env:
       MODE: ${{ github.event.inputs.mode || 'dry' }}
       LIMIT: ${{ github.event.inputs.limit || '0' }}
+      UNIQL_SHA: dec96c9dc15e1e6a7c075ba6771e59de86a79b43
       UNIQL_ORACLE_DSN: "localhost:1521/FREEPDB1"
       UNIQL_ORACLE_ADMIN_USER: "SYSTEM"
       UNIQL_ORACLE_ADMIN_PASSWORD: "Sg_CI_throwaway_2026"
@@ -45,7 +46,9 @@ jobs:
       - name: UniQL and BIRD dev databases
         run: |
           set -euo pipefail
-          git clone --depth 1 https://github.com/JerryGao818/UniQL.git uniql
+          # pinned: UniQL's 2026-11-12 release (PR #4) -- requoted Oracle gold, new loader and evaluator
+          git init -q uniql && git -C uniql fetch -q --depth 1 https://github.com/JerryGao818/UniQL.git "$UNIQL_SHA"
+          git -C uniql checkout -q FETCH_HEAD
           git -C uniql log -1 --format='UniQL %H %cs'
           curl -fsSL -o minidev.zip https://bird-bench.oss-cn-beijing.aliyuncs.com/minidev.zip
           unzip -q minidev.zip 'minidev/MINIDEV/dev_databases/*'
@@ -61,17 +64,9 @@ jobs:
         run: |
           set -euo pipefail
           cd uniql/migration/oracle
-          # the loader lists 7 databases and comments out the other 4; load all 11
-          python - <<'PY'
-          import re, pathlib
-          p = pathlib.Path("insert_to_oracle.py")
-          t = p.read_text()
-          t = re.sub(r"^DATABASES = \[.*\]$", "DATABASES = ['california_schools', 'card_games', 'codebase_community', "
-                     "'debit_card_specializing', 'european_football_2', 'financial', 'formula_1', 'student_club', "
-                     "'superhero', 'thrombosis_prediction', 'toxicology']", t, count=1, flags=re.M)
-          p.write_text(t)
-          PY
-          python insert_to_oracle.py > load.log 2>&1; tail -3 load.log
+          # all 11 databases, original quoted names, ordinary users; it verifies every row it loads
+          python insert_to_oracle.py --root "$UNIQL_BIRD_DB_ROOT" > load.log 2>&1 || { tail -30 load.log; exit 1; }
+          tail -11 load.log
       - run: python benchmarks/uniql_oracle_check.py uniql/data/queries/oracle.json
       - name: OCI credentials (full mode only)
         if: env.MODE == 'full'
