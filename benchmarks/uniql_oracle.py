@@ -34,6 +34,12 @@ _bm = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_bm)
 descriptions, REPAIR = _bm.descriptions, _bm.REPAIR
 BEST_EFFORT = _bm.BEST_EFFORT.format(dialect="Oracle")
+_ck = importlib.util.spec_from_file_location("uniql_oracle_check", HERE / "uniql_oracle_check.py")
+_check = importlib.util.module_from_spec(_ck)
+_ck.loader.exec_module(_check)
+#: The session UniQL's evaluator scores in. The repair loop runs each query to see whether it errors,
+#: so it has to run it where the evaluator will, or a correct query gets "repaired".
+UNIQL_SESSION = _check.UNIQL_SESSION
 
 
 def main():
@@ -83,6 +89,12 @@ def main():
             if db not in cats:
                 eng = sa.create_engine(f"oracle+oracledb://{db.upper()}:{pw}@{dsn.split('/')[0]}"
                                        f"/?service_name={dsn.split('/')[1]}", pool_size=a.workers)
+
+                @sa.event.listens_for(eng, "connect")
+                def _session(dbapi_conn, _record):
+                    with dbapi_conn.cursor() as cur:
+                        for stmt in UNIQL_SESSION:
+                            cur.execute(stmt)
                 # Name the user's own schema. UniQL's loader before 2026-11-12 created each user with
                 # _ORACLE_SCRIPT=true (Oracle-maintained, which schemagate skips); naming it works for both.
                 own = sa.inspect(eng).default_schema_name
