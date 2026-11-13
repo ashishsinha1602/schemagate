@@ -69,10 +69,10 @@ jobs:
           set -euo pipefail
           cd uniql/migration/oracle
           # All 11 databases, original quoted names, ordinary users. Two patches, both reported to UniQL:
-          # 1. The loader binds a CLOB value of up to 4,000 UTF-8 bytes as VARCHAR2 text. On this Oracle
-          #    Free image (MAX_STRING_SIZE=STANDARD, thin driver) a long value with multibyte characters
-          #    fails that way (ORA-01461 on posts.Body) or reads back changed (postHistory fingerprint).
-          #    Bind as text only up to 1,000 bytes, which fits however it is counted; longer goes as a LOB.
+          # 1. Each 64-row batch picks its own bind types (a CLOB column goes as text when every value in the
+          #    batch is short, as a LOB otherwise) but reuses one cursor. With python-oracledb 26 thin the
+          #    earlier batch's binds stick: posts.Body failed with ORA-01461 and postHistory read back a
+          #    different fingerprint on each run. Insert each batch through a fresh cursor.
           # 2. A table whose readback fingerprint still differs is logged, not fatal: gold and prediction
           #    both run against the same loaded data. Every mismatch is listed in the run log.
           python - <<'PY'
@@ -80,8 +80,11 @@ jobs:
           p = pathlib.Path("loader_native.py")
           t = p.read_text()
           for old, new in (
-              ("len(str(v[i]).encode('utf-8')) <= 4000 for v in rows)",
-               "len(str(v[i]).encode('utf-8')) <= 1000 for v in rows)"),
+              ("cursor.setinputsizes(*active_bindings)",
+               "bcur = connection.cursor(); bcur.setinputsizes(*active_bindings)"),
+              ("cursor.executemany('INSERT INTO ' + name + ' VALUES (' + ','.join(active_expressions) + ')', batch)",
+               "bcur.executemany('INSERT INTO ' + name + ' VALUES (' + ','.join(active_expressions) + ')', batch);"
+               " bcur.close()"),
               ("raise RuntimeError('Full strict verification failed for '",
                "print('VERIFY-MISMATCH ' + db_id + '.' + table['name'] + ': expected '"
                " + json.dumps(expected.evidence()) + ', actual ' + json.dumps(actual.evidence()),"
