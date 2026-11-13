@@ -47,8 +47,10 @@ def main():
     ap.add_argument("--queries", required=True, help="UniQL data/queries/oracle.json")
     ap.add_argument("--bird-db-root", required=True, help="BIRD dev_databases (for database_description/)")
     ap.add_argument("--out", required=True)
-    ap.add_argument("--provider", choices=["oci", "anthropic"], default="oci")
-    ap.add_argument("--model", default="google.gemini-2.5-flash")
+    ap.add_argument("--provider", choices=["oci", "gemini", "anthropic"], default="oci",
+                    help="oci: Gemini on OCI Generative AI; gemini: Google's Gemini API (GEMINI_API_KEY)")
+    ap.add_argument("--model", default=None,
+                    help="default: google.gemini-2.5-flash on oci, gemini-2.5-flash on gemini")
     ap.add_argument("--top-k", type=int, default=8)
     ap.add_argument("--repairs", type=int, default=3)
     ap.add_argument("--max-tokens", type=int, default=8000)
@@ -77,8 +79,12 @@ def main():
             import oci
 
             from schemagate.ai.providers import OCIGenAIProvider
-            prov = OCIGenAIProvider(model=a.model, timeout=300, compartment_id=os.environ.get(
-                "OCI_COMPARTMENT_ID") or oci.config.from_file()["tenancy"])
+            prov = OCIGenAIProvider(model=a.model or "google.gemini-2.5-flash", timeout=300,
+                                    compartment_id=os.environ.get("OCI_COMPARTMENT_ID")
+                                    or oci.config.from_file()["tenancy"])
+        elif a.provider == "gemini":
+            from schemagate.ai.providers import GeminiProvider
+            prov = GeminiProvider(model=a.model or "gemini-2.5-flash")
         else:
             from schemagate.ai.providers import AnthropicProvider
             prov = AnthropicProvider(model=a.model)

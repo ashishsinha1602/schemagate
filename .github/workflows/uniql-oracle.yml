@@ -1,13 +1,17 @@
 # schemagate on UniQL's Oracle dialect. A push runs mode=dry: load BIRD dev into Oracle Free with UniQL's
 # loader, run every gold query, then put the gold SQL through the runner and UniQL's evaluator as if it
-# were a prediction -- no model is called. mode=full (manual only) calls Gemini 2.5 Flash on OCI.
+# were a prediction -- no model is called. mode=full (manual only) calls Gemini 2.5 Flash, on OCI
+# Generative AI (secrets OCI_CONFIG + OCI_KEY) or on Google's Gemini API (secret GEMINI_API_KEY).
 name: uniql-oracle
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "dry (no model) or full (Gemini 2.5 Flash on OCI, paid)"
+        description: "dry (no model) or full (Gemini 2.5 Flash, paid)"
         default: dry
+      provider:
+        description: "full mode only: oci (OCI Generative AI) or gemini (Google's Gemini API)"
+        default: oci
       limit:
         description: "only the first N questions (0 = all 1,534)"
         default: "0"
@@ -32,6 +36,7 @@ jobs:
     env:
       MODE: ${{ github.event.inputs.mode || 'dry' }}
       LIMIT: ${{ github.event.inputs.limit || '0' }}
+      PROVIDER: ${{ github.event.inputs.provider || 'oci' }}
       UNIQL_SHA: dec96c9dc15e1e6a7c075ba6771e59de86a79b43
       UNIQL_ORACLE_DSN: "localhost:1521/FREEPDB1"
       UNIQL_ORACLE_ADMIN_USER: "SYSTEM"
@@ -60,7 +65,12 @@ jobs:
       - run: |
           set -euo pipefail
           lock=.github/requirements/uniql-oracle.txt
-          if [ "$MODE" = "full" ]; then lock=.github/requirements/uniql-oracle-oci.txt; fi
+          case "$MODE/$PROVIDER" in
+            dry/*) ;;
+            full/oci) lock=.github/requirements/uniql-oracle-oci.txt ;;
+            full/gemini) lock=.github/requirements/uniql-oracle-gemini.txt ;;
+            *) echo "provider must be oci or gemini, got '$PROVIDER'"; exit 1 ;;
+          esac
           pip install --require-hashes -r "$lock" && pip install --no-deps -e .
       # UniQL's evaluator opens fresh connections per question; with the image's default process limit the
       # listener started refusing them (ORA-12516) and 170 dry-run questions were never executed.
@@ -98,8 +108,8 @@ jobs:
           python insert_to_oracle.py --root "$UNIQL_BIRD_DB_ROOT" > load.log 2>&1 || { tail -30 load.log; exit 1; }
           grep -c content_verified load.log; grep VERIFY-MISMATCH load.log || echo "every table verified"
       - run: python benchmarks/uniql_oracle_check.py uniql/data/queries/oracle.json
-      - name: OCI credentials (full mode only)
-        if: env.MODE == 'full'
+      - name: OCI credentials (full mode on OCI only)
+        if: env.MODE == 'full' && env.PROVIDER == 'oci'
         env:
           OCI_CONFIG: ${{ secrets.OCI_CONFIG }}
           OCI_KEY: ${{ secrets.OCI_KEY }}
@@ -111,9 +121,14 @@ jobs:
             | sed "s|^key_file\s*=.*|key_file=$HOME/.oci/key.pem|" > ~/.oci/config
           head -1 ~/.oci/config; grep -c '=' ~/.oci/config
       - name: schemagate writes the SQL
+        env:
+          GEMINI_API_KEY: ${{ env.MODE == 'full' && env.PROVIDER == 'gemini' && secrets.GEMINI_API_KEY || '' }}
         run: |
           extra=""; [ "$MODE" = "dry" ] && extra="--dry-run"
-          python benchmarks/uniql_oracle.py --queries uniql/data/queries/oracle.json \
+          if [ "$MODE" = "full" ] && [ "$PROVIDER" = "gemini" ] && [ -z "$GEMINI_API_KEY" ]; then
+            echo "secret GEMINI_API_KEY is not set"; exit 1
+          fi
+          python benchmarks/uniql_oracle.py --queries uniql/data/queries/oracle.json --provider "$PROVIDER" \
             --bird-db-root bird_dev/dev_databases --out out/oracle_${MODE}.json --limit "$LIMIT" $extra
       - name: UniQL's evaluator
         run: |
