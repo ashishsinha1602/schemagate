@@ -80,7 +80,7 @@ jobs:
               ("raise RuntimeError('Full strict verification failed for '",
                "print('VERIFY-MISMATCH ' + db_id + '.' + table['name'] + ': expected '"
                " + json.dumps(expected.evidence()) + ', actual ' + json.dumps(actual.evidence()),"
-               " flush=True) or print('Full strict verification failed for '")):
+               " flush=True) or print('Full strict verification failed for '"),):
               assert t.count(old) == 1, "loader changed; revisit this patch: " + old
               t = t.replace(old, new)
           p.write_text(t)
