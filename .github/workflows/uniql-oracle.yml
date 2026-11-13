@@ -12,6 +12,9 @@ on:
       provider:
         description: "full mode only: oci (OCI signing key), oci-key (OCI Generative AI API key) or gemini"
         default: oci
+      model:
+        description: "full mode only: model id, blank for the provider's Gemini 2.5 Flash"
+        default: ""
       limit:
         description: "only the first N questions (0 = all 1,534)"
         default: "0"
@@ -37,6 +40,7 @@ jobs:
       MODE: ${{ github.event.inputs.mode || 'dry' }}
       LIMIT: ${{ github.event.inputs.limit || '0' }}
       PROVIDER: ${{ github.event.inputs.provider || 'oci' }}
+      MODEL: ${{ github.event.inputs.model || '' }}
       UNIQL_SHA: dec96c9dc15e1e6a7c075ba6771e59de86a79b43
       UNIQL_ORACLE_DSN: "localhost:1521/FREEPDB1"
       UNIQL_ORACLE_ADMIN_USER: "SYSTEM"
@@ -135,6 +139,7 @@ jobs:
           if [ "$MODE" = "full" ] && [ "$PROVIDER" = "oci-key" ] && [ -z "$OCI_GENAI_API_KEY" ]; then
             echo "secret OCI_GENAI_API_KEY is not set"; exit 1
           fi
+          [ -n "$MODEL" ] && extra="$extra --model $MODEL"
           python benchmarks/uniql_oracle.py --queries uniql/data/queries/oracle.json --provider "$PROVIDER" \
             --bird-db-root bird_dev/dev_databases --out out/oracle_${MODE}.json --limit "$LIMIT" $extra
       - name: UniQL's evaluator
