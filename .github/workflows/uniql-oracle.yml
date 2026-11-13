@@ -50,8 +50,12 @@ jobs:
           git init -q uniql && git -C uniql fetch -q --depth 1 https://github.com/JerryGao818/UniQL.git "$UNIQL_SHA"
           git -C uniql checkout -q FETCH_HEAD
           git -C uniql log -1 --format='UniQL %H %cs'
-          curl -fsSL -o minidev.zip https://bird-bench.oss-cn-beijing.aliyuncs.com/minidev.zip
-          unzip -q minidev.zip 'minidev/MINIDEV/dev_databases/*'
+          # BIRD's official dev release (dev_20240627). UniQL's loader checks each database's SHA-256
+          # against it, and minidev's copies differ.
+          curl -fsSL -o dev.zip https://bird-bench.oss-cn-beijing.aliyuncs.com/dev.zip
+          unzip -q dev.zip 'dev_20240627/dev_databases.zip'
+          mkdir -p bird_dev && unzip -q dev_20240627/dev_databases.zip -d bird_dev -x '__MACOSX/*'
+          ls bird_dev/dev_databases
       # hash-pinned like every other workflow; the -oci lock adds the OCI SDK, needed for MODE=full only
       - run: |
           set -euo pipefail
@@ -60,7 +64,7 @@ jobs:
           pip install --require-hashes -r "$lock" && pip install --no-deps -e .
       - name: load all 11 databases with UniQL's loader
         env:
-          UNIQL_BIRD_DB_ROOT: ${{ github.workspace }}/minidev/MINIDEV/dev_databases
+          UNIQL_BIRD_DB_ROOT: ${{ github.workspace }}/bird_dev/dev_databases
         run: |
           set -euo pipefail
           cd uniql/migration/oracle
@@ -84,12 +88,12 @@ jobs:
         run: |
           extra=""; [ "$MODE" = "dry" ] && extra="--dry-run"
           python benchmarks/uniql_oracle.py --queries uniql/data/queries/oracle.json \
-            --bird-db-root minidev/MINIDEV/dev_databases --out out/oracle_${MODE}.json --limit "$LIMIT" $extra
+            --bird-db-root bird_dev/dev_databases --out out/oracle_${MODE}.json --limit "$LIMIT" $extra
       - name: UniQL's evaluator
         run: |
           cd uniql/evaluation
           python evaluate.py --predicted_sql_path ../../out/oracle_${MODE}.json --dialect oracle \
-            --db_root_path ../../minidev/MINIDEV/dev_databases --num_cpus 1 \
+            --db_root_path ../../bird_dev/dev_databases --num_cpus 1 \
             --model "schemagate-${MODE}" --output_dir ../../out/eval 2>&1 | tail -40
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
