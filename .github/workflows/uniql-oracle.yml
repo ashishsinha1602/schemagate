@@ -80,6 +80,8 @@ jobs:
           p = pathlib.Path("loader_native.py")
           t = p.read_text()
           for old, new in (
+              # the table-wide bind sizes then sit unused on the readback cursor: drop them
+              ("cursor.setinputsizes(*bindings)", "pass"),
               ("cursor.setinputsizes(*active_bindings)",
                "bcur = connection.cursor(); bcur.setinputsizes(*active_bindings)"),
               ("cursor.executemany('INSERT INTO ' + name + ' VALUES (' + ','.join(active_expressions) + ')', batch)",
