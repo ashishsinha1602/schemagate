@@ -68,20 +68,27 @@ jobs:
         run: |
           set -euo pipefail
           cd uniql/migration/oracle
-          # All 11 databases, original quoted names, ordinary users. The loader fingerprints every row it
-          # reads back and stops at the first table that differs. On this Oracle Free image
-          # codebase_community.postHistory (303,155 rows, long CLOB text) reads back with the right row count
-          # and a different fingerprint, so log a mismatch and keep loading: gold and prediction are both
-          # executed against the same loaded data. The mismatches are listed in the run log.
+          # All 11 databases, original quoted names, ordinary users. Two patches, both reported to UniQL:
+          # 1. The loader binds a CLOB value of up to 4,000 UTF-8 bytes as VARCHAR2 text. On this Oracle
+          #    Free image (MAX_STRING_SIZE=STANDARD, thin driver) a long value with multibyte characters
+          #    fails that way (ORA-01461 on posts.Body) or reads back changed (postHistory fingerprint).
+          #    Bind as text only up to 1,000 bytes, which fits however it is counted; longer goes as a LOB.
+          # 2. A table whose readback fingerprint still differs is logged, not fatal: gold and prediction
+          #    both run against the same loaded data. Every mismatch is listed in the run log.
           python - <<'PY'
           import pathlib
           p = pathlib.Path("loader_native.py")
           t = p.read_text()
-          old = "raise RuntimeError('Full strict verification failed for '"
-          assert t.count(old) == 1, "loader changed; revisit this patch"
-          p.write_text(t.replace(old, "print('VERIFY-MISMATCH ' + db_id + '.' + table['name'] + ': expected '"
-                                      " + json.dumps(expected.evidence()) + ', actual ' + json.dumps(actual.evidence()),"
-                                      " flush=True) or print('Full strict verification failed for '"))
+          for old, new in (
+              ("len(str(v[i]).encode('utf-8')) <= 4000 for v in rows)",
+               "len(str(v[i]).encode('utf-8')) <= 1000 for v in rows)"),
+              ("raise RuntimeError('Full strict verification failed for '",
+               "print('VERIFY-MISMATCH ' + db_id + '.' + table['name'] + ': expected '"
+               " + json.dumps(expected.evidence()) + ', actual ' + json.dumps(actual.evidence()),"
+               " flush=True) or print('Full strict verification failed for '")):
+              assert t.count(old) == 1, "loader changed; revisit this patch: " + old
+              t = t.replace(old, new)
+          p.write_text(t)
           PY
           python insert_to_oracle.py --root "$UNIQL_BIRD_DB_ROOT" > load.log 2>&1 || { tail -30 load.log; exit 1; }
           grep -c content_verified load.log; grep VERIFY-MISMATCH load.log || echo "every table verified"
