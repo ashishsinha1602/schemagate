@@ -45,3 +45,9 @@ updates:
       interval: weekly
     commit-message:
       prefix: "docker"
+    # Python 3.15 (#230) broke the v1.18.2 image: pyodbc has no 3.15 wheel yet, so it compiles,
+    # and the slim image has no g++. Patch updates within 3.14 still come through; lift this once
+    # pyodbc publishes cp315 wheels.
+    ignore:
+      - dependency-name: "python"
+        versions: [">=3.15"]
