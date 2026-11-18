@@ -101,16 +101,24 @@ def _bare(name: str) -> str:
 
 
 def referenced_tables(sql: str) -> List[str]:
-    """Base tables a SELECT reads, lower-cased, CTE names removed."""
-    body = re.sub(r"--[^\n]*", " ", sql)
-    body = re.sub(r"/\*.*?\*/", " ", body, flags=re.S)
-    body = re.sub(r"'(?:[^']|'')*'", "''", body)
-    ctes = {m.lower() for m in re.findall(r"(?:\bwith\b|,)\s*([A-Za-z_]\w*)\s+as\s*\(", body, re.I)}
+    """Base tables a SELECT reads, lower-cased, CTE names removed.
+
+    Decides which remembered examples a caller may be shown, so a table must not hide from it:
+    every reading of the text (`schemagate.sqltext`) is scanned and the tables any of them sees
+    are returned. Text that cannot be read safely returns a name no one holds, so the example
+    is shown to nobody."""
+    from .sqltext import ALL_MODES, SQLTextError, scan_text
     out: List[str] = []
-    for raw in _TABLE_REF.findall(body):
-        t = _bare(raw)
-        if t and t not in ctes and t not in out:
-            out.append(t)
+    for mode in ALL_MODES:
+        try:
+            body = scan_text(sql, mode)
+        except SQLTextError:
+            return ["\x00unreadable"]
+        ctes = {m.lower() for m in re.findall(r"(?:\bwith\b|,)\s*([A-Za-z_]\w*)\s+as\s*\(", body, re.I)}
+        for raw in _TABLE_REF.findall(body):
+            t = _bare(raw)
+            if t and t not in ctes and t not in out:
+                out.append(t)
     return out
 
 

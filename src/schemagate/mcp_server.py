@@ -83,6 +83,7 @@ from .catalog import Catalog
 from .audit import AUDITED, AuditLog, summarize
 from .learn import Memory
 from .identity import IdentityError, Principal
+from .sqltext import SQLTextError, modes_for, scan_text, segments, string_contents
 
 log = logging.getLogger("schemagate.mcp")
 
@@ -488,11 +489,13 @@ def _unquote(part: str) -> str:
     return part.strip()[1:-1] if part.strip()[:1] in ('"', "[", "`") else part.strip()
 
 
-def _sql_body(sql: str) -> str:
-    """The statement with comments removed and string literals emptied."""
-    body = re.sub(r"--[^\n]*", " ", sql)
-    body = re.sub(r"/\*.*?\*/", " ", body, flags=re.S)
-    return re.sub(r"'(?:[^']|'')*'", "''", body)
+def _sql_body(sql: str, mode: str = "ansi") -> str:
+    """The statement with comments removed and string literals emptied, read as ``mode`` reads it.
+
+    One left-to-right scan (`schemagate.sqltext`), not two regular expressions: stripping `--`
+    before blanking strings treated the `--` in `'--'` as a comment and hid the rest of the line
+    from every check that reads this."""
+    return scan_text(sql, mode)
 
 
 #: A single-quoted string. Emptied before table names are read, except where
@@ -503,7 +506,7 @@ _STRING = re.compile(r"'(?:[^']|'')*'")
 _TABLE_BEFORE = re.compile(r"(?:\b(?:from|join)|,|\.)\s*$", re.I)
 
 
-def _table_body(sql: str) -> str:
+def _table_body(sql: str, mode: str = "ansi") -> str:
     """The statement with comments removed, for reading table names.
 
     SQLite takes a single-quoted string as an identifier where only an
@@ -514,20 +517,26 @@ def _table_body(sql: str) -> str:
     other string is still emptied. The other dialects reject the syntax, so
     reading it as a name there only refuses what would have failed anyway.
     """
-    body = re.sub(r"--[^\n]*", " ", sql)
-    body = re.sub(r"/\*.*?\*/", " ", body, flags=re.S)
+    segs = [s for s in segments(sql, mode) if s.kind != "comment"]
+    parts: List[str] = []
+    for k, s in enumerate(segs):
+        if s.kind != "string":
+            parts.append(s.text)
+            continue
+        after = next((x.text for x in segs[k + 1:] if x.text.strip()), "")
+        if _TABLE_BEFORE.search("".join(parts)) or after.lstrip().startswith("."):
+            parts.append('"' + string_contents(s.text).replace('"', "") + '"')
+        else:
+            parts.append("''")
+    return "".join(parts)
 
-    def one(m: "re.Match[str]") -> str:
-        before, after = body[:m.start()], body[m.end():]
-        if _TABLE_BEFORE.search(before) or after.lstrip().startswith("."):
-            return '"' + m.group(0)[1:-1].replace("''", "'").replace('"', "") + '"'
-        return "''"
-    return _STRING.sub(one, body)
 
-
-def _referenced_tables(sql: str) -> List[str]:
+def _referenced_tables(sql: str, mode: str = "ansi") -> List[str]:
     """Base tables the statement reads, with CTE and subquery aliases removed."""
-    body = _table_body(sql)
+    try:
+        body = _table_body(sql, mode)
+    except SQLTextError:
+        return []
     ctes = {_unquote(c).lower() for c in _CTE.findall(body)}
     out, seen = [], set()
     for clause in _REFERENCED.findall(body):
@@ -545,9 +554,9 @@ def _referenced_tables(sql: str) -> List[str]:
     return out
 
 
-def _identifiers(sql: str) -> set:
+def _identifiers(sql: str, mode: str = "ansi") -> set:
     """Every identifier part in the statement, unquoted and lower-cased."""
-    return {_unquote(p).lower() for p in re.findall(_PART, _sql_body(sql))}
+    return {_unquote(p).lower() for p in re.findall(_PART, _sql_body(sql, mode))}
 
 
 #: A projection that takes every column: `SELECT *`, `SELECT DISTINCT *`,
@@ -626,7 +635,7 @@ def _parsed_refs(sql: str, dialect: Optional[str] = None):
             if c.name.lower() in row_names and (not qualifier or qualifier not in row_names):
                 whole_rows.add(".".join(p for p in (qualifier, c.name.lower()) if p))
         star = star or any(not isinstance(st.parent, exp.Count) for st in t.find_all(exp.Star))
-    return tables, cols, star, whole_rows
+    return tables, cols, star, whole_rows, len(trees)
 
 
 #: words before a bracket that make it a list or a group, not a function call
@@ -661,6 +670,43 @@ def _check_scope(cat: Catalog, sql: str, who: Optional[Principal],
                  dialect: Optional[str] = None) -> Optional[str]:
     """Refuse SQL that reads anything this caller may not see.
 
+    The text is read the way the database reads it (`schemagate.sqltext`): where a string or a
+    comment starts and ends decides what every pattern check below can see. With the dialect
+    unknown, every reading is checked and the first refusal wins -- whichever one the database
+    uses has then been checked.
+    """
+    name = _dialect_name() if dialect is None else dialect
+    # A property graph reads tables this check would never see named: its labels and properties are not
+    # table and column names. Refused by name, before the parser (which may not read the syntax) is asked.
+    try:
+        if any(re.search(r"\bGRAPH_TABLE\b", _sql_body(sql, mode), re.I) for mode in modes_for(name)):
+            return ("not available to this caller: GRAPH_TABLE reads tables through a property graph, "
+                    "which this check cannot follow. Write it as a plain SELECT with joins.")
+    except SQLTextError as e:
+        return "not available to this caller: %s. Send one plain SELECT." % e
+    # Parsed once: the parser's reading does not depend on which text reading is being checked.
+    try:
+        parsed = _parsed_refs(sql, name)
+    except _Unparsed as e:
+        return ("not available to this caller: the statement could not be parsed to check "
+                "which tables and columns it reads (%s). Write it as a plain SELECT." % e)
+    if parsed is not None and len(parsed) > 4 and parsed[4] > 1:
+        return "not available to this caller: more than one statement. Send one SELECT."
+    try:
+        for mode in modes_for(name):
+            segments(sql, mode)                      # unreadable text is refused, not guessed at
+            denied = _check_scope_one(cat, sql, who, mode, parsed)
+            if denied:
+                return denied
+    except SQLTextError as e:
+        return "not available to this caller: %s. Send one plain SELECT." % e
+    return None
+
+
+def _check_scope_one(cat: Catalog, sql: str, who: Optional[Principal],
+                     mode: str, parsed) -> Optional[str]:
+    """`_check_scope` for one reading of the text.
+
     This is the whole point of the library, so it is enforced here and not
     left to the model: `select_schema` withholding a table means nothing if
     the next tool will run `SELECT * FROM` it anyway. An agent that guesses a
@@ -678,7 +724,7 @@ def _check_scope(cat: Catalog, sql: str, who: Optional[Principal],
     # A property graph reads tables this check would never see named: its labels
     # and properties are not table and column names. Refused by name, not left to
     # the parser failing on it, because a newer sqlglot may well read the syntax.
-    if re.search(r"\bGRAPH_TABLE\b", _sql_body(sql), re.I):
+    if re.search(r"\bGRAPH_TABLE\b", _sql_body(sql, mode), re.I):
         return ("not available to this caller: GRAPH_TABLE reads tables through a property graph, "
                 "which this check cannot follow. Write it as a plain SELECT with joins.")
     vis_q, vis_bare, hid_q, hid_bare = {}, {}, set(), set()
@@ -707,12 +753,7 @@ def _check_scope(cat: Catalog, sql: str, who: Optional[Principal],
             return []
         return vis_bare.get(r, [])
 
-    try:
-        parsed = _parsed_refs(sql, dialect)
-    except _Unparsed as e:
-        return ("not available to this caller: the statement could not be parsed to check "
-                "which tables and columns it reads (%s). Write it as a plain SELECT." % e)
-    refs = _referenced_tables(sql)
+    refs = _referenced_tables(sql, mode)
     if parsed:
         known = {r.lower() for r in refs}
         refs += [t for t in parsed[0] if t.lower() not in known]
@@ -722,7 +763,7 @@ def _check_scope(cat: Catalog, sql: str, who: Optional[Principal],
     # in the statement, is refused -- a FROM-list form the parser does not
     # know, a LATERAL, a dialect's own table function. A hidden table whose
     # name is also a visible object's name is left to the check above.
-    idents = _identifiers(sql)
+    idents = _identifiers(sql, mode)
     if parsed:
         idents |= parsed[1]
     visible_names = set(vis_q) | set(vis_bare)
@@ -736,16 +777,18 @@ def _check_scope(cat: Catalog, sql: str, who: Optional[Principal],
     # refused here whatever the function is (GHSA-r77g-5v43-wh54).
     hidden_only = (hid_q | hid_bare) - visible_names
     if hidden_only:
-        body = re.sub(r"--[^\n]*", " ", sql)
-        body = re.sub(r"/\*.*?\*/", " ", body, flags=re.S)
-        # the same text with every literal blanked to spaces, so brackets inside strings do not count
-        masked = _STRING.sub(lambda m: " " * len(m.group(0)), body)
-        for m in _STRING.finditer(body):
+        segs = segments(sql, mode)
+        # the text with every literal and comment blanked to spaces, positions kept, so brackets
+        # inside strings do not count
+        masked = "".join(s.text if s.kind in ("code", "ident") else " " * len(s.text) for s in segs)
+        for s in segs:
+            if s.kind != "string":
+                continue
             # Only a string handed to a function can be run: `SELECT 'from secret' AS label` is a
             # label and `x IN ('a', 'secret')` a list.
-            if _calling(masked, m.start()) is None:
+            if _calling(masked, s.start) is None:
                 continue
-            text = m.group(0)[1:-1].replace("''", "'")
+            text = string_contents(s.text)
             names = {".".join(_unquote(p).lower() for p in re.findall(_PART, r))
                      for r in re.findall(_REF, text)}
             names |= {_unquote(p).lower() for p in re.findall(_PART, text)}
@@ -781,7 +824,7 @@ def _check_scope(cat: Catalog, sql: str, who: Optional[Principal],
         if named:
             return ("not available to this caller: column %s. Call select_schema and "
                     "use only the columns it returns." % ", ".join(named))
-        if _STAR.search(_sql_body(sql)) or (parsed and parsed[2]):
+        if _STAR.search(_sql_body(sql, mode)) or (parsed and parsed[2]):
             return ("not available to this caller: SELECT * would include columns this "
                     "caller may not see. Name the columns select_schema returned.")
         # A whole-row reference (`SELECT e`, `row_to_json(e)`, `e::text`) returns every
@@ -1150,7 +1193,7 @@ def run_query(sql: SqlArg, principal: PrincipalArg = None,
 
     who = _principal(principal, roles)
     try:
-        sql = check_read_only(sql)
+        sql = check_read_only(sql, _dialect_name())
     except UnsafeSQL as e:
         return {"error": f"refused: {e}", "sql": sql, "_refused_reason": "not-read-only"}
 

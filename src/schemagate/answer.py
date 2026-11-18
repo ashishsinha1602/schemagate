@@ -210,25 +210,36 @@ _DYNAMIC = re.compile(
 )
 
 
-def check_read_only(sql: str) -> str:
+def check_read_only(sql: str, dialect: str = "") -> str:
     """Return ``sql`` if it is a single read, otherwise raise ``UnsafeSQL``.
 
     Conservative on purpose. This runs on text a model produced, so the
     question is not "is this probably fine" but "is there any reading of it
-    that writes". Comments are stripped first: `-- ` and `/* */` are the
-    obvious place to hide a second statement from a naive scan.
+    that writes". Comments are removed and string literals emptied before
+    the scan -- in one left-to-right pass that reads strings and comments the
+    way the database does (`schemagate.sqltext`). Two regular expressions in a
+    row did not: the `--` inside `'--'` was taken for a comment, and the rest of
+    the line, a second statement included, was never scanned.
+
+    ``dialect`` is the SQLAlchemy dialect name the SQL will run on. Unknown,
+    every reading is checked and any one of them finding a write refuses it.
     """
     s = _strip_fences(sql)
     if not s:
         raise UnsafeSQL("the model returned nothing")
+    from .sqltext import SQLTextError, modes_for, scan_text
+    try:
+        # Each reading sees every `;` outside strings and comments, so a second statement is
+        # refused here without a parser; the scope check adds a parser's count on top.
+        for mode in modes_for(dialect):
+            _check_one_reading(s, scan_text(s, mode, string_as=None), scan_text(s, mode))
+    except SQLTextError as e:
+        raise UnsafeSQL(str(e)) from None
+    return s
 
-    bare = re.sub(r"--[^\n]*", " ", s)
-    bare = re.sub(r"/\*.*?\*/", " ", bare, flags=re.S)
 
-    # A string literal can legitimately contain any word at all, so blank
-    # literals out before looking for statement keywords.
-    scan = re.sub(r"'(?:[^']|'')*'", "''", bare)
-
+def _check_one_reading(s: str, bare: str, scan: str) -> None:
+    """`check_read_only` for one reading: ``bare`` has comments removed, ``scan`` strings emptied too."""
     if ";" in scan.strip().rstrip(";"):
         raise UnsafeSQL("more than one statement")
     if not re.match(r"^\s*(select|with)\b", scan, re.I):
@@ -243,7 +254,6 @@ def check_read_only(sql: str) -> str:
     # Oracle's XQuery reads a table named in a string: XMLQUERY('ora:view("PAYROLL")' ...)
     if re.search(r"\bora\s*:\s*view\b", bare, re.I):
         raise UnsafeSQL("uses ora:view, which reads a table named in a string")
-    return s
 
 
 def _prompt_body(question: str, fragment: str,
@@ -339,7 +349,7 @@ def generate_sql(provider, question: str, fragment: str,
     for _ in range(tries):
         reply = provider.complete(SYSTEM + flavour, prompt, max_tokens=max_tokens)
         if _strip_fences(reply).upper() != "INSUFFICIENT":
-            return check_read_only(reply)
+            return check_read_only(reply, dialect)
     raise UnsafeSQL(
         "the model said the selected tables cannot answer this, %d times. "
         "That is usually selection, not the model: try --top-k higher, or a "
@@ -392,7 +402,7 @@ def run_sql(engine, sql: str, limit: int = 50, timeout: Optional[float] = None
     """
     from sqlalchemy import text
 
-    sql = check_read_only(sql)
+    sql = check_read_only(sql, getattr(getattr(engine, "dialect", None), "name", "") or "")
     with engine.connect() as conn:
         if timeout:
             _limit_time(conn, timeout)

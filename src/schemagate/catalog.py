@@ -599,20 +599,26 @@ class Catalog:
             # of what a call named "restrict" asks for
             raise ValueError("restrict_column needs at least one role; an empty list would make "
                              "the column visible to everyone")
-        for qname, doc in self._docs.items():
-            if qname == table or doc.name == table:
-                for col in doc.columns:
-                    if col.name == column:
-                        col.roles = list(roles)
-                        # Values sampled before the restriction was applied
-                        # would otherwise sit on the column, reachable by
-                        # anything that reads `Column.values` directly. The
-                        # DDL already omits a restricted column, but the data
-                        # should not survive the restriction either.
-                        col.values = None
-                        return
-                raise KeyError(f"{table!r} has no column {column!r}")
-        raise KeyError(f"{table!r} not in catalog")
+        # Every object the name matches, not the first: a bare `employees` with both
+        # `hr.employees` and `sales.employees` in the catalog used to restrict one and leave
+        # the other open while reporting success.
+        matches = [d for q, d in self._docs.items() if q == table or d.name == table]
+        if not matches:
+            raise KeyError(f"{table!r} not in catalog")
+        hit = False
+        for doc in matches:
+            for col in doc.columns:
+                if col.name == column:
+                    col.roles = list(roles)
+                    # Values sampled before the restriction was applied
+                    # would otherwise sit on the column, reachable by
+                    # anything that reads `Column.values` directly. The
+                    # DDL already omits a restricted column, but the data
+                    # should not survive the restriction either.
+                    col.values = None
+                    hit = True
+        if not hit:
+            raise KeyError(f"{table!r} has no column {column!r}")
 
     def _resolve_object(self, name: str) -> str:
         hit = next((q for q, d in self._docs.items() if q == name or d.name == name), None)
@@ -833,11 +839,13 @@ class Catalog:
             # of what a call named "restrict" asks for
             raise ValueError("restrict needs at least one role; an empty list would make the "
                              "object visible to everyone (use exclude= to drop it)")
-        for qname, doc in self._docs.items():
-            if qname == table or doc.name == table:
-                doc.roles = list(roles)
-                return
-        raise KeyError(f"{table!r} not in catalog")
+        # Every object the name matches: a bare name shared by two schemas restricts both,
+        # rather than the first one found while the other stays visible.
+        matches = [d for q, d in self._docs.items() if q == table or d.name == table]
+        if not matches:
+            raise KeyError(f"{table!r} not in catalog")
+        for doc in matches:
+            doc.roles = list(roles)
 
     def bootstrap(self, engine_or_url=None, include=None, exclude=None,
                   schemas=None, include_views=True,
