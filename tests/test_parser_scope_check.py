@@ -106,7 +106,7 @@ def test_a_statement_the_parser_cannot_read_is_refused(dialect):
 
 def test_without_sqlglot_the_pattern_readers_still_guard(monkeypatch, dialect):
     dialect("postgresql")
-    monkeypatch.setattr(M, "_parsed_refs", lambda sql: None)
+    monkeypatch.setattr(M, "_parsed_refs", lambda sql, dialect=None: None)
     assert M._check_scope(CAT, "SELECT * FROM hr.salary", SALES) is not None
     assert M._check_scope(CAT, "SELECT id FROM orders", SALES) is None
 
@@ -162,7 +162,7 @@ def test_the_payroll_role_may_read_the_whole_row(dialect):
 
 def test_without_the_parser_a_table_with_a_withheld_column_is_refused(monkeypatch, dialect):
     dialect("postgresql")
-    monkeypatch.setattr(M, "_parsed_refs", lambda sql: None)
+    monkeypatch.setattr(M, "_parsed_refs", lambda sql, dialect=None: None)
     out = M._check_scope(CAT, "SELECT row_to_json(s) FROM staff s", SALES)
     assert out is not None and "schemagate[mcp]" in out
     assert M._check_scope(CAT, "SELECT id FROM orders", SALES) is None

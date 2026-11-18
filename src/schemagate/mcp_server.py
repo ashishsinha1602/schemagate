@@ -565,8 +565,12 @@ class _Unparsed(Exception):
     """sqlglot could not read the statement."""
 
 
-def _parsed_refs(sql: str):
+def _parsed_refs(sql: str, dialect: Optional[str] = None):
     """(tables, columns, star, whole_rows) as a real SQL parser reads ``sql``, or None without sqlglot.
+
+    ``dialect`` is the SQLAlchemy dialect name the statement will run on. None means this
+    server's own connection, which is right for one database and wrong for a process that
+    checks SQL for several -- `schemagate.scope.check_scope` passes it in.
 
     ``whole_rows`` holds every table name or alias the statement uses as a *value*
     rather than as a qualifier: ``SELECT e FROM t e``, ``row_to_json(e)``, ``e::text``,
@@ -587,7 +591,8 @@ def _parsed_refs(sql: str):
     except ImportError:
         return None
     try:
-        trees = [t for t in sqlglot.parse(sql, read=_SQLGLOT_DIALECT.get(_dialect_name()))
+        name = _dialect_name() if dialect is None else dialect
+        trees = [t for t in sqlglot.parse(sql, read=_SQLGLOT_DIALECT.get(name))
                  if t is not None]
     except Exception as e:                               # noqa: BLE001 -- any parse failure
         raise _Unparsed(str(e).splitlines()[0][:160] if str(e) else type(e).__name__) from e
@@ -652,7 +657,8 @@ def _calling(masked: str, pos: int) -> Optional[str]:
     return None
 
 
-def _check_scope(cat: Catalog, sql: str, who: Optional[Principal]) -> Optional[str]:
+def _check_scope(cat: Catalog, sql: str, who: Optional[Principal],
+                 dialect: Optional[str] = None) -> Optional[str]:
     """Refuse SQL that reads anything this caller may not see.
 
     This is the whole point of the library, so it is enforced here and not
@@ -702,7 +708,7 @@ def _check_scope(cat: Catalog, sql: str, who: Optional[Principal]) -> Optional[s
         return vis_bare.get(r, [])
 
     try:
-        parsed = _parsed_refs(sql)
+        parsed = _parsed_refs(sql, dialect)
     except _Unparsed as e:
         return ("not available to this caller: the statement could not be parsed to check "
                 "which tables and columns it reads (%s). Write it as a plain SELECT." % e)

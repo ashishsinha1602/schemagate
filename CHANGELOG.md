@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- **`schemagate.scope.check_scope(catalog, sql, principal, dialect)`: the scope check `run_query` enforces, as a
+  public function.** It returns None when the SQL reads only objects and columns the principal may see, and the
+  refusal otherwise. `run_query` takes the SQL dialect from the server's one connection; this takes it as an
+  argument, so a process that serves several databases checks each one with its own grammar. Same function, so
+  one rule everywhere.
+- **Studio's answer now holds the model's SQL to the caller before running it.** Selection already showed the
+  model only the tables the caller may see, but the SQL it wrote ran unchecked, so a question asking it to read
+  a table it was never shown (`SELECT * FROM hr_compensation` as a `sales` caller) returned the rows. Studio's
+  roles come from the page itself, so this was not a way around a real access boundary, but the answer now
+  agrees with the selection: such SQL is refused with the same message `run_query` gives.
+
 ## 1.18.3
 
 - **The Docker image is published again.** 1.18.2's image build failed: Dependabot had moved the base image to
