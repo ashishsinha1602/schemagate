@@ -26,7 +26,7 @@ SQL. Every prediction file and evaluator output is in
 | BIRD Mini-Dev, PostgreSQL | Claude Opus 5.5 | **72.60** | 65.80 (Ontology2SQL, deepseek-v4-flash as a 12-step agent); 69.00 since (SDIP + gemini-3.8-flash), still below |
 | BIRD Mini-Dev, MySQL | Claude Opus 5.5 | **72.40** | 49.20 (TA + GPT-4) |
 | BIRD Mini-Dev, SQLite / PostgreSQL / MySQL | Gemini 2.5 Flash, a light model, one query per question (also on BIRD's board) | 63.60 / 55.60 / 54.80 | above the MySQL leader; below the other two |
-| **UniQL, Oracle dialect**, 1,534 questions, first try only | Gemini 2.5 Flash | **64.47** (67.60 with one execution repair) | 49.61 (Claude Sonnet 4.5, UniQL's own baseline) |
+| **UniQL, Oracle dialect**, 1,534 questions, first try only, on UniQL's re-audited 2026-11-12 release | Gemini 3.8 Flash | **63.69** (64.93 with execution repair; before the re-audit, Gemini 2.5 Flash scored 64.47) | 49.61 (Claude Sonnet 4.5, UniQL's own baseline, scored before the re-audit) |
 | **Spider 2.0-lite, the 135 SQLite questions** (one third of the set; not a leaderboard row) | Claude Sonnet 5.5 | **71.9** (97 of 135) | 57.78 Pass@1 / 64.44 Majority@8 (FlexSQL, gpt-oss-120b, an agent) |
 | Spider 2.0-lite SQLite, same 135 | Gemini 2.5 Flash | 39.3 (full schema, no schemagate: 40.7) | the light model is not competitive here |
 | Spider 2.0-lite SQLite, same 135 | Claude Opus 5.5 | 67.4 (91 of 135) | below Sonnet 5.5 with the same pipeline |
