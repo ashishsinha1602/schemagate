@@ -1,13 +1,20 @@
 # schemagate on UniQL's Oracle dialect. A push runs mode=dry: load BIRD dev into Oracle Free with UniQL's
 # loader, run every gold query, then put the gold SQL through the runner and UniQL's evaluator as if it
-# were a prediction -- no model is called. mode=full (manual only) calls Gemini 2.5 Flash on OCI.
+# were a prediction -- no model is called. mode=full (manual only) calls Gemini 2.5 Flash, on OCI
+# Generative AI (secrets OCI_CONFIG + OCI_KEY) or on Google's Gemini API (secret GEMINI_API_KEY).
 name: uniql-oracle
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "dry (no model) or full (Gemini 2.5 Flash on OCI, paid)"
+        description: "dry (no model) or full (Gemini 2.5 Flash, paid)"
         default: dry
+      provider:
+        description: "full mode only: oci (OCI signing key), oci-key (OCI Generative AI API key) or gemini"
+        default: oci
+      model:
+        description: "full mode only: model id, blank for the provider's Gemini 2.5 Flash"
+        default: ""
       limit:
         description: "only the first N questions (0 = all 1,534)"
         default: "0"
@@ -32,6 +39,9 @@ jobs:
     env:
       MODE: ${{ github.event.inputs.mode || 'dry' }}
       LIMIT: ${{ github.event.inputs.limit || '0' }}
+      PROVIDER: ${{ github.event.inputs.provider || 'oci' }}
+      MODEL: ${{ github.event.inputs.model || '' }}
+      UNIQL_SHA: dec96c9dc15e1e6a7c075ba6771e59de86a79b43
       UNIQL_ORACLE_DSN: "localhost:1521/FREEPDB1"
       UNIQL_ORACLE_ADMIN_USER: "SYSTEM"
       UNIQL_ORACLE_ADMIN_PASSWORD: "Sg_CI_throwaway_2026"
@@ -45,36 +55,66 @@ jobs:
       - name: UniQL and BIRD dev databases
         run: |
           set -euo pipefail
-          git clone --depth 1 https://github.com/JerryGao818/UniQL.git uniql
+          # pinned: UniQL's 2026-11-12 release (PR #4) -- requoted Oracle gold, new loader and evaluator
+          git init -q uniql && git -C uniql fetch -q --depth 1 https://github.com/JerryGao818/UniQL.git "$UNIQL_SHA"
+          git -C uniql checkout -q FETCH_HEAD
           git -C uniql log -1 --format='UniQL %H %cs'
-          curl -fsSL -o minidev.zip https://bird-bench.oss-cn-beijing.aliyuncs.com/minidev.zip
-          unzip -q minidev.zip 'minidev/MINIDEV/dev_databases/*'
+          # BIRD's official dev release (dev_20240627). UniQL's loader checks each database's SHA-256
+          # against it, and minidev's copies differ.
+          curl -fsSL -o dev.zip https://bird-bench.oss-cn-beijing.aliyuncs.com/dev.zip
+          unzip -q dev.zip 'dev_20240627/dev_databases.zip'
+          mkdir -p bird_dev && unzip -q dev_20240627/dev_databases.zip -d bird_dev -x '__MACOSX/*'
+          ls bird_dev/dev_databases
       # hash-pinned like every other workflow; the -oci lock adds the OCI SDK, needed for MODE=full only
       - run: |
           set -euo pipefail
           lock=.github/requirements/uniql-oracle.txt
-          if [ "$MODE" = "full" ]; then lock=.github/requirements/uniql-oracle-oci.txt; fi
+          case "$MODE/$PROVIDER" in
+            dry/*) ;;
+            full/oci) lock=.github/requirements/uniql-oracle-oci.txt ;;
+            full/gemini) lock=.github/requirements/uniql-oracle-gemini.txt ;;
+            full/oci-key) lock=.github/requirements/uniql-oracle-openai.txt ;;
+            *) echo "provider must be oci, oci-key or gemini, got '$PROVIDER'"; exit 1 ;;
+          esac
           pip install --require-hashes -r "$lock" && pip install --no-deps -e .
+      # UniQL's evaluator opens fresh connections per question; with the image's default process limit the
+      # listener started refusing them (ORA-12516) and 170 dry-run questions were never executed.
+      - name: room for the evaluator's connections
+        run: |
+          set -euo pipefail
+          id=${{ job.services.oracle.id }}
+          docker exec "$id" bash -c "printf 'alter system set processes=1000 scope=spfile;\nexit\n' | sqlplus -s / as sysdba"
+          docker restart "$id" >/dev/null
+          for i in $(seq 1 90); do docker exec "$id" healthcheck.sh >/dev/null 2>&1 && break; sleep 5; done
+          docker exec "$id" bash -c "printf 'show parameter processes\nexit\n' | sqlplus -s / as sysdba"
       - name: load all 11 databases with UniQL's loader
         env:
-          UNIQL_BIRD_DB_ROOT: ${{ github.workspace }}/minidev/MINIDEV/dev_databases
+          UNIQL_BIRD_DB_ROOT: ${{ github.workspace }}/bird_dev/dev_databases
         run: |
           set -euo pipefail
           cd uniql/migration/oracle
-          # the loader lists 7 databases and comments out the other 4; load all 11
+          # All 11 databases, original quoted names, ordinary users. UniQL's loader as published, on
+          # python-oracledb 3.4.2 (with 26.x thin, posts.Body failed with ORA-01461 and postHistory read back
+          # a different fingerprint on each run). One patch: a table whose readback fingerprint differs is
+          # logged, not fatal; gold and prediction both run against the same loaded data.
           python - <<'PY'
-          import re, pathlib
-          p = pathlib.Path("insert_to_oracle.py")
+          import pathlib
+          p = pathlib.Path("loader_native.py")
           t = p.read_text()
-          t = re.sub(r"^DATABASES = \[.*\]$", "DATABASES = ['california_schools', 'card_games', 'codebase_community', "
-                     "'debit_card_specializing', 'european_football_2', 'financial', 'formula_1', 'student_club', "
-                     "'superhero', 'thrombosis_prediction', 'toxicology']", t, count=1, flags=re.M)
+          for old, new in (
+              ("raise RuntimeError('Full strict verification failed for '",
+               "print('VERIFY-MISMATCH ' + db_id + '.' + table['name'] + ': expected '"
+               " + json.dumps(expected.evidence()) + ', actual ' + json.dumps(actual.evidence()),"
+               " flush=True) or print('Full strict verification failed for '"),):
+              assert t.count(old) == 1, "loader changed; revisit this patch: " + old
+              t = t.replace(old, new)
           p.write_text(t)
           PY
-          python insert_to_oracle.py > load.log 2>&1; tail -3 load.log
+          python insert_to_oracle.py --root "$UNIQL_BIRD_DB_ROOT" > load.log 2>&1 || { tail -30 load.log; exit 1; }
+          grep -c content_verified load.log; grep VERIFY-MISMATCH load.log || echo "every table verified"
       - run: python benchmarks/uniql_oracle_check.py uniql/data/queries/oracle.json
-      - name: OCI credentials (full mode only)
-        if: env.MODE == 'full'
+      - name: OCI credentials (full mode on OCI only)
+        if: env.MODE == 'full' && env.PROVIDER == 'oci'
         env:
           OCI_CONFIG: ${{ secrets.OCI_CONFIG }}
           OCI_KEY: ${{ secrets.OCI_KEY }}
@@ -86,16 +126,34 @@ jobs:
             | sed "s|^key_file\s*=.*|key_file=$HOME/.oci/key.pem|" > ~/.oci/config
           head -1 ~/.oci/config; grep -c '=' ~/.oci/config
       - name: schemagate writes the SQL
+        env:
+          GEMINI_API_KEY: ${{ env.MODE == 'full' && env.PROVIDER == 'gemini' && secrets.GEMINI_API_KEY || '' }}
+          OCI_GENAI_API_KEY: ${{ env.MODE == 'full' && env.PROVIDER == 'oci-key' && secrets.OCI_GENAI_API_KEY || '' }}
+          OCI_GENAI_PROJECT: ${{ env.MODE == 'full' && env.PROVIDER == 'oci-key' && secrets.OCI_GENAI_PROJECT || '' }}
+          OCI_GENAI_REGION: ${{ vars.OCI_GENAI_REGION || 'us-chicago-1' }}
         run: |
           extra=""; [ "$MODE" = "dry" ] && extra="--dry-run"
-          python benchmarks/uniql_oracle.py --queries uniql/data/queries/oracle.json \
-            --bird-db-root minidev/MINIDEV/dev_databases --out out/oracle_${MODE}.json --limit "$LIMIT" $extra
+          if [ "$MODE" = "full" ] && [ "$PROVIDER" = "gemini" ] && [ -z "$GEMINI_API_KEY" ]; then
+            echo "secret GEMINI_API_KEY is not set"; exit 1
+          fi
+          if [ "$MODE" = "full" ] && [ "$PROVIDER" = "oci-key" ] && [ -z "$OCI_GENAI_API_KEY" ]; then
+            echo "secret OCI_GENAI_API_KEY is not set"; exit 1
+          fi
+          [ -n "$MODEL" ] && extra="$extra --model $MODEL"
+          python benchmarks/uniql_oracle.py --queries uniql/data/queries/oracle.json --provider "$PROVIDER" \
+            --bird-db-root bird_dev/dev_databases --out out/oracle_${MODE}.json --limit "$LIMIT" $extra
       - name: UniQL's evaluator
         run: |
           cd uniql/evaluation
           python evaluate.py --predicted_sql_path ../../out/oracle_${MODE}.json --dialect oracle \
-            --db_root_path ../../minidev/MINIDEV/dev_databases --num_cpus 1 \
+            --db_root_path ../../bird_dev/dev_databases --num_cpus 1 \
             --model "schemagate-${MODE}" --output_dir ../../out/eval 2>&1 | tail -40
+      - name: score again what the database refused to connect for
+        run: |
+          python benchmarks/uniql_oracle_rescore.py --predictions out/oracle_${MODE}.json \
+            --results out/eval/schemagate-${MODE}/oracle_schemagate-${MODE}.json \
+            --uniql uniql --db-root bird_dev/dev_databases --model "schemagate-${MODE}" \
+            --out out/eval/oracle_${MODE}_final.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:

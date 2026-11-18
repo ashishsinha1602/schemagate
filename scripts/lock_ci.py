@@ -42,9 +42,11 @@ LOCKS = {
     "e2e-mysql":      (["mcp", "mysql"], ["uv"]),
     "e2e-mssql":      (["mcp", "mssql"], ["uv"]),
     "e2e-oracle":     (["mcp", "oracle"], ["uv"]),
-    # uniql-oracle.yml: UniQL's loader + scorer; the -oci one adds the OCI SDK for MODE=full only
-    "uniql-oracle":     (["oracle"], ["python-dateutil", "func_timeout"]),
-    "uniql-oracle-oci": (["oracle", "oci"], ["python-dateutil", "func_timeout"]),
+    # uniql-oracle.yml: UniQL's loader + scorer; -oci / -gemini add the model SDK for MODE=full only
+    "uniql-oracle":     (["oracle"], ["python-dateutil", "func_timeout", "sqlglot==30.23.0", "oracledb==3.4.2"]),
+    "uniql-oracle-oci": (["oracle", "oci"], ["python-dateutil", "func_timeout", "sqlglot==30.23.0", "oracledb==3.4.2"]),
+    "uniql-oracle-gemini": (["oracle", "gemini"], ["python-dateutil", "func_timeout", "sqlglot==30.23.0", "oracledb==3.4.2"]),
+    "uniql-oracle-openai": (["oracle"], ["openai>=1.40", "python-dateutil", "func_timeout", "sqlglot==30.23.0", "oracledb==3.4.2"]),
     "docker":         (["databases", "ai", "mcp"], []),
     "fuzz":           ([], ["sqlglot>=25"]),     # run_query's parser layer is under test too
     "ruff":           (None, ["ruff==0.16.8"]),

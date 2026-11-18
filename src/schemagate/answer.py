@@ -270,8 +270,9 @@ DIALECT_RULES = {
     "oracle": (
         "Oracle rules: never write AS before a table alias (FROM account a, not FROM account AS a); "
         "AS is only for column aliases. A column named like a reserved word (DATE, NUMBER, LEVEL, SIZE, "
-        "COMMENT, USER, UID, ACCESS, MODE, ROWS, START, TYPE) must be double-quoted in upper case, e.g. "
-        "t.\"DATE\". Write every identifier exactly as the tables show it, quotes and case included. "
+        "COMMENT, USER, UID, ACCESS, MODE, ROWS, START, TYPE) must be double-quoted, in upper case when "
+        "the tables show it unquoted, e.g. t.\"DATE\". A name the tables show in double quotes is "
+        "case-sensitive: write it exactly as shown, quotes and case included, e.g. \"frpm\". "
         "No LIMIT: use FETCH FIRST n ROWS ONLY. No boolean literals. Use NVL or COALESCE, not IFNULL; "
         "|| to concatenate; SUBSTR and INSTR; EXTRACT(YEAR FROM d) or TO_CHAR(d, 'YYYY') for dates; "
         "TO_DATE('2012-08-23', 'YYYY-MM-DD') for date literals. With DISTINCT, ORDER BY only selected "

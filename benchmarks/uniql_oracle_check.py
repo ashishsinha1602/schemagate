@@ -18,6 +18,18 @@ import os
 import sys
 import time
 
+#: UniQL's evaluator (evaluation/oracle_eval.py) runs gold and prediction in this session. A query run
+#: in any other one can fail where the evaluator succeeds: 81 gold queries compare a DATE column with a
+#: 'YYYY-MM-DD' string, and Oracle Free's default NLS_DATE_FORMAT is DD-MON-RR (ORA-01843).
+UNIQL_SESSION = (
+    "ALTER SESSION SET NLS_NUMERIC_CHARACTERS='.,'",
+    "ALTER SESSION SET NLS_DATE_FORMAT='YYYY-MM-DD'",
+    "ALTER SESSION SET NLS_TIMESTAMP_FORMAT='YYYY-MM-DD HH24:MI:SS.FF9'",
+    "ALTER SESSION SET NLS_SORT=BINARY",
+    "ALTER SESSION SET NLS_COMP=BINARY",
+    "ALTER SESSION SET TIME_ZONE='+00:00'",
+)
+
 
 def main():
     import oracledb
@@ -34,9 +46,11 @@ def main():
         if db not in conns:
             conns[db] = oracledb.connect(user=db.upper(), password=pw, dsn=dsn)
             conns[db].call_timeout = 60_000
+            with conns[db].cursor() as setup:
+                for stmt in UNIQL_SESSION:                          # the session UniQL's evaluator scores in
+                    setup.execute(stmt)
         cur = conns[db].cursor()
         try:
-            cur.execute("ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD HH24:MI:SS'")
             cur.execute(q["SQL-Oracle"])
             rows = cur.fetchmany(5)
             stats["ok"] += 1

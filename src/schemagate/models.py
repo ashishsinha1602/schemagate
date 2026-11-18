@@ -110,6 +110,13 @@ class Column:
     #: empty result, not a mistake. No model can guess the casing of a value
     #: it has never seen, so the fix is to stop asking it to.
     values: Optional[List[str]] = None
+    #: How SQL must write this name when that differs from ``name``: ``"frpm"``
+    #: for a case-sensitive Oracle column. Set by reflection, shown in the DDL.
+    sql_name: Optional[str] = None
+
+    @property
+    def shown(self) -> str:
+        return self.sql_name or self.name
 
     def render_parts(self) -> "tuple[str, str]":
         """``(declaration, note)`` -- kept apart so the caller can put the
@@ -120,7 +127,7 @@ class Column:
         continues rather than one that ended. Every comment had the problem;
         value lists are just where it became obvious.
         """
-        bits = [self.name, self.type]
+        bits = [self.shown, self.type]
         if self.pk:
             bits.append("PK")
         if not self.nullable:
@@ -136,7 +143,7 @@ class Column:
             folded = [v.casefold() for v in self.values]
             if len(set(folded)) < len(folded):
                 notes.append(f"same value stored in more than one case: "
-                             f"compare with UPPER({self.name})")
+                             f"compare with UPPER({self.shown})")
         comment = _one_line(self.comment)
         if comment:
             notes.append(comment)
@@ -157,6 +164,8 @@ class ForeignKey:
     #: a model told `tenant_id -> tenants` as fact would write a join the
     #: database will not enforce, and sometimes that join is wrong.
     inferred: bool = False
+    #: How SQL must write ``ref_table`` when that differs from it (see Column.sql_name).
+    ref_sql_name: Optional[str] = None
 
 
 #: The line a policied object's DDL carries (set by `schemagate.rls`). One
@@ -183,6 +192,14 @@ class ObjectDoc:
     @property
     def qname(self) -> str:
         return f"{self.schema}.{self.name}" if self.schema else self.name
+
+    @property
+    def shown_qname(self) -> str:
+        """``qname`` as SQL must write it: quoted where reflection said the name
+        is case-sensitive or otherwise needs it (see Column.sql_name)."""
+        name = self.extra.get("sql_name") or self.name
+        schema = self.extra.get("sql_schema") or self.schema
+        return f"{schema}.{name}" if schema else name
 
     def __post_init__(self) -> None:
         """Free text arrives from outside; make sure it is text.
@@ -301,7 +318,7 @@ class ObjectDoc:
         (``Catalog._ref_visible``). The object alone cannot know, and an FK line
         to a hidden table names that table. Every catalog path passes it.
         """
-        head = f"{self.kind} {self.qname}"
+        head = f"{self.kind} {self.shown_qname}"
         note = _one_line(self.hint or _sentence(self.description))
         lines = [f"-- {note}" if note else "", head + " ("]
         if self.extra.get("row_policy"):
@@ -333,12 +350,14 @@ class ObjectDoc:
         lines.append(")")
         # A foreign-key line names its columns, so it puts back the exact
         # identifier the loop above just withheld. Drop any line that does.
-        shown = {c.name for c in visible}
+        shown = {c.name: c.shown for c in visible}
+        own = self.extra.get("sql_name") or self.name
         for fk in self.foreign_keys:
             if all(c in shown for c in fk.columns) and (ref_visible is None or ref_visible(fk.ref_table)):
                 note = "  (inferred from the column name, not declared)" if fk.inferred else ""
                 lines.append(
-                    f"-- FK {self.name}({','.join(fk.columns)}) -> {fk.ref_table}{note}")
+                    f"-- FK {own}({','.join(shown[c] for c in fk.columns)}) -> "
+                    f"{fk.ref_sql_name or fk.ref_table}{note}")
         return "\n".join(line for line in lines if line)
 
 
