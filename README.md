@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Patent pending: US 64/183,987](https://img.shields.io/badge/patent-pending%20(US%2064%2F183%2C987)-555555)](#status)
 [![BIRD Mini-Dev: #1 on SQLite, PostgreSQL and MySQL](https://img.shields.io/badge/BIRD%20Mini--Dev-%231%20on%20SQLite%20%C2%B7%20PostgreSQL%20%C2%B7%20MySQL-0F7B6C)](https://bird-bench.github.io/)
-[![UniQL Oracle: 64.5% first try](https://img.shields.io/badge/UniQL%20Oracle-64.5%25%20first%20try-C74634)](benchmarks/results/uniql_oracle/README.md)
+[![UniQL Oracle: 63.7% first try](https://img.shields.io/badge/UniQL%20Oracle-63.7%25%20first%20try-C74634)](benchmarks/results/uniql_oracle/README.md)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15353/badge)](https://www.bestpractices.dev/projects/15353)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/ashishsinha1602/schemagate/badge)](https://scorecard.dev/viewer/?uri=github.com/ashishsinha1602/schemagate)
 [![REUSE status](https://api.reuse.software/badge/github.com/ashishsinha1602/schemagate)](https://api.reuse.software/info/github.com/ashishsinha1602/schemagate)
@@ -460,7 +460,7 @@ call per question, about 2,100 prompt tokens, no candidates, no voting, no agent
 |---|---|---|---|
 | BIRD dev, all 1,534 questions | Claude Opus 5.5 | **77.12** | hidden test set, scored by BIRD: 72.11 for this setup; 74.34 with 4 training examples per prompt (dev 84.03) |
 | BIRD Mini-Dev, SQLite / PostgreSQL / MySQL | Claude Opus 5.5 | **81.0 / 72.6 / 72.4**, #1 on all three | next best on BIRD's board, 2026-10-31: 75.6 / 69.0 / 49.2 |
-| UniQL, Oracle dialect, first try | Gemini 2.5 Flash | **64.47** | 49.61 (Claude Sonnet 4.5) |
+| UniQL, Oracle dialect, first try, re-audited 2026-11-12 release | Gemini 3.8 Flash | **63.69** | 49.61 (Claude Sonnet 4.5, scored before the re-audit) |
 | Spider 2.0-lite, the 135 SQLite questions only | Claude Sonnet 5.5 | **71.9** | 57.78 Pass@1 (FlexSQL agent, gpt-oss-120b) |
 | Spider 2.0-lite, the 205 BigQuery questions | Claude Sonnet 5.5 | **45.9** | no BigQuery-only row published |
 

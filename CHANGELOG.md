@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.18.2
 
 - **Case-sensitive names on Oracle (and Snowflake, DB2) now reach the model in quotes.** These databases fold
   unquoted names to upper case, and SQLAlchemy reports a table stored as `FRPM` and one created as `"frpm"` with the
@@ -9,6 +9,9 @@
   `"DATE"`), using SQLAlchemy's own quoting rules, recorded at reflection. Matching, roles and scope checks still use
   the plain name. Other dialects' prompts are unchanged. Found when UniQL reloaded its Oracle data with the original
   quoted names.
+- **UniQL Oracle, re-run on UniQL's re-audited 2026-11-12 release:** 63.69 first try, 64.93 with execution repair
+  (Gemini 3.8 Flash, all 1,534 questions, UniQL's own evaluator). Run files in `benchmarks/results/uniql_oracle/`.
+  The benchmark runner now also retries a model API's 502/503 errors.
 
 ## 1.18.1
 
