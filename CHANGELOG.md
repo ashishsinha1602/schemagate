@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.18.3
+
+- **The Docker image is published again.** 1.18.2's image build failed: Dependabot had moved the base image to
+  Python 3.15, where `pyodbc` has no wheel yet and the slim image has no compiler. The image is back on Python 3.14
+  (with the latest 3.14 patch), Dependabot no longer proposes 3.15, and pull requests that touch the Dockerfile now
+  build the image for amd64 and arm64 before merge. The library itself is unchanged from 1.18.2.
+
 ## 1.18.2
 
 - **Case-sensitive names on Oracle (and Snowflake, DB2) now reach the model in quotes.** These databases fold
