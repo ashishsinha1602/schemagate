@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.18.4
 
 - **`schemagate.scope.check_scope(catalog, sql, principal, dialect)`: the scope check `run_query` enforces, as a
   public function.** It returns None when the SQL reads only objects and columns the principal may see, and the
