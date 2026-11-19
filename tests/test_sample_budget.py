@@ -189,3 +189,26 @@ def test_information_schema_columns_reads_one_schema(tmp_path):
     from schemagate.introspect import _information_schema_columns
     engine = _db(tmp_path, tables=2, rows=1)
     assert _information_schema_columns(inspect(engine), None) == {}
+
+
+def test_sql_server_columns_hidden_by_their_type_are_filled_in(monkeypatch):
+    """AdventureWorks, db_datareader login: Department's Name and GroupName (type dbo.Name) were missing from
+    the reflected columns, so answers showed department IDs. The standard view fills them in, in order."""
+    from schemagate import dialects, introspect
+
+    class Bind:
+        class dialect:
+            name = "mssql"
+
+    class Insp:
+        bind = Bind()
+
+        def get_multi_columns(self, **kw):
+            return {("HumanResources", "Department"): [{"name": "DepartmentID", "type": "SMALLINT"},
+                                                       {"name": "ModifiedDate", "type": "DATETIME"}]}
+
+    monkeypatch.setattr(dialects, "ansi_columns", lambda bind, schema: {"Department": [
+        {"name": "DepartmentID", "type": "SMALLINT"}, {"name": "Name", "type": "NVARCHAR(50)"},
+        {"name": "GroupName", "type": "NVARCHAR(50)"}, {"name": "ModifiedDate", "type": "DATETIME"}]})
+    multi = introspect._multi_reflect(Insp(), "HumanResources", [("Department", "TABLE")], True)
+    assert [c["name"] for c in multi["columns"]["Department"]] == ["DepartmentID", "Name", "GroupName", "ModifiedDate"]

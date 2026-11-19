@@ -120,6 +120,12 @@ def ansi_columns(bind, schema):
     return out
 
 
+def hides_typed_columns(bind) -> bool:
+    """SQL Server leaves out of sys.types -- and so out of SQLAlchemy's column query -- a user-defined type the
+    login has no permission on, and the columns of that type with it."""
+    return getattr(getattr(bind, "dialect", None), "name", None) == "mssql"
+
+
 def ansi_view_definitions(bind, schema):
     """``{view: definition}`` for one schema in one query, or ``{}``.
 

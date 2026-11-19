@@ -328,6 +328,21 @@ def _multi_reflect(insp, schema, names, include_views):
         # role that can read the tables, so ask them instead, once.
         out["columns"] = _information_schema_columns(insp, schema)
         out["ansi_columns"] = bool(out["columns"])
+    elif out["columns"]:
+        from .dialects import ansi_columns, hides_typed_columns
+        bind = getattr(insp, "bind", None)
+        if hides_typed_columns(bind):
+            # SQL Server hides a column whose user-defined type the login has no permission on: AdventureWorks'
+            # Name columns (type dbo.Name) vanished for a db_datareader login, so "Department" was an ID and a
+            # date, and every answer showed IDs. The standard view lists them; fill in what was hidden.
+            for table, cols in ansi_columns(bind, schema).items():
+                have = out["columns"].get(table)
+                if have is None:
+                    continue
+                known = {c["name"] for c in have}
+                if any(c["name"] not in known for c in cols):
+                    by_name = {c["name"]: c for c in have}
+                    out["columns"][table] = [by_name.get(c["name"], c) for c in cols]
     out["fks"] = _bare(_run("get_multi_foreign_keys"))
     pk = _bare(_run("get_multi_pk_constraint"))
     out["pk"] = {k: set((v or {}).get("constrained_columns") or []) for k, v in pk.items()}
