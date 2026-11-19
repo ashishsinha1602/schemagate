@@ -284,8 +284,17 @@ def _multi_reflect(insp, schema, names, include_views):
     if not names:
         return out          # an empty schema: four queries to learn nothing, 21 times on RNAcentral
     kw = {"schema": schema}
-    if include_views:
-        kw["kind"] = None       # tables and views in one pass, where supported
+    try:
+        from sqlalchemy.engine.reflection import ObjectKind, ObjectScope
+    except ImportError:                     # SQLAlchemy 1.4: no batch reflection; the per-table calls run
+        ObjectKind = ObjectScope = None
+    if ObjectKind is not None:
+        # The names are already known. Passing them, with kind and scope ANY, is what lets SQLAlchemy skip
+        # re-listing the schema for every batch call -- on SQL Server, 130 of 269 queries for AdventureWorks
+        # were that. `kind=None`, used before, is not accepted: it raised, the TypeError fallback below
+        # retried with tables only, and every view was then read one at a time.
+        kw.update(filter_names=[n for n, _ in names], scope=ObjectScope.ANY,
+                  kind=ObjectKind.ANY if include_views else ObjectKind.TABLE)
 
     def _run(method, **extra):
         fn = getattr(insp, method, None)
@@ -436,6 +445,7 @@ def reflect(engine_or_url, include=None, exclude=None,
         # fail for every table -- the same refused catalog table every time --
         # a large schema spends minutes proving it, so give up after a few.
         single_failures = 0
+        view_defs = None            # filled on the first view in this schema
 
         for name, kind in names:
             if (schema, name) in seen:
@@ -489,10 +499,16 @@ def reflect(engine_or_url, include=None, exclude=None,
 
             definition = None
             if kind == "VIEW":
-                try:
-                    definition = insp.get_view_definition(name, schema=schema)
-                except Exception:
-                    definition = None
+                if view_defs is None:
+                    # all of this schema's view definitions in one query, where the standard view has them
+                    from .dialects import ansi_view_definitions
+                    view_defs = ansi_view_definitions(engine, schema)
+                definition = view_defs.get(name)
+                if definition is None:
+                    try:
+                        definition = insp.get_view_definition(name, schema=schema)
+                    except Exception:
+                        definition = None
 
             values = (_sample_values(engine, schema, name, raw_cols, kind,
                                      max_distinct,

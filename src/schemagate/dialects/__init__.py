@@ -120,6 +120,36 @@ def ansi_columns(bind, schema):
     return out
 
 
+def ansi_view_definitions(bind, schema):
+    """``{view: definition}`` for one schema in one query, or ``{}``.
+
+    One query per view before: 20 of AdventureWorks' 89 on SQL Server. A view
+    missing here (PostgreSQL leaves the column NULL unless you own the view)
+    is still read on its own by the caller. SQL Server's standard view cuts
+    definitions at 4,000 characters, so it is read from sys.sql_modules.
+    """
+    dialect = getattr(getattr(bind, "dialect", None), "name", None)
+    if dialect not in _INFO_SCHEMA_DIALECTS:
+        return {}
+    from sqlalchemy import text
+
+    if dialect == "mssql":
+        sql = ("SELECT v.name, m.definition FROM sys.views v JOIN sys.sql_modules m ON m.object_id = v.object_id "
+               "JOIN sys.schemas s ON s.schema_id = v.schema_id WHERE s.name = " +
+               (":s" if schema else "SCHEMA_NAME()"))
+    else:
+        cur = {"mysql": "DATABASE()", "mariadb": "DATABASE()"}.get(dialect, "current_schema()")
+        sql = ("SELECT table_name, view_definition FROM information_schema.views WHERE table_schema = " +
+               (":s" if schema else cur))
+    try:
+        conn_cm = bind.connect() if hasattr(bind, "connect") else None
+        with (conn_cm if conn_cm is not None else _NullContext(bind)) as conn:
+            rows = conn.execute(text(sql), {"s": schema} if schema else {}).fetchall()
+    except Exception:
+        return {}
+    return {name: d for name, d in rows if d}
+
+
 class _NullContext:
     def __init__(self, value):
         self.value = value
