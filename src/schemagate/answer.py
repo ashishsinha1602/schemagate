@@ -371,7 +371,16 @@ def _limit_time(conn, seconds: float) -> None:
         stop = time.monotonic() + seconds
         raw.set_progress_handler(lambda: 1 if time.monotonic() > stop else 0, 10000)
     elif name in ("mysql", "mariadb"):
-        conn.exec_driver_sql(f"SET SESSION MAX_EXECUTION_TIME = {ms}")
+        if _is_mariadb(conn):
+            # MariaDB has no MAX_EXECUTION_TIME (error 1193, which failed every timed read); its own
+            # limit is max_statement_time, in seconds.
+            conn.exec_driver_sql(f"SET SESSION max_statement_time = {max(0.001, seconds):.3f}")
+        else:
+            conn.exec_driver_sql(f"SET SESSION MAX_EXECUTION_TIME = {ms}")
+
+
+def _is_mariadb(conn) -> bool:
+    return conn.dialect.name == "mariadb" or bool(getattr(conn.dialect, "is_mariadb", False))
 
 
 def _clear_time(conn) -> None:
@@ -385,7 +394,8 @@ def _clear_time(conn) -> None:
         elif name == "sqlite":
             raw.set_progress_handler(None, 0)
         elif name in ("mysql", "mariadb"):
-            conn.exec_driver_sql("SET SESSION MAX_EXECUTION_TIME = 0")
+            conn.exec_driver_sql("SET SESSION max_statement_time = 0" if _is_mariadb(conn)
+                                 else "SET SESSION MAX_EXECUTION_TIME = 0")
     except Exception:                                     # noqa: BLE001 -- the pool resets it anyway
         pass
 
