@@ -171,3 +171,24 @@ def test_a_cache_entry_does_not_outlive_the_engine_it_describes():
     del eng
     gc.collect()
     assert len(pg._TYPE_CACHE) == before - 1, "entry outlived its engine"
+
+
+def test_a_refused_type_lookup_is_asked_once():
+    """A role that may not read the catalog paid a failing round trip per
+    table -- 294 on EBI's public RNAcentral. The refusal is remembered."""
+    from schemagate.dialects import postgresql as pg
+
+    class Engine:
+        calls = 0
+
+        def connect(self):
+            Engine.calls += 1
+            raise RuntimeError("permission denied for table pg_collation")
+
+    eng = Engine()
+    for _ in range(5):
+        try:
+            pg.unknown_types(eng, "s", "t", [{"name": "c", "type": "NULL"}])
+        except RuntimeError:
+            pass
+    assert Engine.calls == 1

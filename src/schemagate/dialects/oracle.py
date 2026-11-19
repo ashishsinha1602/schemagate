@@ -84,6 +84,7 @@ def _catalog_types(engine, owner: str) -> "Dict[tuple, str]":
     if cached is not None:
         return cached
     out: "Dict[tuple, str]" = {}
+    by_owner[owner] = out              # a refusal is remembered: no failing round trip per table
     with engine.connect() as conn:
         for table, col, dtype, length, prec, scale in conn.exec_driver_sql(
                 _TYPES_SQL, {"o": owner}).fetchall():

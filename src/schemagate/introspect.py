@@ -260,6 +260,13 @@ def _sample_values(engine, schema, table, raw_cols, kind, max_distinct,
 _MISSING = object()
 
 
+def _information_schema_columns(insp, schema):
+    """Columns for one schema from the standard view; see
+    :func:`schemagate.dialects.ansi_columns`. ``{}`` when unavailable."""
+    from .dialects import ansi_columns
+    return ansi_columns(getattr(insp, "bind", None), schema)
+
+
 def _multi_reflect(insp, schema, names, include_views):
     """Columns, primary keys, foreign keys and comments for a whole schema.
 
@@ -274,6 +281,8 @@ def _multi_reflect(insp, schema, names, include_views):
     import warnings
 
     out = {"columns": {}, "pk": {}, "fks": {}, "comments": {}}
+    if not names:
+        return out          # an empty schema: four queries to learn nothing, 21 times on RNAcentral
     kw = {"schema": schema}
     if include_views:
         kw["kind"] = None       # tables and views in one pass, where supported
@@ -302,6 +311,14 @@ def _multi_reflect(insp, schema, names, include_views):
         return {(k[1] if isinstance(k, tuple) else k): v for k, v in d.items()}
 
     out["columns"] = _bare(_run("get_multi_columns"))
+    if not out["columns"] and names:
+        # The batch failed outright. On PostgreSQL that is a read-only role
+        # refused one catalog table SQLAlchemy joins (pg_collation): every
+        # per-table call fails the same way, one round trip at a time, and the
+        # database comes back empty. The standard views are readable by any
+        # role that can read the tables, so ask them instead, once.
+        out["columns"] = _information_schema_columns(insp, schema)
+        out["ansi_columns"] = bool(out["columns"])
     out["fks"] = _bare(_run("get_multi_foreign_keys"))
     pk = _bare(_run("get_multi_pk_constraint"))
     out["pk"] = {k: set((v or {}).get("constrained_columns") or []) for k, v in pk.items()}
@@ -415,6 +432,10 @@ def reflect(engine_or_url, include=None, exclude=None,
         # each lookup below still degrades to the single-table call if a key
         # is missing.
         multi = _multi_reflect(insp, schema, names, include_views)
+        # The single-table fallbacks below cost a round trip each. When they
+        # fail for every table -- the same refused catalog table every time --
+        # a large schema spends minutes proving it, so give up after a few.
+        single_failures = 0
 
         for name, kind in names:
             if (schema, name) in seen:
@@ -425,13 +446,19 @@ def reflect(engine_or_url, include=None, exclude=None,
             if not _match(name, include) or (exclude and _match(name, exclude)):
                 continue
             raw_cols = multi["columns"].get(name)
+            if raw_cols is None and multi.get("ansi_columns"):
+                continue                # the standard view answered; this one has no readable columns
+            if raw_cols is None and single_failures >= 3:
+                continue
             if raw_cols is None:
                 try:
                     import warnings
                     with warnings.catch_warnings():
                         warnings.filterwarnings("ignore", message="Did not recognize type")
                         raw_cols = insp.get_columns(name, schema=schema)
+                    single_failures = 0
                 except Exception:
+                    single_failures += 1
                     continue
             if not raw_cols:
                 continue
