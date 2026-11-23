@@ -575,7 +575,17 @@
           taken.add(best[0]);
         }
       }
-      if (expandFks) for (const sc of [...chosen]) for (const fk of (sc.doc.foreign_keys || [])) for (const q of allowed) { const d = this.docs.get(q); if (d.name.toLowerCase() === fk.ref_table.toLowerCase() && !taken.has(q)) { chosen.push({ doc: d, score: 0.0, reason: "fk" }); taken.add(q); } }
+      if (expandFks) {
+        const reached = [];
+        for (const sc of [...chosen]) for (const fk of (sc.doc.foreign_keys || [])) for (const q of allowed) { const d = this.docs.get(q); if (d.name.toLowerCase() === fk.ref_table.toLowerCase() && !taken.has(q)) { chosen.push({ doc: d, score: 0.0, reason: "fk" }); taken.add(q); reached.push(d); } }
+        // as catalog.py: a table reached through a key with no name of its own follows its keys once more,
+        // only to a table that holds a name (sup_supplier -> core_party)
+        const names = (d) => (d.columns || []).some((c) => /(?:^|_)(?:name|title|label)$/i.test(c.name || ""));
+        for (const d0 of reached) {
+          if (names(d0)) continue;
+          for (const fk of (d0.foreign_keys || [])) for (const q of allowed) { const d = this.docs.get(q); if (d.name.toLowerCase() === fk.ref_table.toLowerCase() && !taken.has(q) && names(d)) { chosen.push({ doc: d, score: 0.0, reason: "fk" }); taken.add(q); } }
+        }
+      }
       return {
         question, hits: chosen, totalObjects: this.order.length,
         tableNames: chosen.map((h) => qname(h.doc)),
