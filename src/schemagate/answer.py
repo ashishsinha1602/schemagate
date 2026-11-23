@@ -71,7 +71,12 @@ _FORBIDDEN = re.compile(
     # follows and never an open bracket, so the bracket separates the two.
     # (Those two forms are already refused a line earlier for not starting
     # with SELECT or WITH; this keeps the word barred in the middle as well.)
-    r"|\breplace\b(?!\s*\()",
+    r"|\breplace\b(?!\s*\()"
+    # INTO has no place in a read (GHSA-2h6p-vmrf-3c76). After SELECT it writes: `INTO OUTFILE` and
+    # `INTO DUMPFILE` write a file on a MySQL/MariaDB server (with the FILE privilege), `SELECT ... INTO t`
+    # creates a table on PostgreSQL and SQL Server, `INTO @v` sets a variable. Every form starts with the
+    # word, so the word is refused wherever it stands outside a string or a comment.
+    r"|\binto\b",
     re.I,
 )
 
