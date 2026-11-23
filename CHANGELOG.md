@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **`select` now uses the join graph to rank: a table that joins strong picks rises.** A question that needs two
+  tables usually says the words of one; the other shares a key with it and few words with the question, and on a
+  schema full of look-alike tables it lost its slot to tables that join nothing the question touches. Each object
+  now gains a quarter of the summed scores of its neighbours among the ten best-ranked objects, so a bridge that
+  joins two picks is lifted by both. Edges are declared foreign keys, plus -- once `learn_from_log` has run --
+  tables the log joined or read together at least twice; a key guessed from a column name counts only when the log
+  backs it. Every edge stays inside the caller's scope: only objects the caller may see are ranked, and a key or
+  logged join on a column the caller may not read is not an edge. On Snowflake's SQL-Schema-Retrieval benchmark
+  (`benchmarks/schema_retrieval.py --infer`, hashed embedder, no model) LiveSQLBench-Large recall@10 went from 64.9
+  to 74.9 and questions with every gold table found from 40.4% to 52.7%; with the local MiniLM embedder 73.9 to 79.3.
+  Spider, BIRD and BEAVER are unchanged, LiveSQLBench 95.3 to 95.1. `Catalog.join_weight = 0` turns it off. The
+  harness gained `--infer`, `--log-loo`, `--join-weight`, every-gold-table and selection precision columns. The
+  Studio's JS port follows, and now also has the name hop and shared vector ranks, so it ranks exactly as Python
+  again (476 of 1,789 parity cases differed before).
 - **`schemagate.scope.check_scope(catalog, sql, principal, dialect)`: the scope check `run_query` enforces, as a
   public function.** It returns None when the SQL reads only objects and columns the principal may see, and the
   refusal otherwise. `run_query` takes the SQL dialect from the server's one connection; this takes it as an

@@ -144,9 +144,10 @@ questions where BM25 managed 78.7% and embedding search 78.2%, and 98.7% of
 BIRD questions against 81.0% and 89.4%
 ([head-to-head](BENCHMARKS.md#head-to-head-schemagate-against-the-retrievers-other-tools-use)).
 On Snowflake's SQL-Schema-Retrieval benchmark (table level, recall@10) the
-hashed embedder scores Spider 100.0, BIRD 99.2, BEAVER 65.9, LiveSQLBench 95.3
-and LiveSQLBench-Large 64.9 (73.9 with all-MiniLM-L6-v2), above the paper's best
-model on four of the five and below Qwen3-Embedding-4B (75.8) on the fifth
+hashed embedder scores Spider 100.0, BIRD 99.2, BEAVER 65.9, LiveSQLBench 95.1
+and LiveSQLBench-Large 74.9 (79.3 with all-MiniLM-L6-v2), above the paper's best
+model on four of the five and just below Qwen3-Embedding-4B (75.8) on the fifth,
+which the MiniLM row passes
 ([details](BENCHMARKS.md#schema-retrieval-scored-by-snowflakes-benchmark)).
 Worked example, with a price you should replace with your own: a 260-object
 schema, 5,000 questions a day, an input price of $3 per million tokens. Full

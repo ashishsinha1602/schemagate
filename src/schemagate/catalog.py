@@ -163,6 +163,16 @@ def _names_something(doc) -> bool:
     return any(_NAME_COLUMN.search(c.name or "") for c in doc.columns)
 
 
+#: The join graph's vote in ``select``: an object gains ``JOIN_WEIGHT`` times the
+#: summed fused scores of its neighbours among the ``JOIN_WINDOW`` best-ranked
+#: objects. See ``Catalog._join_lift``.
+JOIN_WEIGHT = 0.25
+JOIN_WINDOW = 10
+#: How many statements must have used two tables together before the query log's
+#: word counts as an edge -- the same bar ``learn_from_log`` sets for a key.
+JOIN_LOG_MIN = 2
+
+
 #: Prefixes that mark a staging or scratch copy of some other object. An
 #: object is a shadow only when another, non-shadow object shares its stem
 #: once layer prefixes (dim_, fact_, v_ ...) are stripped: ``stg_member`` is
@@ -499,6 +509,11 @@ class Catalog:
         #: Measured on LiveSQLBench-Large: this channel alone 60.8 recall@10
         #: against 43.5 for the body channel. 0 turns it off.
         self.column_weight = 1.0
+        #: The join graph's vote (see ``_join_lift``): an object gains ``join_weight``
+        #: times the summed scores of its neighbours among the ``join_window``
+        #: best-ranked objects. 0 turns it off.
+        self.join_weight = JOIN_WEIGHT
+        self.join_window = JOIN_WINDOW
 
     # ---------------- build ----------------
 
@@ -1336,6 +1351,110 @@ class Catalog:
             return ref not in hidden and ref.split(".")[-1] not in hidden
         return visible
 
+    def _join_lift(self, ranked: List[tuple], principal: Optional[Principal]) -> List[tuple]:
+        """Re-rank ``ranked`` with the join graph: a table that joins strong picks rises.
+
+        A question that needs two tables usually says the words of one of them.
+        The other -- the event table behind "scan quality", the lookup that holds
+        the site name -- shares a key with it and few words with the question,
+        and on a schema full of look-alike tables it ranks below distractors that
+        join to nothing the question touches. So every object gains
+        ``join_weight`` times the summed scores of its neighbours among the
+        ``join_window`` best-ranked objects: one strong neighbour lifts it, and a
+        table that joins two of them -- the bridge a two-table question needs --
+        is lifted by both.
+
+        Which edges count:
+
+        * declared foreign keys, either direction;
+        * a key ``infer_foreign_keys`` guessed from a column name only when the
+          query log saw those two tables used together. Counted on their own,
+          the guesses bought BEAVER (no declared key anywhere) half a point of
+          recall@10 and cost Spider a question it had answered: a guess ties
+          a fact to every dimension whose name its columns spell;
+        * from the query log (``learn_from_log``), tables joined or read in one
+          statement at least ``JOIN_LOG_MIN`` times.
+
+        Only between objects in ``ranked``, which is already this caller's:
+        nothing hidden can be lifted, and nothing hidden can lift. A key or a
+        logged join counts only if the caller may read its columns on both
+        sides, as in ``graph()``. It only reorders: no object enters that the
+        maths did not already score.
+
+        Measured with ``benchmarks/schema_retrieval.py --infer`` (Snowflake's
+        SQL-Schema-Retrieval, hashed embedder, no model): LiveSQLBench-Large
+        recall@10 64.9 -> 74.9, every gold table found 40.4% -> 52.7% of
+        questions; at top_k=6 56.4 -> 64.0. Spider, BIRD and BEAVER unchanged,
+        LiveSQLBench 95.3 -> 95.1 (nDCG 77.9 -> 79.4). The best neighbour
+        alone (max, not sum) gave 73.5; 0.4 instead of 0.25 gave 76.5 but cost
+        warehouse and view questions at top_k=6 in the test suite. With a
+        stand-in query log (``--log-loo``: the tables the database's other
+        questions read together) LiveSQLBench-Large reaches 82.1 and BEAVER
+        65.9 -> 79.6.
+        """
+        weight, window = self.join_weight, self.join_window
+        if not weight or window <= 0 or len(ranked) < 2:
+            return ranked
+        score = dict(ranked)
+        top = dict(ranked[:window])
+        by_qname = {q.lower(): q for q in score}
+        by_name: Dict[str, List[str]] = {}
+        for q in score:
+            by_name.setdefault((self._docs[q].name or "").lower(), []).append(q)
+        hidden_cols: Dict[str, set] = {}
+
+        def readable(q: str, cols) -> bool:
+            if q not in hidden_cols:
+                hidden_cols[q] = {c.name.lower() for c in self._docs[q].columns
+                                  if not allowed(c.roles, principal)}
+            return not (hidden_cols[q] and any((c or "").lower() in hidden_cols[q] for c in cols))
+
+        log = self.query_log
+        logged = set()                       # pairs the log saw together, whatever the columns
+        pairs = set()
+        if log:
+            for pair, n in log.together.items():
+                if n >= JOIN_LOG_MIN and len(pair) == 2:
+                    logged.add(pair)
+                    a, b = sorted(pair)
+                    if a in score and b in score and (a in top or b in top):
+                        pairs.add((a, b))
+            for (a, ca, b, cb), n in log.joins.items():
+                if n < JOIN_LOG_MIN or a == b:
+                    continue
+                logged.add(frozenset((a, b)))
+                if (a in score and b in score and (a in top or b in top)
+                        and readable(a, [ca]) and readable(b, [cb])):
+                    pairs.add(tuple(sorted((a, b))))
+        for a in score:
+            doc = self._docs[a]
+            for fk in doc.foreign_keys:
+                ref = (fk.ref_table or "").lower()
+                if ref in by_qname:
+                    targets = [by_qname[ref]]
+                else:
+                    targets = by_name.get(ref.split(".")[-1], [])
+                    if len(targets) > 1:
+                        near = [t for t in targets if self._docs[t].schema == doc.schema]
+                        targets = near or targets
+                for b in targets:
+                    if b == a or (a not in top and b not in top):
+                        continue
+                    if fk.inferred and frozenset((a, b)) not in logged:
+                        continue
+                    if readable(a, fk.columns) and readable(b, fk.ref_columns):
+                        pairs.add(tuple(sorted((a, b))))
+        if not pairs:
+            return ranked
+        lift: Dict[str, float] = {}
+        for a, b in sorted(pairs):           # sorted: a float sum must not depend on hash order
+            if a in top:
+                lift[b] = lift.get(b, 0.0) + top[a]
+            if b in top:
+                lift[a] = lift.get(a, 0.0) + top[b]
+        return sorted(((q, s + weight * lift.get(q, 0.0)) for q, s in ranked),
+                      key=lambda p: (-p[1], p[0]))
+
     def select(self, question: str, top_k: int = 6,
                principal: Optional[Principal] = None,
                expand_fks: bool = True, pin: Optional[Sequence[str]] = None,
@@ -1532,6 +1651,9 @@ class Catalog:
         # still moved the top-6 on 1 of 12 questions. The qname is the only
         # key available that does not depend on how the database was read.
         ranked = sorted(fused.items(), key=lambda p: (-p[1], p[0]))
+        # The join graph votes last: a table that joins a strong pick rises.
+        # `ranked` holds only what this caller may see, and so does every edge.
+        ranked = self._join_lift(ranked, principal)
         chosen: List[Scored] = []
         taken = set()
 
