@@ -155,6 +155,14 @@ def _name_text(doc) -> str:
     return " ".join(x for x in (doc.schema or "", doc.name or "",
                                 (doc.name or "").replace("_", " ")) if x)
 
+_NAME_COLUMN = re.compile(r"(?:^|_)(?:name|title|label)$", re.I)
+
+
+def _names_something(doc) -> bool:
+    """Whether a table holds a name a reader would show: `name`, `display_name`, `last_name`, `title`."""
+    return any(_NAME_COLUMN.search(c.name or "") for c in doc.columns)
+
+
 #: Prefixes that mark a staging or scratch copy of some other object. An
 #: object is a shadow only when another, non-shadow object shares its stem
 #: once layer prefixes (dim_, fact_, v_ ...) are stripped: ``stg_member`` is
@@ -1689,11 +1697,26 @@ class Catalog:
             taken.add(best[0])
 
         if expand_fks:
+            reached = []
             for sc in list(chosen):
                 for fk in sc.doc.foreign_keys:
                     for q in allowed:
                         d = self._docs[q]
                         if d.name.lower() == fk.ref_table.lower() and q not in taken:
+                            chosen.append(Scored(d, 0.0, "fk"))
+                            taken.add(q)
+                            reached.append(d)
+            # A table reached through a key that has no name of its own names nothing: sup_supplier holds a
+            # vendor number and a key to core_party, so "which 3 suppliers did we spend the most with" came
+            # back as V-0408, V-0410, V-0403 on every database. One more hop, only from such a table, only to
+            # a table that holds a name -- `allowed` is already this caller's, so nothing hidden enters.
+            for d0 in reached:
+                if _names_something(d0):
+                    continue
+                for fk in d0.foreign_keys:
+                    for q in allowed:
+                        d = self._docs[q]
+                        if d.name.lower() == fk.ref_table.lower() and q not in taken and _names_something(d):
                             chosen.append(Scored(d, 0.0, "fk"))
                             taken.add(q)
 

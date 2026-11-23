@@ -479,6 +479,11 @@ _ITEM = _REF + r"(?:\s+(?:as\s+)?" + _NOT_ALIAS + _PART + r")?"
 #: `FROM a, b c, d AS e` and `JOIN x` -- every item of a FROM list, not just
 #: the first: `FROM hr_employee, hr_compensation` used to read as one table.
 _REFERENCED = re.compile(r"\b(?:from|join)\s+(" + _ITEM + r"(?:\s*,\s*" + _ITEM + r")*)", re.I)
+#: SQL functions whose argument list uses FROM for a value: EXTRACT(YEAR FROM d), SUBSTRING(s FROM 2 FOR 3),
+#: TRIM(LEADING '0' FROM s), OVERLAY(s PLACING 'x' FROM 2)
+_FROM_TAKES_VALUE = {"extract", "substring", "substr", "trim", "overlay", "date_part"}
+#: what comes before the FROM of `a IS [NOT] DISTINCT FROM b`
+_IS_DISTINCT = re.compile(r"\bis\s+(?:not\s+)?distinct\s*$", re.I)
 #: `WITH name AS (`, and the `, name AS (` that follow it; also `WITH RECURSIVE name AS (` and a CTE with a
 #: column list, `name(a, b) AS (`. Without those two forms the CTE's name read as a table the caller may not
 #: see, and every recursive query was refused.
@@ -539,7 +544,18 @@ def _referenced_tables(sql: str, mode: str = "ansi") -> List[str]:
         return []
     ctes = {_unquote(c).lower() for c in _CTE.findall(body)}
     out, seen = [], set()
-    for clause in _REFERENCED.findall(body):
+    for m in _REFERENCED.finditer(body):
+        # `EXTRACT(YEAR FROM po.raised_on)`, `SUBSTRING(code FROM 2)`, `TRIM(LEADING '0' FROM code)`: a FROM
+        # inside these calls takes a value, not a table. Read as a table, `po.raised_on` was refused as a
+        # table nobody may see, and every "per year" question on PostgreSQL and Oracle failed. A subquery in
+        # them, `EXTRACT(YEAR FROM (SELECT ... FROM t))`, has its own bracket and is still read.
+        if _calling(body, m.start()) in _FROM_TAKES_VALUE:
+            continue
+        # `status IS DISTINCT FROM 'cancelled'` compares two values: PostgreSQL's null-safe <>, which a model
+        # writes for "not counting cancelled". Read as `FROM 'cancelled'`, the string was refused as a table.
+        if _IS_DISTINCT.search(body[:m.start()]):
+            continue
+        clause = m.group(1)
         # Case-insensitive like _REFERENCED: matched case-sensitively, `students AS T1`
         # read `AS` as the alias and `T1` as a second table, and refused the query.
         for item in re.findall(_ITEM, clause, re.I):

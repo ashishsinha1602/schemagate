@@ -286,7 +286,28 @@ DIALECT_RULES = {
         "No LIMIT: use FETCH FIRST n ROWS ONLY. No boolean literals. Use NVL or COALESCE, not IFNULL; "
         "|| to concatenate; SUBSTR and INSTR; EXTRACT(YEAR FROM d) or TO_CHAR(d, 'YYYY') for dates; "
         "TO_DATE('2012-08-23', 'YYYY-MM-DD') for date literals. With DISTINCT, ORDER BY only selected "
-        "expressions. GROUP BY repeats expressions, not column aliases."
+        "expressions. GROUP BY repeats expressions, not column aliases or positions (never GROUP BY 1)."
+    ),
+    # The three below are each engine's own syntax for what a model most often writes the SQLite or MySQL
+    # way. SQL Server and Oracle refuse GROUP BY 1; a real DATE column has no substring; PostgreSQL has no
+    # ROUND(double precision, int) and divides integers to an integer.
+    "postgresql": (
+        "PostgreSQL rules: LIMIT n. ILIKE for a case-insensitive match. Dates: EXTRACT(YEAR FROM d), "
+        "DATE_TRUNC('month', d), TO_CHAR(d, 'YYYY-MM'); literals DATE '2025-01-01'; days between two DATEs "
+        "is d2 - d1, between timestamps EXTRACT(EPOCH FROM (t2 - t1)) / 86400. Integer / integer truncates: "
+        "cast one side (x::numeric / y) for averages and shares. ROUND takes numeric: ROUND(x::numeric, 2). "
+        "A name the tables show in double quotes is case-sensitive: write it exactly as shown."
+    ),
+    "mysql": (
+        "MySQL rules: LIMIT n. Quote a name with backticks, never double quotes. Dates: YEAR(d), MONTH(d), "
+        "DATE_FORMAT(d, '%Y-%m'); DATEDIFF(d2, d1) gives days. CONCAT() joins strings (|| means OR). "
+        "No FULL OUTER JOIN. Every selected column that is not aggregated goes in GROUP BY."
+    ),
+    "mssql": (
+        "SQL Server (T-SQL) rules: no LIMIT: SELECT TOP (n) ... ORDER BY. GROUP BY repeats the expressions, "
+        "never positions (GROUP BY 1) or column aliases. Dates: YEAR(d), MONTH(d), FORMAT(d, 'yyyy-MM'), "
+        "DATEFROMPARTS; DATEDIFF(day, d1, d2) gives days. Integer / integer truncates: multiply by 1.0 first. "
+        "No boolean literals (use 1 and 0). + or CONCAT() joins strings. Quote names with [brackets]."
     ),
 }
 
@@ -295,7 +316,8 @@ def _flavour(dialect: str) -> str:
     """The dialect line of the system prompt, plus that dialect's rules if there are any."""
     if not dialect:
         return ""
-    rules = DIALECT_RULES.get(dialect.strip().lower().split("+")[0], "")
+    name = dialect.strip().lower().split("+")[0]
+    rules = DIALECT_RULES.get({"mariadb": "mysql", "postgres": "postgresql", "tsql": "mssql"}.get(name, name), "")
     return f" Target dialect: {dialect}." + (f"\n{rules}" if rules else "")
 
 
