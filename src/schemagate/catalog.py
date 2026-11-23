@@ -166,7 +166,13 @@ def _names_something(doc) -> bool:
 #: The join graph's vote in ``select``: an object gains ``JOIN_WEIGHT`` times the
 #: summed fused scores of its neighbours among the ``JOIN_WINDOW`` best-ranked
 #: objects. See ``Catalog._join_lift``.
-JOIN_WEIGHT = 0.25
+#:
+#: Off by default. On a schema crowded with look-alike tables it helps (LiveSQLBench-Large recall@10 64.9 -> 74.9
+#: at 0.25), but on questions in business words, which share no vocabulary with the schema, it lifts the tables
+#: that join the first guesses over the right ones: tests/bench.py's clinical claims fell 46.7% -> 33.3% and the
+#: claims warehouse 58.3% -> 33.3% at 0.25, and the warehouse still lost a question at 0.05. Turn it on for a big
+#: distractor-heavy schema with `Catalog.join_weight = 0.25`.
+JOIN_WEIGHT = 0.0
 JOIN_WINDOW = 10
 #: How many statements must have used two tables together before the query log's
 #: word counts as an edge -- the same bar ``learn_from_log`` sets for a key.

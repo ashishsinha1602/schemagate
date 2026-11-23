@@ -144,10 +144,12 @@ questions where BM25 managed 78.7% and embedding search 78.2%, and 98.7% of
 BIRD questions against 81.0% and 89.4%
 ([head-to-head](BENCHMARKS.md#head-to-head-schemagate-against-the-retrievers-other-tools-use)).
 On Snowflake's SQL-Schema-Retrieval benchmark (table level, recall@10) the
-hashed embedder scores Spider 100.0, BIRD 99.2, BEAVER 65.9, LiveSQLBench 95.1
-and LiveSQLBench-Large 74.9 (79.3 with all-MiniLM-L6-v2), above the paper's best
-model on four of the five and just below Qwen3-Embedding-4B (75.8) on the fifth,
-which the MiniLM row passes
+hashed embedder scores Spider 100.0, BIRD 99.2, BEAVER 65.9, LiveSQLBench 95.3
+and LiveSQLBench-Large 64.9 (73.9 with all-MiniLM-L6-v2), above the paper's best
+model on four of the five. On a schema crowded with look-alike tables like
+LiveSQLBench-Large, the opt-in join graph (`Catalog.join_weight = 0.25`) raises it
+to 74.9 hashed and 79.3 with MiniLM, past Qwen3-Embedding-4B (75.8); it is off by
+default because it costs recall on questions asked in business words
 ([details](BENCHMARKS.md#schema-retrieval-scored-by-snowflakes-benchmark)).
 Worked example, with a price you should replace with your own: a 260-object
 schema, 5,000 questions a day, an input price of $3 per million tokens. Full
@@ -524,7 +526,7 @@ they disagree, which is the point of showing both.
 | schema | objects | recall@6, literal | recall@6, business words |
 |---|---|---|---|
 | commerce | 42 | 100% | 50.0% |
-| clinical claims | 27 | 100% | 46.7% |
+| clinical claims | 27 | 100% | 53.3% |
 | claims warehouse (star) | 51 | 100% | 58.3% |
 | bank ledger and trading | 39 | 100% | 64.3% |
 | IoT telemetry | 40 | 100% | 60.0% |
@@ -535,7 +537,7 @@ they disagree, which is the point of showing both.
 | real table beats its backup/staging copy, 19 cases across schemas | 19/19 |
 | recall without foreign-key expansion | 100% |
 | prompt tokens, full schema every call | 2,812 |
-| prompt tokens, schemagate average | 757 (−73.1%) |
+| prompt tokens, schemagate average | 818 (−70.9%) |
 
 Measured with the **hashed embedder** — what `pip install schemagate` gives
 you, no extras. `schemagate[huggingface]` swaps in sentence-transformers and

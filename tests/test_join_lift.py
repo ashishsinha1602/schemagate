@@ -37,6 +37,7 @@ def _schema(*extra, key=True):
                            comment=f"Free-text {w} notes."))
     docs.extend(extra)
     cat = Catalog(name="digs")
+    cat.join_weight = 0.25                 # opt-in since 1.19.0 (off by default); these tests are about it on
     cat.add_all(docs)
     return cat.index()
 

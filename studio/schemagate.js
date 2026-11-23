@@ -201,7 +201,7 @@
   // catalog.py's _names_something: a table holding a name a reader would show.
   const NAME_COLUMN = /(?:^|_)(?:name|title|label)$/i;
   const namesSomething = (d) => (d.columns || []).some((c) => NAME_COLUMN.test(c.name || ""));
-  const JOIN_WEIGHT = 0.25, JOIN_WINDOW = 10;  // catalog.py's JOIN_WEIGHT, JOIN_WINDOW
+  const JOIN_WEIGHT = 0.0, JOIN_WINDOW = 10;  // catalog.py's JOIN_WEIGHT (off by default), JOIN_WINDOW
   // How many distinct objects must point at something before the schema is
   // telling us it is a dimension. Mirrors catalog.py's _DIMENSION_IN_DEGREE.
   const DIMENSION_IN_DEGREE = 2;

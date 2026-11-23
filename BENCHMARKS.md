@@ -1271,9 +1271,12 @@ model, not the fusion: `BAAI/bge-small-en-v1.5` (33M) scores 74.2 on this set
 as a vector channel alone in the same pipeline, above every model in the
 paper under 4B parameters.
 
-**The join graph (after 1.18.3).** The table above is with it; without it the
+**The join graph (1.19.0, opt-in).** The table above is with `Catalog.join_weight = 0.25`. It is **off by
+default**: on `tests/bench.py`'s questions in business words, which share no vocabulary with the schema, it lifted
+the tables that join the first guesses over the right ones (clinical claims 46.7% -> 33.3%, claims warehouse
+58.3% -> 33.3%, bank ledger 64.3% -> 57.1% at 0.25; the warehouse still lost a question at 0.05). By default the
 two rows read 64.9 / 55.7 and 73.9 / 61.0 on LiveSQLBench-Large, LiveSQLBench
-95.3 / 77.9 and 97.6 / 80.8, the rest identical. On LiveSQLBench-Large, 48% of
+95.3 / 77.9 and 97.6 / 80.8, the rest identical. Turn it on for a large schema full of look-alike tables. On LiveSQLBench-Large, 48% of
 the non-gold tables in the top ten joined none of the other nine, against 17%
 of the gold ones, and half the gold tables that missed the cut were one foreign
 key from a gold table that made it. So each object now gains a quarter of the

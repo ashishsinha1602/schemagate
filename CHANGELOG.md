@@ -27,7 +27,9 @@ SQL Server 2022 and Oracle 23ai):
 - **A table reached through a key that has no name column follows its keys once more to one that has.**
   `sup_purchase_order` reached `sup_supplier`, which holds a vendor number and a key to `core_party`, so "which
   suppliers did we spend the most with" was answered with V-0408, V-0410, V-0403 on every engine. Only to a table
-  holding a name, and only within the caller's scope.
+  holding a name, and only within the caller's scope. It costs prompt size: `tests/bench.py` averages 818
+  tokens instead of 757 (savings 70.9% instead of 73.1% of the whole schema), and business-word recall on the
+  clinical claims schema rose from 46.7% to 53.3%.
 - **PostgreSQL, MySQL and SQL Server get dialect rules in the SQL prompt, as Oracle has**: LIMIT vs TOP, GROUP BY
   never by position, each engine's date functions, integer division, quoting. Oracle also says never `GROUP BY 1`.
   The SQLite prompt is unchanged.
@@ -47,7 +49,10 @@ SQL Server 2022 and Oracle 23ai):
 
 Also in this release:
 
-- **`select` now uses the join graph to rank: a table that joins strong picks rises.** A question that needs two
+- **`select` can use the join graph to rank, opt-in (`Catalog.join_weight = 0.25`): a table that joins strong picks
+  rises.** Off by default: on questions in business words (`tests/bench.py`) it lifted the tables that join the
+  first guesses over the right ones (clinical claims 46.7% -> 33.3%, claims warehouse 58.3% -> 33.3% at 0.25), so it
+  is for large schemas crowded with look-alike tables, where it helps. A question that needs two
   tables usually says the words of one; the other shares a key with it and few words with the question, and on a
   schema full of look-alike tables it lost its slot to tables that join nothing the question touches. Each object
   now gains a quarter of the summed scores of its neighbours among the ten best-ranked objects, so a bridge that
@@ -57,7 +62,7 @@ Also in this release:
   logged join on a column the caller may not read is not an edge. On Snowflake's SQL-Schema-Retrieval benchmark
   (`benchmarks/schema_retrieval.py --infer`, hashed embedder, no model) LiveSQLBench-Large recall@10 went from 64.9
   to 74.9 and questions with every gold table found from 40.4% to 52.7%; with the local MiniLM embedder 73.9 to 79.3.
-  Spider, BIRD and BEAVER are unchanged, LiveSQLBench 95.3 to 95.1. `Catalog.join_weight = 0` turns it off. The
+  Spider, BIRD and BEAVER are unchanged, LiveSQLBench 95.3 to 95.1. The
   harness gained `--infer`, `--log-loo`, `--join-weight`, every-gold-table and selection precision columns. The
   Studio's JS port follows, and now also has the name hop and shared vector ranks, so it ranks exactly as Python
   again (476 of 1,789 parity cases differed before).
