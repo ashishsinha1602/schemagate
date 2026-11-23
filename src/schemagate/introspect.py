@@ -100,9 +100,17 @@ def engine_from_url(url: str, **kwargs):
 #: structural rather than a list of names like "status" or "type", because
 #: the interesting column on someone else's schema is called something this
 #: file has never heard of.
+#: A collation or character set may follow the type (SQL Server's `VARCHAR(255) COLLATE
+#: "SQL_Latin1_General_CP1_CI_AS"`, MySQL's `CHARACTER SET utf8mb4`): it says nothing about the contents.
 _SAMPLEABLE = re.compile(r"^(VARCHAR|VARCHAR2|NVARCHAR|NVARCHAR2|CHAR|NCHAR|TEXT)"
-                         r"(\((\d+)[^)]*\))?$", re.I)
+                         r"(\((\d+)[^)]*\))?(\s+(COLLATE|CHARACTER\s+SET|CHARSET)\b.*)?$", re.I)
+#: The longest value a category may hold, judged on what comes back.
 _MAX_WIDTH = 40
+#: The widest *declared* column worth one query. VARCHAR(255) is the default string column of most ORMs and
+#: tools (Rails, Django, Laravel, MySQL Workbench): ruling it out by its declaration, as a cap of 40 did, meant
+#: `status VARCHAR(255)` holding 'open'/'closed' was never read on a real PostgreSQL, MySQL, SQL Server or
+#: Oracle schema. What comes back is still judged by _MAX_WIDTH, the distinct cap and the distinct ratio.
+_MAX_DECLARED = 255
 
 
 #: Column names whose contents are personal by default. Matched on the name
@@ -162,7 +170,7 @@ def _candidates(raw_cols, pk_names, deny=_PII_NAMES) -> "List[str]":
         if not m:
             continue
         width = m.group(3)
-        if width is not None and int(width) > _MAX_WIDTH:
+        if width is not None and int(width) > _MAX_DECLARED:
             continue
         out.append(c["name"])
     return out
@@ -249,7 +257,9 @@ def _sample_values(engine, schema, table, raw_cols, kind, max_distinct,
             # And nearly-unique means identifier, not category. Without this a
             # three-row employee table hands over three full names, because
             # three distinct values is under any fixed cap.
-            if rows_total and len(vals) * _MAX_DISTINCT_RATIO >= rows_total:
+            # Two or three values (Y/N, active/inactive/pending) identify nobody, so a flag on a small lookup
+            # table is still read: `actv_flg` holding 'Y'/'N' on a four-row table was skipped as an "identifier".
+            if rows_total and len(vals) > 3 and len(vals) * _MAX_DISTINCT_RATIO >= rows_total:
                 continue
             found[n] = vals
     return found or None
