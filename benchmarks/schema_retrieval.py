@@ -30,7 +30,7 @@ import math
 import pathlib
 import re
 import time
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 from schemagate import Catalog, Column, ForeignKey, ObjectDoc
 
@@ -154,10 +154,26 @@ def ndcg(ranked, gold, k):
     return dcg / ideal if ideal else 0.0
 
 
-def run(subset: str, embedder, k: int = 10, fk: bool = False, misses=None, **select_kw):
+def run(subset: str, embedder, k: int = 10, fk: bool = False, misses=None, infer: bool = False,
+        join_weight=None, join_window=None, log_loo: bool = False, **select_kw):
+    """recall@k, nDCG@k, n, seconds, and a dict of extras: `all` (questions with every gold
+    table in the top k) and, over the whole selection including any FK expansion,
+    `sel_recall`, `sel_precision` and `sel_size`."""
     docs, by_db, queries, qrels = load(DATA / subset)
+    log_pairs = None
+    if log_loo:
+        # A stand-in query log: the tables every *other* question of the database reads,
+        # as pairs read together. Leave-one-out, so a question never sees its own answer.
+        from schemagate.querylog import LogFacts
+        log_pairs = defaultdict(Counter)
+        for g in qrels.values():
+            names = sorted({c.partition("__")[2] for c in g})
+            db0 = next(iter(g)).partition("__")[0]
+            for i, a in enumerate(names):
+                for b in names[i + 1:]:
+                    log_pairs[db0][frozenset((f"{db0}.{a}", f"{db0}.{b}"))] += 1
     cats, n = {}, 0
-    rec_sum = ndcg_sum = 0.0
+    rec_sum = ndcg_sum = all_sum = srec = sprec = ssize = 0.0
     t0 = time.time()
     for qid, text in queries.items():
         gold = qrels.get(qid)
@@ -167,17 +183,35 @@ def run(subset: str, embedder, k: int = 10, fk: bool = False, misses=None, **sel
         if db not in cats:
             cat = Catalog(embedder=embedder, name=db)
             cat.add_all(by_db[db])
+            if infer:
+                cat.infer_foreign_keys()
+            if join_weight is not None:
+                cat.join_weight = join_weight
+            if join_window is not None:
+                cat.join_window = join_window
             cats[db] = cat.index()
+        if log_pairs is not None:
+            names = sorted({c.partition("__")[2] for c in gold})
+            own = Counter(frozenset((f"{db}.{a}", f"{db}.{b}"))
+                          for i, a in enumerate(names) for b in names[i + 1:])
+            cats[db].query_log = LogFacts(together=log_pairs[db] - own)
         sel = cats[db].select(text, top_k=k, expand_fks=fk, **select_kw)
-        ranked = [f"{sc.doc.schema}__{sc.doc.name}" for sc in sel.hits][:k]
+        every = [f"{sc.doc.schema}__{sc.doc.name}" for sc in sel.hits]
+        ranked = every[:k]
         r = len(gold & set(ranked)) / len(gold)
         rec_sum += r
+        all_sum += r == 1.0
         ndcg_sum += ndcg(ranked, gold, k)
+        srec += len(gold & set(every)) / len(gold)
+        sprec += len(gold & set(every)) / max(1, len(every))
+        ssize += len(every)
         n += 1
         if misses is not None and r < 1.0:
             misses.append({"qid": qid, "db": db, "question": text, "gold": sorted(gold),
                            "missed": sorted(gold - set(ranked)), "ranked": ranked})
-    return 100 * rec_sum / n, 100 * ndcg_sum / n, n, time.time() - t0
+    extra = {"all": 100 * all_sum / n, "sel_recall": 100 * srec / n,
+             "sel_precision": 100 * sprec / n, "sel_size": ssize / n}
+    return 100 * rec_sum / n, 100 * ndcg_sum / n, n, time.time() - t0, extra
 
 
 def main():
@@ -189,18 +223,31 @@ def main():
     ap.add_argument("--vector-weight", type=float, default=1.0)
     ap.add_argument("--lexical-weight", type=float, default=None, help="default: the library's")
     ap.add_argument("--misses", help="write the questions that missed a gold table here (JSONL)")
+    ap.add_argument("--infer", action="store_true",
+                    help="infer foreign keys from column names first, as Catalog.introspect does")
+    ap.add_argument("--join-weight", type=float, default=None,
+                    help="Catalog.join_weight (default: the library's; 0 turns the join graph's vote off)")
+    ap.add_argument("--join-window", type=int, default=None, help="Catalog.join_window")
+    ap.add_argument("--log-loo", action="store_true",
+                    help="give each question a stand-in query log: the table pairs the database's "
+                         "other questions read together (leave-one-out)")
     args = ap.parse_args()
     download()
     embedder = make_embedder(args.embedder)
     kw = {"vector_weight": args.vector_weight}
     if args.lexical_weight is not None:
         kw["lexical_weight"] = args.lexical_weight
-    print(f"embedder={args.embedder} k={args.k} fk={args.fk}")
-    print(f"{'subset':26s} {'n':>5s} {'recall@10':>10s} {'nDCG@10':>8s}")
+    print(f"embedder={args.embedder} k={args.k} fk={args.fk} infer={args.infer} "
+          f"join_weight={args.join_weight} join_window={args.join_window} log_loo={args.log_loo}")
+    print(f"{'subset':26s} {'n':>5s} {'recall@k':>9s} {'nDCG@k':>7s} {'all@k':>6s}"
+          f" {'sel_rec':>8s} {'sel_prec':>8s} {'sel_n':>6s}")
     misses = [] if args.misses else None
     for s in args.subset or SUBSETS:
-        r, d, n, secs = run(s, embedder, args.k, args.fk, misses, **kw)
-        print(f"{s:26s} {n:5d} {r:10.1f} {d:8.1f}   ({secs:.0f}s)", flush=True)
+        r, d, n, secs, x = run(s, embedder, args.k, args.fk, misses, infer=args.infer,
+                               join_weight=args.join_weight, join_window=args.join_window,
+                               log_loo=args.log_loo, **kw)
+        print(f"{s:26s} {n:5d} {r:9.1f} {d:7.1f} {x['all']:6.1f} {x['sel_recall']:8.1f}"
+              f" {x['sel_precision']:8.1f} {x['sel_size']:6.1f}   ({secs:.0f}s)", flush=True)
     if misses is not None:
         with open(args.misses, "w", encoding="utf-8") as f:
             for m in misses:

@@ -22,10 +22,15 @@ def test_oracle_gets_its_rules_under_any_spelling():
 
 
 def test_other_dialects_and_no_dialect_are_byte_for_byte_unchanged():
-    for name in ("sqlite", "postgresql", "mysql", "mssql"):
+    # SQLite (the BIRD gate's dialect) keeps the exact prompt; PostgreSQL, MySQL and SQL Server get their own
+    # rules since 2026-11-22 (a 5-engine eval: GROUP BY 1, date substrings and integer division were the misses)
+    p = Capture()
+    generate_sql(p, "q", "CREATE TABLE t (id INT)", dialect="sqlite")
+    assert p.system == SYSTEM + " Target dialect: sqlite."
+    for name in ("postgresql", "mysql", "mssql"):
         p = Capture()
         generate_sql(p, "q", "CREATE TABLE t (id INT)", dialect=name)
-        assert p.system == SYSTEM + f" Target dialect: {name}."
+        assert p.system == SYSTEM + f" Target dialect: {name}.\n" + DIALECT_RULES[name]
     p = Capture()
     generate_sql(p, "q", "CREATE TABLE t (id INT)")
     assert p.system == SYSTEM

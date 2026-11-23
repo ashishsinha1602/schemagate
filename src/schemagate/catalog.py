@@ -155,6 +155,30 @@ def _name_text(doc) -> str:
     return " ".join(x for x in (doc.schema or "", doc.name or "",
                                 (doc.name or "").replace("_", " ")) if x)
 
+_NAME_COLUMN = re.compile(r"(?:^|_)(?:name|title|label)$", re.I)
+
+
+def _names_something(doc) -> bool:
+    """Whether a table holds a name a reader would show: `name`, `display_name`, `last_name`, `title`."""
+    return any(_NAME_COLUMN.search(c.name or "") for c in doc.columns)
+
+
+#: The join graph's vote in ``select``: an object gains ``JOIN_WEIGHT`` times the
+#: summed fused scores of its neighbours among the ``JOIN_WINDOW`` best-ranked
+#: objects. See ``Catalog._join_lift``.
+#:
+#: Off by default. On a schema crowded with look-alike tables it helps (LiveSQLBench-Large recall@10 64.9 -> 74.9
+#: at 0.25), but on questions in business words, which share no vocabulary with the schema, it lifts the tables
+#: that join the first guesses over the right ones: tests/bench.py's clinical claims fell 46.7% -> 33.3% and the
+#: claims warehouse 58.3% -> 33.3% at 0.25, and the warehouse still lost a question at 0.05. Turn it on for a big
+#: distractor-heavy schema with `Catalog.join_weight = 0.25`.
+JOIN_WEIGHT = 0.0
+JOIN_WINDOW = 10
+#: How many statements must have used two tables together before the query log's
+#: word counts as an edge -- the same bar ``learn_from_log`` sets for a key.
+JOIN_LOG_MIN = 2
+
+
 #: Prefixes that mark a staging or scratch copy of some other object. An
 #: object is a shadow only when another, non-shadow object shares its stem
 #: once layer prefixes (dim_, fact_, v_ ...) are stripped: ``stg_member`` is
@@ -491,6 +515,11 @@ class Catalog:
         #: Measured on LiveSQLBench-Large: this channel alone 60.8 recall@10
         #: against 43.5 for the body channel. 0 turns it off.
         self.column_weight = 1.0
+        #: The join graph's vote (see ``_join_lift``): an object gains ``join_weight``
+        #: times the summed scores of its neighbours among the ``join_window``
+        #: best-ranked objects. 0 turns it off.
+        self.join_weight = JOIN_WEIGHT
+        self.join_window = JOIN_WINDOW
 
     # ---------------- build ----------------
 
@@ -599,20 +628,26 @@ class Catalog:
             # of what a call named "restrict" asks for
             raise ValueError("restrict_column needs at least one role; an empty list would make "
                              "the column visible to everyone")
-        for qname, doc in self._docs.items():
-            if qname == table or doc.name == table:
-                for col in doc.columns:
-                    if col.name == column:
-                        col.roles = list(roles)
-                        # Values sampled before the restriction was applied
-                        # would otherwise sit on the column, reachable by
-                        # anything that reads `Column.values` directly. The
-                        # DDL already omits a restricted column, but the data
-                        # should not survive the restriction either.
-                        col.values = None
-                        return
-                raise KeyError(f"{table!r} has no column {column!r}")
-        raise KeyError(f"{table!r} not in catalog")
+        # Every object the name matches, not the first: a bare `employees` with both
+        # `hr.employees` and `sales.employees` in the catalog used to restrict one and leave
+        # the other open while reporting success.
+        matches = [d for q, d in self._docs.items() if q == table or d.name == table]
+        if not matches:
+            raise KeyError(f"{table!r} not in catalog")
+        hit = False
+        for doc in matches:
+            for col in doc.columns:
+                if col.name == column:
+                    col.roles = list(roles)
+                    # Values sampled before the restriction was applied
+                    # would otherwise sit on the column, reachable by
+                    # anything that reads `Column.values` directly. The
+                    # DDL already omits a restricted column, but the data
+                    # should not survive the restriction either.
+                    col.values = None
+                    hit = True
+        if not hit:
+            raise KeyError(f"{table!r} has no column {column!r}")
 
     def _resolve_object(self, name: str) -> str:
         hit = next((q for q, d in self._docs.items() if q == name or d.name == name), None)
@@ -833,11 +868,13 @@ class Catalog:
             # of what a call named "restrict" asks for
             raise ValueError("restrict needs at least one role; an empty list would make the "
                              "object visible to everyone (use exclude= to drop it)")
-        for qname, doc in self._docs.items():
-            if qname == table or doc.name == table:
-                doc.roles = list(roles)
-                return
-        raise KeyError(f"{table!r} not in catalog")
+        # Every object the name matches: a bare name shared by two schemas restricts both,
+        # rather than the first one found while the other stays visible.
+        matches = [d for q, d in self._docs.items() if q == table or d.name == table]
+        if not matches:
+            raise KeyError(f"{table!r} not in catalog")
+        for doc in matches:
+            doc.roles = list(roles)
 
     def bootstrap(self, engine_or_url=None, include=None, exclude=None,
                   schemas=None, include_views=True,
@@ -1320,6 +1357,110 @@ class Catalog:
             return ref not in hidden and ref.split(".")[-1] not in hidden
         return visible
 
+    def _join_lift(self, ranked: List[tuple], principal: Optional[Principal]) -> List[tuple]:
+        """Re-rank ``ranked`` with the join graph: a table that joins strong picks rises.
+
+        A question that needs two tables usually says the words of one of them.
+        The other -- the event table behind "scan quality", the lookup that holds
+        the site name -- shares a key with it and few words with the question,
+        and on a schema full of look-alike tables it ranks below distractors that
+        join to nothing the question touches. So every object gains
+        ``join_weight`` times the summed scores of its neighbours among the
+        ``join_window`` best-ranked objects: one strong neighbour lifts it, and a
+        table that joins two of them -- the bridge a two-table question needs --
+        is lifted by both.
+
+        Which edges count:
+
+        * declared foreign keys, either direction;
+        * a key ``infer_foreign_keys`` guessed from a column name only when the
+          query log saw those two tables used together. Counted on their own,
+          the guesses bought BEAVER (no declared key anywhere) half a point of
+          recall@10 and cost Spider a question it had answered: a guess ties
+          a fact to every dimension whose name its columns spell;
+        * from the query log (``learn_from_log``), tables joined or read in one
+          statement at least ``JOIN_LOG_MIN`` times.
+
+        Only between objects in ``ranked``, which is already this caller's:
+        nothing hidden can be lifted, and nothing hidden can lift. A key or a
+        logged join counts only if the caller may read its columns on both
+        sides, as in ``graph()``. It only reorders: no object enters that the
+        maths did not already score.
+
+        Measured with ``benchmarks/schema_retrieval.py --infer`` (Snowflake's
+        SQL-Schema-Retrieval, hashed embedder, no model): LiveSQLBench-Large
+        recall@10 64.9 -> 74.9, every gold table found 40.4% -> 52.7% of
+        questions; at top_k=6 56.4 -> 64.0. Spider, BIRD and BEAVER unchanged,
+        LiveSQLBench 95.3 -> 95.1 (nDCG 77.9 -> 79.4). The best neighbour
+        alone (max, not sum) gave 73.5; 0.4 instead of 0.25 gave 76.5 but cost
+        warehouse and view questions at top_k=6 in the test suite. With a
+        stand-in query log (``--log-loo``: the tables the database's other
+        questions read together) LiveSQLBench-Large reaches 82.1 and BEAVER
+        65.9 -> 79.6.
+        """
+        weight, window = self.join_weight, self.join_window
+        if not weight or window <= 0 or len(ranked) < 2:
+            return ranked
+        score = dict(ranked)
+        top = dict(ranked[:window])
+        by_qname = {q.lower(): q for q in score}
+        by_name: Dict[str, List[str]] = {}
+        for q in score:
+            by_name.setdefault((self._docs[q].name or "").lower(), []).append(q)
+        hidden_cols: Dict[str, set] = {}
+
+        def readable(q: str, cols) -> bool:
+            if q not in hidden_cols:
+                hidden_cols[q] = {c.name.lower() for c in self._docs[q].columns
+                                  if not allowed(c.roles, principal)}
+            return not (hidden_cols[q] and any((c or "").lower() in hidden_cols[q] for c in cols))
+
+        log = self.query_log
+        logged = set()                       # pairs the log saw together, whatever the columns
+        pairs = set()
+        if log:
+            for pair, n in log.together.items():
+                if n >= JOIN_LOG_MIN and len(pair) == 2:
+                    logged.add(pair)
+                    a, b = sorted(pair)
+                    if a in score and b in score and (a in top or b in top):
+                        pairs.add((a, b))
+            for (a, ca, b, cb), n in log.joins.items():
+                if n < JOIN_LOG_MIN or a == b:
+                    continue
+                logged.add(frozenset((a, b)))
+                if (a in score and b in score and (a in top or b in top)
+                        and readable(a, [ca]) and readable(b, [cb])):
+                    pairs.add(tuple(sorted((a, b))))
+        for a in score:
+            doc = self._docs[a]
+            for fk in doc.foreign_keys:
+                ref = (fk.ref_table or "").lower()
+                if ref in by_qname:
+                    targets = [by_qname[ref]]
+                else:
+                    targets = by_name.get(ref.split(".")[-1], [])
+                    if len(targets) > 1:
+                        near = [t for t in targets if self._docs[t].schema == doc.schema]
+                        targets = near or targets
+                for b in targets:
+                    if b == a or (a not in top and b not in top):
+                        continue
+                    if fk.inferred and frozenset((a, b)) not in logged:
+                        continue
+                    if readable(a, fk.columns) and readable(b, fk.ref_columns):
+                        pairs.add(tuple(sorted((a, b))))
+        if not pairs:
+            return ranked
+        lift: Dict[str, float] = {}
+        for a, b in sorted(pairs):           # sorted: a float sum must not depend on hash order
+            if a in top:
+                lift[b] = lift.get(b, 0.0) + top[a]
+            if b in top:
+                lift[a] = lift.get(a, 0.0) + top[b]
+        return sorted(((q, s + weight * lift.get(q, 0.0)) for q, s in ranked),
+                      key=lambda p: (-p[1], p[0]))
+
     def select(self, question: str, top_k: int = 6,
                principal: Optional[Principal] = None,
                expand_fks: bool = True, pin: Optional[Sequence[str]] = None,
@@ -1516,6 +1657,9 @@ class Catalog:
         # still moved the top-6 on 1 of 12 questions. The qname is the only
         # key available that does not depend on how the database was read.
         ranked = sorted(fused.items(), key=lambda p: (-p[1], p[0]))
+        # The join graph votes last: a table that joins a strong pick rises.
+        # `ranked` holds only what this caller may see, and so does every edge.
+        ranked = self._join_lift(ranked, principal)
         chosen: List[Scored] = []
         taken = set()
 
@@ -1681,11 +1825,26 @@ class Catalog:
             taken.add(best[0])
 
         if expand_fks:
+            reached = []
             for sc in list(chosen):
                 for fk in sc.doc.foreign_keys:
                     for q in allowed:
                         d = self._docs[q]
                         if d.name.lower() == fk.ref_table.lower() and q not in taken:
+                            chosen.append(Scored(d, 0.0, "fk"))
+                            taken.add(q)
+                            reached.append(d)
+            # A table reached through a key that has no name of its own names nothing: sup_supplier holds a
+            # vendor number and a key to core_party, so "which 3 suppliers did we spend the most with" came
+            # back as V-0408, V-0410, V-0403 on every database. One more hop, only from such a table, only to
+            # a table that holds a name -- `allowed` is already this caller's, so nothing hidden enters.
+            for d0 in reached:
+                if _names_something(d0):
+                    continue
+                for fk in d0.foreign_keys:
+                    for q in allowed:
+                        d = self._docs[q]
+                        if d.name.lower() == fk.ref_table.lower() and q not in taken and _names_something(d):
                             chosen.append(Scored(d, 0.0, "fk"))
                             taken.add(q)
 

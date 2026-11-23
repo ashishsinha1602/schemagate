@@ -148,6 +148,7 @@ def _catalog_types(engine) -> "Dict[tuple, str]":
     if cached is not None:
         return cached
     out: "Dict[tuple, str]" = {}
+    _TYPE_CACHE[engine] = out          # a refusal is remembered: no failing round trip per table
     with engine.connect() as conn:
         for row in conn.exec_driver_sql(_TYPES_SQL):
             schema, table, column, tname, is_udt, base, length, prec, scale = row

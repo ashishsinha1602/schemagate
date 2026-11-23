@@ -100,9 +100,17 @@ def engine_from_url(url: str, **kwargs):
 #: structural rather than a list of names like "status" or "type", because
 #: the interesting column on someone else's schema is called something this
 #: file has never heard of.
+#: A collation or character set may follow the type (SQL Server's `VARCHAR(255) COLLATE
+#: "SQL_Latin1_General_CP1_CI_AS"`, MySQL's `CHARACTER SET utf8mb4`): it says nothing about the contents.
 _SAMPLEABLE = re.compile(r"^(VARCHAR|VARCHAR2|NVARCHAR|NVARCHAR2|CHAR|NCHAR|TEXT)"
-                         r"(\((\d+)[^)]*\))?$", re.I)
+                         r"(\((\d+)[^)]*\))?(\s+(COLLATE|CHARACTER\s+SET|CHARSET)\b.*)?$", re.I)
+#: The longest value a category may hold, judged on what comes back.
 _MAX_WIDTH = 40
+#: The widest *declared* column worth one query. VARCHAR(255) is the default string column of most ORMs and
+#: tools (Rails, Django, Laravel, MySQL Workbench): ruling it out by its declaration, as a cap of 40 did, meant
+#: `status VARCHAR(255)` holding 'open'/'closed' was never read on a real PostgreSQL, MySQL, SQL Server or
+#: Oracle schema. What comes back is still judged by _MAX_WIDTH, the distinct cap and the distinct ratio.
+_MAX_DECLARED = 255
 
 
 #: Column names whose contents are personal by default. Matched on the name
@@ -162,7 +170,7 @@ def _candidates(raw_cols, pk_names, deny=_PII_NAMES) -> "List[str]":
         if not m:
             continue
         width = m.group(3)
-        if width is not None and int(width) > _MAX_WIDTH:
+        if width is not None and int(width) > _MAX_DECLARED:
             continue
         out.append(c["name"])
     return out
@@ -249,7 +257,9 @@ def _sample_values(engine, schema, table, raw_cols, kind, max_distinct,
             # And nearly-unique means identifier, not category. Without this a
             # three-row employee table hands over three full names, because
             # three distinct values is under any fixed cap.
-            if rows_total and len(vals) * _MAX_DISTINCT_RATIO >= rows_total:
+            # Two or three values (Y/N, active/inactive/pending) identify nobody, so a flag on a small lookup
+            # table is still read: `actv_flg` holding 'Y'/'N' on a four-row table was skipped as an "identifier".
+            if rows_total and len(vals) > 3 and len(vals) * _MAX_DISTINCT_RATIO >= rows_total:
                 continue
             found[n] = vals
     return found or None
@@ -258,6 +268,13 @@ def _sample_values(engine, schema, table, raw_cols, kind, max_distinct,
 #: distinguishes "the batch had no comment for this table" from "the batch did
 #: not cover this table", which need different things done about them.
 _MISSING = object()
+
+
+def _information_schema_columns(insp, schema):
+    """Columns for one schema from the standard view; see
+    :func:`schemagate.dialects.ansi_columns`. ``{}`` when unavailable."""
+    from .dialects import ansi_columns
+    return ansi_columns(getattr(insp, "bind", None), schema)
 
 
 def _multi_reflect(insp, schema, names, include_views):
@@ -274,9 +291,20 @@ def _multi_reflect(insp, schema, names, include_views):
     import warnings
 
     out = {"columns": {}, "pk": {}, "fks": {}, "comments": {}}
+    if not names:
+        return out          # an empty schema: four queries to learn nothing, 21 times on RNAcentral
     kw = {"schema": schema}
-    if include_views:
-        kw["kind"] = None       # tables and views in one pass, where supported
+    try:
+        from sqlalchemy.engine.reflection import ObjectKind, ObjectScope
+    except ImportError:                     # SQLAlchemy 1.4: no batch reflection; the per-table calls run
+        ObjectKind = ObjectScope = None
+    if ObjectKind is not None:
+        # The names are already known. Passing them, with kind and scope ANY, is what lets SQLAlchemy skip
+        # re-listing the schema for every batch call -- on SQL Server, 130 of 269 queries for AdventureWorks
+        # were that. `kind=None`, used before, is not accepted: it raised, the TypeError fallback below
+        # retried with tables only, and every view was then read one at a time.
+        kw.update(filter_names=[n for n, _ in names], scope=ObjectScope.ANY,
+                  kind=ObjectKind.ANY if include_views else ObjectKind.TABLE)
 
     def _run(method, **extra):
         fn = getattr(insp, method, None)
@@ -302,6 +330,29 @@ def _multi_reflect(insp, schema, names, include_views):
         return {(k[1] if isinstance(k, tuple) else k): v for k, v in d.items()}
 
     out["columns"] = _bare(_run("get_multi_columns"))
+    if not out["columns"] and names:
+        # The batch failed outright. On PostgreSQL that is a read-only role
+        # refused one catalog table SQLAlchemy joins (pg_collation): every
+        # per-table call fails the same way, one round trip at a time, and the
+        # database comes back empty. The standard views are readable by any
+        # role that can read the tables, so ask them instead, once.
+        out["columns"] = _information_schema_columns(insp, schema)
+        out["ansi_columns"] = bool(out["columns"])
+    elif out["columns"]:
+        from .dialects import ansi_columns, hides_typed_columns
+        bind = getattr(insp, "bind", None)
+        if hides_typed_columns(bind):
+            # SQL Server hides a column whose user-defined type the login has no permission on: AdventureWorks'
+            # Name columns (type dbo.Name) vanished for a db_datareader login, so "Department" was an ID and a
+            # date, and every answer showed IDs. The standard view lists them; fill in what was hidden.
+            for table, cols in ansi_columns(bind, schema).items():
+                have = out["columns"].get(table)
+                if have is None:
+                    continue
+                known = {c["name"] for c in have}
+                if any(c["name"] not in known for c in cols):
+                    by_name = {c["name"]: c for c in have}
+                    out["columns"][table] = [by_name.get(c["name"], c) for c in cols]
     out["fks"] = _bare(_run("get_multi_foreign_keys"))
     pk = _bare(_run("get_multi_pk_constraint"))
     out["pk"] = {k: set((v or {}).get("constrained_columns") or []) for k, v in pk.items()}
@@ -415,6 +466,11 @@ def reflect(engine_or_url, include=None, exclude=None,
         # each lookup below still degrades to the single-table call if a key
         # is missing.
         multi = _multi_reflect(insp, schema, names, include_views)
+        # The single-table fallbacks below cost a round trip each. When they
+        # fail for every table -- the same refused catalog table every time --
+        # a large schema spends minutes proving it, so give up after a few.
+        single_failures = 0
+        view_defs = None            # filled on the first view in this schema
 
         for name, kind in names:
             if (schema, name) in seen:
@@ -425,13 +481,19 @@ def reflect(engine_or_url, include=None, exclude=None,
             if not _match(name, include) or (exclude and _match(name, exclude)):
                 continue
             raw_cols = multi["columns"].get(name)
+            if raw_cols is None and multi.get("ansi_columns"):
+                continue                # the standard view answered; this one has no readable columns
+            if raw_cols is None and single_failures >= 3:
+                continue
             if raw_cols is None:
                 try:
                     import warnings
                     with warnings.catch_warnings():
                         warnings.filterwarnings("ignore", message="Did not recognize type")
                         raw_cols = insp.get_columns(name, schema=schema)
+                    single_failures = 0
                 except Exception:
+                    single_failures += 1
                     continue
             if not raw_cols:
                 continue
@@ -462,10 +524,16 @@ def reflect(engine_or_url, include=None, exclude=None,
 
             definition = None
             if kind == "VIEW":
-                try:
-                    definition = insp.get_view_definition(name, schema=schema)
-                except Exception:
-                    definition = None
+                if view_defs is None:
+                    # all of this schema's view definitions in one query, where the standard view has them
+                    from .dialects import ansi_view_definitions
+                    view_defs = ansi_view_definitions(engine, schema)
+                definition = view_defs.get(name)
+                if definition is None:
+                    try:
+                        definition = insp.get_view_definition(name, schema=schema)
+                    except Exception:
+                        definition = None
 
             values = (_sample_values(engine, schema, name, raw_cols, kind,
                                      max_distinct,

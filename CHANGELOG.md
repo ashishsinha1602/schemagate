@@ -1,7 +1,71 @@
 # Changelog
 
-## Unreleased
+## 1.19.0
 
+Security:
+
+- **A comment marker inside a string no longer hides the rest of a statement from the checks
+  (GHSA-334g-6594-p54w, high).** `check_read_only` and the `run_query` scope check removed comments with one regular
+  expression and then emptied string literals with another, so a `--` or `/*` inside a string hid the rest of the
+  line from every check. The new `schemagate.sqltext` scans once, left to right, the way each database reads text
+  (MySQL backslash escapes and its `-- ` rule, PostgreSQL dollar quotes, `E''` strings and nested comments, Oracle
+  `q'[...]'` quoting); with the dialect unknown, every reading is checked. MySQL's executable `/*! */` comments are
+  refused. `Catalog.restrict` and `restrict_column` now apply to every object a bare name matches, not the first.
+- **`SELECT ... INTO` is no longer accepted as a read (GHSA-2h6p-vmrf-3c76).** `SELECT * FROM users INTO OUTFILE
+  '/tmp/out.txt'` and `SELECT 'x' INTO DUMPFILE '/tmp/x'` passed `check_read_only`; on MySQL or MariaDB with the FILE
+  privilege they write a file on the database server, and `SELECT * INTO new_t FROM t` creates a table on PostgreSQL
+  and SQL Server. `INTO` outside a string or a comment is now refused. Reported by Jeetu SK. As before, the
+  strongest guarantee is a database login that cannot write.
+
+Correctness on every engine (found by a five-engine evaluation of the same data on SQLite, PostgreSQL 16, MySQL 8.4,
+SQL Server 2022 and Oracle 23ai):
+
+- **The scope check no longer refuses `EXTRACT(YEAR FROM col)`, `SUBSTRING(s FROM n)`, `TRIM(... FROM s)` or
+  `a IS [NOT] DISTINCT FROM b`.** The table reader took each FROM as a table, so `po.raised_on` or `'cancelled'` was
+  refused as a table nobody may see: every "per year" question answered the standard way failed on PostgreSQL and
+  Oracle. A subquery inside those calls has its own bracket and is still read and checked.
+- **A table reached through a key that has no name column follows its keys once more to one that has.**
+  `sup_purchase_order` reached `sup_supplier`, which holds a vendor number and a key to `core_party`, so "which
+  suppliers did we spend the most with" was answered with V-0408, V-0410, V-0403 on every engine. Only to a table
+  holding a name, and only within the caller's scope. It costs prompt size: `tests/bench.py` averages 818
+  tokens instead of 757 (savings 70.9% instead of 73.1% of the whole schema), and business-word recall on the
+  clinical claims schema rose from 46.7% to 53.3%.
+- **PostgreSQL, MySQL and SQL Server get dialect rules in the SQL prompt, as Oracle has**: LIMIT vs TOP, GROUP BY
+  never by position, each engine's date functions, integer division, quoting. Oracle also says never `GROUP BY 1`.
+  The SQLite prompt is unchanged.
+- **Category values are read on the column types real databases use.** `status VARCHAR(255)` (the default string
+  column of most ORMs) was ruled out by its declared width, and SQL Server's `VARCHAR(255) COLLATE "..."` by its
+  type string, so `sample_values=True` read nothing on PostgreSQL, MySQL, SQL Server and Oracle schemas built that
+  way (0 columns on all four, 32 on the same data in SQLite). Declarations up to 255 are now asked, and what comes
+  back is judged as before (short values, few of them, well under the row count). A flag of two or three values on
+  a small lookup table is read too. Personal-looking names are still never read.
+- **MariaDB's statement time limit uses `max_statement_time`.** `MAX_EXECUTION_TIME` is MySQL-only; on MariaDB every
+  timed read failed with error 1193.
+- **Reflection on restricted logins and large schemas.** A read-only PostgreSQL role that may not read every
+  catalog table got no tables back (EBI RNAcentral: 316 tables, 235 s, 0 found; now 294 tables in 39 s). Batch
+  reflection passes known names and reads view definitions per schema (AdventureWorks on SQL Server: 269 queries to
+  about 90). SQL Server columns of a user-defined type the login cannot see (every `Name` column in AdventureWorks
+  under `db_datareader`) are filled in from `INFORMATION_SCHEMA.COLUMNS`.
+
+Also in this release:
+
+- **`select` can use the join graph to rank, opt-in (`Catalog.join_weight = 0.25`): a table that joins strong picks
+  rises.** Off by default: on questions in business words (`tests/bench.py`) it lifted the tables that join the
+  first guesses over the right ones (clinical claims 46.7% -> 33.3%, claims warehouse 58.3% -> 33.3% at 0.25), so it
+  is for large schemas crowded with look-alike tables, where it helps. A question that needs two
+  tables usually says the words of one; the other shares a key with it and few words with the question, and on a
+  schema full of look-alike tables it lost its slot to tables that join nothing the question touches. Each object
+  now gains a quarter of the summed scores of its neighbours among the ten best-ranked objects, so a bridge that
+  joins two picks is lifted by both. Edges are declared foreign keys, plus -- once `learn_from_log` has run --
+  tables the log joined or read together at least twice; a key guessed from a column name counts only when the log
+  backs it. Every edge stays inside the caller's scope: only objects the caller may see are ranked, and a key or
+  logged join on a column the caller may not read is not an edge. On Snowflake's SQL-Schema-Retrieval benchmark
+  (`benchmarks/schema_retrieval.py --infer`, hashed embedder, no model) LiveSQLBench-Large recall@10 went from 64.9
+  to 74.9 and questions with every gold table found from 40.4% to 52.7%; with the local MiniLM embedder 73.9 to 79.3.
+  Spider, BIRD and BEAVER are unchanged, LiveSQLBench 95.3 to 95.1. The
+  harness gained `--infer`, `--log-loo`, `--join-weight`, every-gold-table and selection precision columns. The
+  Studio's JS port follows, and now also has the name hop and shared vector ranks, so it ranks exactly as Python
+  again (476 of 1,789 parity cases differed before).
 - **`schemagate.scope.check_scope(catalog, sql, principal, dialect)`: the scope check `run_query` enforces, as a
   public function.** It returns None when the SQL reads only objects and columns the principal may see, and the
   refusal otherwise. `run_query` takes the SQL dialect from the server's one connection; this takes it as an

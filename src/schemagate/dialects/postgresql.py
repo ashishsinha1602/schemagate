@@ -164,11 +164,14 @@ def _catalog_types(engine) -> "Dict[tuple, str]":
     if cached is not None:
         return cached
     out: "Dict[tuple, str]" = {}
+    # A refusal is remembered too. A read-only role that may not read one of
+    # these catalog tables otherwise paid a failing round trip per table: 294
+    # of them, three minutes, on EBI's public RNAcentral database.
+    _TYPE_CACHE[engine] = out
     with engine.connect() as conn:
         for nsp, rel, col, declared, typtype, detail in conn.exec_driver_sql(_TYPES_SQL):
             better = _render(declared, typtype, detail)
             out[(nsp, rel, col)] = better or declared
-    _TYPE_CACHE[engine] = out
     return out
 
 

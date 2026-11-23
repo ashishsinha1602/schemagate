@@ -72,8 +72,8 @@ def dialect(monkeypatch):
 @pytest.mark.parametrize("name,sql", ATTACKS)
 def test_the_parser_alone_refuses_every_attack(monkeypatch, dialect, name, sql):
     dialect(name)
-    monkeypatch.setattr(M, "_referenced_tables", lambda s: [])      # pattern readers off
-    monkeypatch.setattr(M, "_identifiers", lambda s: set())
+    monkeypatch.setattr(M, "_referenced_tables", lambda s, mode="ansi": [])      # pattern readers off
+    monkeypatch.setattr(M, "_identifiers", lambda s, mode="ansi": set())
     monkeypatch.setattr(M, "_STAR", NS(search=lambda s: None))
     assert M._check_scope(CAT, sql, SALES) is not None, sql
 
@@ -137,8 +137,8 @@ def test_a_whole_row_reference_is_refused_when_a_column_is_withheld(dialect, sql
 @pytest.mark.parametrize("sql", WHOLE_ROW)
 def test_the_parser_alone_refuses_whole_row_references(monkeypatch, dialect, sql):
     dialect("postgresql")
-    monkeypatch.setattr(M, "_referenced_tables", lambda s: [])
-    monkeypatch.setattr(M, "_identifiers", lambda s: set())
+    monkeypatch.setattr(M, "_referenced_tables", lambda s, mode="ansi": [])
+    monkeypatch.setattr(M, "_identifiers", lambda s, mode="ansi": set())
     monkeypatch.setattr(M, "_STAR", NS(search=lambda s: None))
     assert M._check_scope(CAT, sql, SALES) is not None, sql
 

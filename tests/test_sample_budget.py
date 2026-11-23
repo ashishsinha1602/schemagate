@@ -157,3 +157,58 @@ def test_the_batch_still_reflects_everything(tmp_path):
     assert len(child.foreign_keys) == 1
     assert child.foreign_keys[0].ref_table == "parent"
     assert child.foreign_keys[0].columns == ["parent_id"]
+
+
+def test_a_refused_column_batch_falls_back_to_information_schema(monkeypatch):
+    """A read-only PostgreSQL role refused pg_collation got *no tables* back,
+    after one failing round trip per table (EBI RNAcentral: 316 tables, 235 s).
+    The ANSI view answers in one query instead."""
+    from schemagate import introspect
+
+    calls = []
+
+    class Refused:
+        bind = None
+
+        def get_multi_columns(self, **kw):
+            raise RuntimeError("permission denied for table pg_collation")
+
+        def get_columns(self, name, schema=None):
+            calls.append(name)
+            raise RuntimeError("permission denied for table pg_collation")
+
+    monkeypatch.setattr(introspect, "_information_schema_columns",
+                        lambda insp, schema: {"orders": [{"name": "id", "type": "INTEGER", "nullable": False, "comment": None}]})
+    multi = introspect._multi_reflect(Refused(), "s", [("orders", "TABLE"), ("gone", "TABLE")], True)
+    assert multi["columns"]["orders"][0]["name"] == "id" and multi["ansi_columns"] is True
+    assert calls == []
+
+
+def test_information_schema_columns_reads_one_schema(tmp_path):
+    """Only the ANSI dialects are asked; SQLite has no such view and gets {}."""
+    from schemagate.introspect import _information_schema_columns
+    engine = _db(tmp_path, tables=2, rows=1)
+    assert _information_schema_columns(inspect(engine), None) == {}
+
+
+def test_sql_server_columns_hidden_by_their_type_are_filled_in(monkeypatch):
+    """AdventureWorks, db_datareader login: Department's Name and GroupName (type dbo.Name) were missing from
+    the reflected columns, so answers showed department IDs. The standard view fills them in, in order."""
+    from schemagate import dialects, introspect
+
+    class Bind:
+        class dialect:
+            name = "mssql"
+
+    class Insp:
+        bind = Bind()
+
+        def get_multi_columns(self, **kw):
+            return {("HumanResources", "Department"): [{"name": "DepartmentID", "type": "SMALLINT"},
+                                                       {"name": "ModifiedDate", "type": "DATETIME"}]}
+
+    monkeypatch.setattr(dialects, "ansi_columns", lambda bind, schema: {"Department": [
+        {"name": "DepartmentID", "type": "SMALLINT"}, {"name": "Name", "type": "NVARCHAR(50)"},
+        {"name": "GroupName", "type": "NVARCHAR(50)"}, {"name": "ModifiedDate", "type": "DATETIME"}]})
+    multi = introspect._multi_reflect(Insp(), "HumanResources", [("Department", "TABLE")], True)
+    assert [c["name"] for c in multi["columns"]["Department"]] == ["DepartmentID", "Name", "GroupName", "ModifiedDate"]

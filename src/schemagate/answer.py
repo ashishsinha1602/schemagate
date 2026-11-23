@@ -71,7 +71,12 @@ _FORBIDDEN = re.compile(
     # follows and never an open bracket, so the bracket separates the two.
     # (Those two forms are already refused a line earlier for not starting
     # with SELECT or WITH; this keeps the word barred in the middle as well.)
-    r"|\breplace\b(?!\s*\()",
+    r"|\breplace\b(?!\s*\()"
+    # INTO has no place in a read (GHSA-2h6p-vmrf-3c76). After SELECT it writes: `INTO OUTFILE` and
+    # `INTO DUMPFILE` write a file on a MySQL/MariaDB server (with the FILE privilege), `SELECT ... INTO t`
+    # creates a table on PostgreSQL and SQL Server, `INTO @v` sets a variable. Every form starts with the
+    # word, so the word is refused wherever it stands outside a string or a comment.
+    r"|\binto\b",
     re.I,
 )
 
@@ -210,25 +215,36 @@ _DYNAMIC = re.compile(
 )
 
 
-def check_read_only(sql: str) -> str:
+def check_read_only(sql: str, dialect: str = "") -> str:
     """Return ``sql`` if it is a single read, otherwise raise ``UnsafeSQL``.
 
     Conservative on purpose. This runs on text a model produced, so the
     question is not "is this probably fine" but "is there any reading of it
-    that writes". Comments are stripped first: `-- ` and `/* */` are the
-    obvious place to hide a second statement from a naive scan.
+    that writes". Comments are removed and string literals emptied before
+    the scan -- in one left-to-right pass that reads strings and comments the
+    way the database does (`schemagate.sqltext`). Two regular expressions in a
+    row did not: the `--` inside `'--'` was taken for a comment, and the rest of
+    the line, a second statement included, was never scanned.
+
+    ``dialect`` is the SQLAlchemy dialect name the SQL will run on. Unknown,
+    every reading is checked and any one of them finding a write refuses it.
     """
     s = _strip_fences(sql)
     if not s:
         raise UnsafeSQL("the model returned nothing")
+    from .sqltext import SQLTextError, modes_for, scan_text
+    try:
+        # Each reading sees every `;` outside strings and comments, so a second statement is
+        # refused here without a parser; the scope check adds a parser's count on top.
+        for mode in modes_for(dialect):
+            _check_one_reading(s, scan_text(s, mode, string_as=None), scan_text(s, mode))
+    except SQLTextError as e:
+        raise UnsafeSQL(str(e)) from None
+    return s
 
-    bare = re.sub(r"--[^\n]*", " ", s)
-    bare = re.sub(r"/\*.*?\*/", " ", bare, flags=re.S)
 
-    # A string literal can legitimately contain any word at all, so blank
-    # literals out before looking for statement keywords.
-    scan = re.sub(r"'(?:[^']|'')*'", "''", bare)
-
+def _check_one_reading(s: str, bare: str, scan: str) -> None:
+    """`check_read_only` for one reading: ``bare`` has comments removed, ``scan`` strings emptied too."""
     if ";" in scan.strip().rstrip(";"):
         raise UnsafeSQL("more than one statement")
     if not re.match(r"^\s*(select|with)\b", scan, re.I):
@@ -243,7 +259,6 @@ def check_read_only(sql: str) -> str:
     # Oracle's XQuery reads a table named in a string: XMLQUERY('ora:view("PAYROLL")' ...)
     if re.search(r"\bora\s*:\s*view\b", bare, re.I):
         raise UnsafeSQL("uses ora:view, which reads a table named in a string")
-    return s
 
 
 def _prompt_body(question: str, fragment: str,
@@ -276,7 +291,28 @@ DIALECT_RULES = {
         "No LIMIT: use FETCH FIRST n ROWS ONLY. No boolean literals. Use NVL or COALESCE, not IFNULL; "
         "|| to concatenate; SUBSTR and INSTR; EXTRACT(YEAR FROM d) or TO_CHAR(d, 'YYYY') for dates; "
         "TO_DATE('2012-08-23', 'YYYY-MM-DD') for date literals. With DISTINCT, ORDER BY only selected "
-        "expressions. GROUP BY repeats expressions, not column aliases."
+        "expressions. GROUP BY repeats expressions, not column aliases or positions (never GROUP BY 1)."
+    ),
+    # The three below are each engine's own syntax for what a model most often writes the SQLite or MySQL
+    # way. SQL Server and Oracle refuse GROUP BY 1; a real DATE column has no substring; PostgreSQL has no
+    # ROUND(double precision, int) and divides integers to an integer.
+    "postgresql": (
+        "PostgreSQL rules: LIMIT n. ILIKE for a case-insensitive match. Dates: EXTRACT(YEAR FROM d), "
+        "DATE_TRUNC('month', d), TO_CHAR(d, 'YYYY-MM'); literals DATE '2025-01-01'; days between two DATEs "
+        "is d2 - d1, between timestamps EXTRACT(EPOCH FROM (t2 - t1)) / 86400. Integer / integer truncates: "
+        "cast one side (x::numeric / y) for averages and shares. ROUND takes numeric: ROUND(x::numeric, 2). "
+        "A name the tables show in double quotes is case-sensitive: write it exactly as shown."
+    ),
+    "mysql": (
+        "MySQL rules: LIMIT n. Quote a name with backticks, never double quotes. Dates: YEAR(d), MONTH(d), "
+        "DATE_FORMAT(d, '%Y-%m'); DATEDIFF(d2, d1) gives days. CONCAT() joins strings (|| means OR). "
+        "No FULL OUTER JOIN. Every selected column that is not aggregated goes in GROUP BY."
+    ),
+    "mssql": (
+        "SQL Server (T-SQL) rules: no LIMIT: SELECT TOP (n) ... ORDER BY. GROUP BY repeats the expressions, "
+        "never positions (GROUP BY 1) or column aliases. Dates: YEAR(d), MONTH(d), FORMAT(d, 'yyyy-MM'), "
+        "DATEFROMPARTS; DATEDIFF(day, d1, d2) gives days. Integer / integer truncates: multiply by 1.0 first. "
+        "No boolean literals (use 1 and 0). + or CONCAT() joins strings. Quote names with [brackets]."
     ),
 }
 
@@ -285,7 +321,8 @@ def _flavour(dialect: str) -> str:
     """The dialect line of the system prompt, plus that dialect's rules if there are any."""
     if not dialect:
         return ""
-    rules = DIALECT_RULES.get(dialect.strip().lower().split("+")[0], "")
+    name = dialect.strip().lower().split("+")[0]
+    rules = DIALECT_RULES.get({"mariadb": "mysql", "postgres": "postgresql", "tsql": "mssql"}.get(name, name), "")
     return f" Target dialect: {dialect}." + (f"\n{rules}" if rules else "")
 
 
@@ -339,7 +376,7 @@ def generate_sql(provider, question: str, fragment: str,
     for _ in range(tries):
         reply = provider.complete(SYSTEM + flavour, prompt, max_tokens=max_tokens)
         if _strip_fences(reply).upper() != "INSUFFICIENT":
-            return check_read_only(reply)
+            return check_read_only(reply, dialect)
     raise UnsafeSQL(
         "the model said the selected tables cannot answer this, %d times. "
         "That is usually selection, not the model: try --top-k higher, or a "
@@ -361,7 +398,16 @@ def _limit_time(conn, seconds: float) -> None:
         stop = time.monotonic() + seconds
         raw.set_progress_handler(lambda: 1 if time.monotonic() > stop else 0, 10000)
     elif name in ("mysql", "mariadb"):
-        conn.exec_driver_sql(f"SET SESSION MAX_EXECUTION_TIME = {ms}")
+        if _is_mariadb(conn):
+            # MariaDB has no MAX_EXECUTION_TIME (error 1193, which failed every timed read); its own
+            # limit is max_statement_time, in seconds.
+            conn.exec_driver_sql(f"SET SESSION max_statement_time = {max(0.001, seconds):.3f}")
+        else:
+            conn.exec_driver_sql(f"SET SESSION MAX_EXECUTION_TIME = {ms}")
+
+
+def _is_mariadb(conn) -> bool:
+    return conn.dialect.name == "mariadb" or bool(getattr(conn.dialect, "is_mariadb", False))
 
 
 def _clear_time(conn) -> None:
@@ -375,7 +421,8 @@ def _clear_time(conn) -> None:
         elif name == "sqlite":
             raw.set_progress_handler(None, 0)
         elif name in ("mysql", "mariadb"):
-            conn.exec_driver_sql("SET SESSION MAX_EXECUTION_TIME = 0")
+            conn.exec_driver_sql("SET SESSION max_statement_time = 0" if _is_mariadb(conn)
+                                 else "SET SESSION MAX_EXECUTION_TIME = 0")
     except Exception:                                     # noqa: BLE001 -- the pool resets it anyway
         pass
 
@@ -392,7 +439,7 @@ def run_sql(engine, sql: str, limit: int = 50, timeout: Optional[float] = None
     """
     from sqlalchemy import text
 
-    sql = check_read_only(sql)
+    sql = check_read_only(sql, getattr(getattr(engine, "dialect", None), "name", "") or "")
     with engine.connect() as conn:
         if timeout:
             _limit_time(conn, timeout)
