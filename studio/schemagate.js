@@ -198,6 +198,10 @@
   function qname(d) { return d.schema ? `${d.schema}.${d.name}` : d.name; }
   const NAME_WEIGHT = 1.0, PROSE_WEIGHT = 1.0, NAMED_BOOST = 4.0;
   const COVERAGE_MIN_IDF = 2.0, COVERAGE_MAX = 3;
+  // catalog.py's _names_something: a table holding a name a reader would show.
+  const NAME_COLUMN = /(?:^|_)(?:name|title|label)$/i;
+  const namesSomething = (d) => (d.columns || []).some((c) => NAME_COLUMN.test(c.name || ""));
+  const JOIN_WEIGHT = 0.25, JOIN_WINDOW = 10;  // catalog.py's JOIN_WEIGHT, JOIN_WINDOW
   // How many distinct objects must point at something before the schema is
   // telling us it is a dimension. Mirrors catalog.py's _DIMENSION_IN_DEGREE.
   const DIMENSION_IN_DEGREE = 2;
@@ -332,6 +336,9 @@
       this.rrfK = opts.rrfK ?? RRF_K;
       this.lexicalConfidence = opts.lexicalConfidence ?? "relative";
       this.columnWeight = opts.columnWeight ?? 1.0;
+      // Twins of Catalog.join_weight and .join_window.
+      this.joinWeight = opts.joinWeight ?? JOIN_WEIGHT;
+      this.joinWindow = opts.joinWindow ?? JOIN_WINDOW;
       this.dims = null;
       this.stale = true;
     }
@@ -428,6 +435,63 @@
       return shadows;
     }
     _visible(d, who) { if (!d.roles || !d.roles.length) return true; if (!who) return false; return d.roles.some((r) => who.roles.has(r)); }
+    // Twin of Catalog._join_lift: an object gains joinWeight times the summed
+    // scores of its neighbours among the joinWindow best-ranked objects. Only
+    // objects in `ranked`, which is already this caller's, and only declared
+    // keys whose columns it may read.
+    _joinLift(ranked, who) {
+      const weight = this.joinWeight, window = this.joinWindow;
+      if (!weight || window <= 0 || ranked.length < 2) return ranked;
+      const score = new Map(ranked), top = new Map(ranked.slice(0, window));
+      const byQname = new Map(), byName = new Map();
+      for (const [q] of ranked) {
+        byQname.set(q.toLowerCase(), q);
+        const n = (this.docs.get(q).name || "").toLowerCase();
+        if (!byName.has(n)) byName.set(n, []);
+        byName.get(n).push(q);
+      }
+      const hiddenCols = new Map();
+      const readable = (q, cols) => {
+        if (!hiddenCols.has(q)) hiddenCols.set(q, new Set((this.docs.get(q).columns || [])
+          .filter((c) => !this._visible(c, who)).map((c) => c.name.toLowerCase())));
+        const h = hiddenCols.get(q);
+        return !(h.size && (cols || []).some((c) => h.has((c || "").toLowerCase())));
+      };
+      const pairs = new Map();
+      for (const a of score.keys()) {
+        const doc = this.docs.get(a);
+        for (const fk of (doc.foreign_keys || [])) {
+          const ref = (fk.ref_table || "").toLowerCase();
+          let targets;
+          if (byQname.has(ref)) targets = [byQname.get(ref)];
+          else {
+            targets = byName.get(ref.split(".").pop()) || [];
+            if (targets.length > 1) {
+              const near = targets.filter((t) => (this.docs.get(t).schema ?? null) === (doc.schema ?? null));
+              if (near.length) targets = near;
+            }
+          }
+          for (const b of targets) {
+            if (b === a || (!top.has(a) && !top.has(b))) continue;
+            // A guessed key counts only where the query log backs it, and
+            // the browser has no query log.
+            if (fk.inferred) continue;
+            if (!(readable(a, fk.columns) && readable(b, fk.ref_columns))) continue;
+            const [x, y] = a < b ? [a, b] : [b, a];
+            pairs.set(x + "\u0000" + y, [x, y]);
+          }
+        }
+      }
+      if (!pairs.size) return ranked;
+      const lift = new Map();
+      for (const key of [...pairs.keys()].sort()) {
+        const [x, y] = pairs.get(key);
+        if (top.has(x)) lift.set(y, (lift.get(y) || 0.0) + top.get(x));
+        if (top.has(y)) lift.set(x, (lift.get(x) || 0.0) + top.get(y));
+      }
+      return ranked.map(([q, s]) => [q, s + weight * (lift.get(q) || 0.0)])
+        .sort((a, b) => (b[1] - a[1]) || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+    }
     select(question, opts = {}) {
       const topK = opts.topK ?? 6, who = opts.principal ?? null, expandFks = opts.expandFks ?? true;
       const vw = opts.vectorWeight ?? 1.0, lw = opts.lexicalWeight ?? 0.5, pin = opts.pin || [];
@@ -442,7 +506,8 @@
       // FIX A/B twin of catalog.py. Ties on distance used to keep
       // insertion order, which is reflection order.
       hits.sort((a, b) => (a.d - b.d) || (a.q < b.q ? -1 : a.q > b.q ? 1 : 0));
-      const vecRank = new Map(); hits.filter((h) => allowedSet.has(h.q)).forEach((h, i) => vecRank.set(h.q, i));
+      // Shared ranks for equal distances, as catalog.py's vec_rank (fix A).
+      const vecRank = competitionRank(hits.filter((h) => allowedSet.has(h.q)).map((h) => [h.q, -h.d]));
       const rankOf = (bm) => {
         if (!bm || abstains(bm, question)) return new Map();
         const sc = bm.scores(question);
@@ -488,7 +553,7 @@
           if (q2 !== q && other.length > toks.length && other.slice(0, toks.length).join(" ") === toks.join(" ")) covered = true;
         if (!covered) namedBest.add(q);
       }
-      const fused = [];
+      let fused = [];
       for (const q of allowed) {
         let s = 0.0;
         if (vecRank.has(q)) s += vw / (K + vecRank.get(q) + 1);
@@ -507,6 +572,10 @@
       // left to break it. Array.prototype.sort is stable, so it then
       // falls back on insertion order -- reflection order again.
       fused.sort((a, b) => (b[1] - a[1]) || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+      // The join graph votes last -- twin of Catalog._join_lift. The body
+      // channel's slot below still reports the unlifted score, as catalog.py does.
+      const unlifted = new Map(fused);
+      fused = this._joinLift(fused, who);
       const chosen = [], taken = new Set();
       for (const name of pin) for (const [q, d] of this.docs) if ((q === name || d.name === name) && allowedSet.has(q) && !taken.has(q)) { chosen.push({ doc: d, score: 1.0, reason: "pinned" }); taken.add(q); }
       for (const [q, s] of fused) { if (chosen.length >= topK) break; if (!taken.has(q)) { const reason = vecRank.has(q) && lexRank.has(q) ? "hybrid" : vecRank.has(q) ? "vector" : "lexical"; chosen.push({ doc: this.docs.get(q), score: s, reason }); taken.add(q); } }
@@ -518,7 +587,7 @@
       // the budget. A no-op wherever the best lexical match already made the
       // cut, which is every small schema.
       if (lexRank.size) {
-        const fusedScore = new Map(fused);
+        const fusedScore = unlifted;
         let bodyBest = null;
         for (const [q, r] of lexRank)
           if (bodyBest === null || r < lexRank.get(bodyBest) || (r === lexRank.get(bodyBest) && q < bodyBest)) bodyBest = q;
@@ -575,7 +644,16 @@
           taken.add(best[0]);
         }
       }
-      if (expandFks) for (const sc of [...chosen]) for (const fk of (sc.doc.foreign_keys || [])) for (const q of allowed) { const d = this.docs.get(q); if (d.name.toLowerCase() === fk.ref_table.toLowerCase() && !taken.has(q)) { chosen.push({ doc: d, score: 0.0, reason: "fk" }); taken.add(q); } }
+      if (expandFks) {
+        const reached = [];
+        for (const sc of [...chosen]) for (const fk of (sc.doc.foreign_keys || [])) for (const q of allowed) { const d = this.docs.get(q); if (d.name.toLowerCase() === fk.ref_table.toLowerCase() && !taken.has(q)) { chosen.push({ doc: d, score: 0.0, reason: "fk" }); taken.add(q); reached.push(d); } }
+        // One more hop, only from a reached table that names nothing, only to
+        // one that holds a name -- twin of the name hop in catalog.py.
+        for (const d0 of reached) {
+          if (namesSomething(d0)) continue;
+          for (const fk of (d0.foreign_keys || [])) for (const q of allowed) { const d = this.docs.get(q); if (d.name.toLowerCase() === fk.ref_table.toLowerCase() && !taken.has(q) && namesSomething(d)) { chosen.push({ doc: d, score: 0.0, reason: "fk" }); taken.add(q); } }
+        }
+      }
       return {
         question, hits: chosen, totalObjects: this.order.length,
         tableNames: chosen.map((h) => qname(h.doc)),

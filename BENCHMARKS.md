@@ -1226,9 +1226,9 @@ all-MiniLM-L6-v2 that `pip install schemagate[huggingface]` picks up.
 
 | recall@10 / nDCG@10 | Spider | BIRD | BEAVER | LiveSQLBench | LiveSQLBench-Large |
 |---|---|---|---|---|---|
-| schemagate, hashed embedder | **100.0** / 95.8 | **99.2** / 90.5 | **65.9** / 61.7 | **95.3** / 77.9 | 64.9 / 55.7 |
-| schemagate, all-MiniLM-L6-v2 | **100.0** / 96.1 | **99.8** / 91.7 | **66.2** / 62.4 | **97.6** / 80.8 | 73.9 / 61.0 |
-| paper's best per column (model) | 98.5 / 91.1 (Qwen3-8B) | 99.1 / 93.6 (corpus-adaptive Qwen3-8B) | 65.8 / 58.6 (Qwen3-4B) | 91.7 / 82.5 (Qwen3-8B) | **75.8** / 65.4 (Qwen3-4B) |
+| schemagate, hashed embedder | **100.0** / 95.8 | **99.2** / 90.5 | **65.9** / 61.7 | **95.1** / 79.4 | 74.9 / 63.7 |
+| schemagate, all-MiniLM-L6-v2 | **100.0** / 96.1 | **99.8** / 91.7 | **66.2** / 62.5 | **97.5** / 82.0 | **79.3** / **68.2** |
+| paper's best per column (model) | 98.5 / 91.1 (Qwen3-8B) | 99.1 / 93.6 (corpus-adaptive Qwen3-8B) | 65.8 / 58.6 (Qwen3-4B) | 91.7 / 82.5 (Qwen3-8B) | 75.8 / 65.4 (Qwen3-4B) |
 | paper's BM25 | — | — | — | — | 31.3 / 21.9 |
 
 The paper's rows are its schema-metadata setting, the one whose documents
@@ -1270,6 +1270,32 @@ the truncated whole). The remaining gap to 75.8 is the 22M-parameter sentence
 model, not the fusion: `BAAI/bge-small-en-v1.5` (33M) scores 74.2 on this set
 as a vector channel alone in the same pipeline, above every model in the
 paper under 4B parameters.
+
+**The join graph (after 1.18.3).** The table above is with it; without it the
+two rows read 64.9 / 55.7 and 73.9 / 61.0 on LiveSQLBench-Large, LiveSQLBench
+95.3 / 77.9 and 97.6 / 80.8, the rest identical. On LiveSQLBench-Large, 48% of
+the non-gold tables in the top ten joined none of the other nine, against 17%
+of the gold ones, and half the gold tables that missed the cut were one foreign
+key from a gold table that made it. So each object now gains a quarter of the
+summed scores of its neighbours among the ten best-ranked (`Catalog.join_weight`,
+`join_window`). Run with `--infer`, as `introspect` would, top_k=6:
+LiveSQLBench-Large 56.4 → 64.0, LiveSQLBench 82.5 → 84.3, the rest unchanged.
+Every gold table in the top ten, hashed: LiveSQLBench-Large 40.4% → 52.7% of
+questions, LiveSQLBench 86.8% → 86.3%. Measured and dropped: the best neighbour
+only instead of the sum (73.5 hashed); a weight of 0.4 (76.5, but warehouse and
+view questions at top_k=6 in the test suite lost their table); cutting the
+score of tables that join nothing in the window (69.5 alone, and on top of the
+lift it took 73.5 down to 72.6); bridging two disconnected picks through a
+table adjacent to both, budget-neutral (68.3 to 69.7 alone, at most +0.2 on top
+of the lift); dividing by the
+neighbour's degree (no better); and counting keys `infer_foreign_keys` guessed
+from column names (BEAVER, which declares none, +0.5; Spider lost a question).
+Guessed keys count only when the query log has seen the two tables together.
+The query log is the larger lever where there is one: `--log-loo` gives each
+question the table pairs the database's *other* questions read, a stand-in for
+what `learn_from_log` collects, and hashed recall@10 becomes LiveSQLBench-Large
+82.1, BEAVER 79.6, LiveSQLBench 97.4, BIRD 100.0 -- optimistic, since a
+benchmark's questions overlap more than a real workload's.
 
 ## The gate these numbers had to pass
 
