@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "schemagate"
-version = "1.19.0"
-description = "Identity-scoped schema selection for text-to-SQL: give the model only the tables this caller may read (a 91% median prompt saving on 50+ table warehouses)"
+version = "1.19.1"
+description = "91% fewer schema tokens for text-to-SQL: send the model only the tables the question needs and the caller may read. PostgreSQL, MySQL, SQL Server, Oracle, SQLite; LangChain, LlamaIndex, MCP."
 readme = "README.md"
 license = "Apache-2.0"
 # Apache-2.0 section 4(d): a NOTICE file travels with every redistribution.
@@ -19,9 +19,11 @@ keywords = [
   "vpd", "oracle", "oracle-23ai", "postgresql", "sql-server", "sqlalchemy",
   "mcp", "model-context-protocol", "langchain", "llamaindex", "pydantic-ai", "anthropic", "gemini", "openai",
   "ai-agent", "data-catalog", "prompt-engineering",
+  "mysql", "sqlite", "mariadb", "sql-agent", "chat-with-database", "natural-language-to-sql",
+  "access-control", "rbac", "data-governance", "langgraph", "claude",
 ]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "Intended Audience :: Information Technology",
   "License :: OSI Approved :: Apache Software License",
@@ -95,6 +97,9 @@ schemagate-mcp = "schemagate.mcp_server:main"
 
 [project.urls]
 Homepage      = "https://github.com/ashishsinha1602/schemagate"
+"Hosted app"  = "https://schemagate.app"
+Documentation = "https://ashishsinha1602.github.io/schemagate/install/"
+"Live demo"   = "https://ashishsinha1602.github.io/schemagate/"
 Repository    = "https://github.com/ashishsinha1602/schemagate"
 Issues        = "https://github.com/ashishsinha1602/schemagate/issues"
 Changelog     = "https://github.com/ashishsinha1602/schemagate/blob/main/CHANGELOG.md"

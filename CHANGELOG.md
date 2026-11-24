@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.19.1
+
+Documentation and package metadata only; the library is unchanged from 1.19.0.
+
+- **The hosted version, [schemagate.app](https://schemagate.app), is linked from the README and the PyPI page**: a badge, a short note after the introduction and a link in the navigation line. It runs this library from PyPI.
+- **PyPI metadata:** the summary leads with what the library saves (91% fewer schema tokens); development status is Production/Stable; project links add the hosted app, the documentation and the live demo; keywords add the engines and uses it already supports.
+- **CI: a `mutation-check` job** proves a chosen test can fail: it must pass as written and fail on its named assertion when deliberately mutated (first entry: the role-list revoke test's six-read identity check).
+
 ## 1.19.0
 
 Security:
