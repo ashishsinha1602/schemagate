@@ -13,8 +13,11 @@
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/schemagate?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/schemagate)
 [![MCP Registry](https://img.shields.io/badge/MCP%20Registry-listed-16a34a.svg)](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.ashishsinha1602/schemagate)
 [![Try it in the browser](https://img.shields.io/badge/demo-in%20your%20browser-0F7B6C)](https://ashishsinha1602.github.io/schemagate/)
+[![Hosted app: schemagate.app](https://img.shields.io/badge/hosted%20app-schemagate.app-2563EB)](https://schemagate.app)
 
 Most text-to-SQL prompts carry the whole schema, and on a big database that is most of the prompt, on every question. schemagate sends the model only the tables the question needs: **91.1% fewer schema tokens (median) on databases with 50+ tables** ([benchmark](BENCHMARKS.md)). It filters by the caller's grants first, so restricted tables are absent from the prompt rather than ranked low. Works with LangChain, LlamaIndex, MCP, or any SQL agent, on Postgres, Oracle, MySQL, SQL Server and SQLite.
+
+> **Don't want to run it yourself?** [schemagate.app](https://schemagate.app) is the hosted version. Connect PostgreSQL, MySQL, SQL Server, Oracle or a spreadsheet, invite your team, and everyone asks questions in plain English, each person seeing only the data they're allowed to. Free 7-day trial, no card needed.
 
 ![One question on a 1,201-object schema: the whole schema is 146,695 prompt tokens; schemagate sends 12 tables, including all 3 the query needs, in 1,348.](https://raw.githubusercontent.com/ashishsinha1602/schemagate/main/docs/media/token-savings.gif)
 
@@ -28,7 +31,7 @@ If it cut your prompt, a ⭐ helps other people building SQL agents find it.
 
 With row-level security alone the failure is quiet: the model writes valid SQL against a table the caller cannot read, RLS strips every row, and the user is told "no records found" — indistinguishable from "this data does not exist."
 
-[Demo](https://ashishsinha1602.github.io/schemagate/) · [Install](https://ashishsinha1602.github.io/schemagate/install/) · [Benchmarks](https://ashishsinha1602.github.io/schemagate/benchmarks/) · [Local models](https://ashishsinha1602.github.io/schemagate/local-models/) · [What it costs](https://ashishsinha1602.github.io/schemagate/cost/) · [Coming from Vanna](https://ashishsinha1602.github.io/schemagate/vanna-alternative/)
+[Demo](https://ashishsinha1602.github.io/schemagate/) · [Hosted app](https://schemagate.app) · [Install](https://ashishsinha1602.github.io/schemagate/install/) · [Benchmarks](https://ashishsinha1602.github.io/schemagate/benchmarks/) · [Local models](https://ashishsinha1602.github.io/schemagate/local-models/) · [What it costs](https://ashishsinha1602.github.io/schemagate/cost/) · [Coming from Vanna](https://ashishsinha1602.github.io/schemagate/vanna-alternative/)
 
 Same question, two callers, no database and no key:
 
