@@ -19,7 +19,6 @@ import subprocess
 import pytest
 
 from schemagate import Catalog
-from schemagate import catalog as catalog_mod
 from schemagate.models import Column, ObjectDoc
 
 
@@ -90,8 +89,11 @@ _MUTATING_DICT_METHODS = {"pop", "popitem", "clear", "update", "setdefault"}
 
 
 def _repo_root():
-    # <repo>/src/schemagate/catalog.py -> parents[2] is <repo>
-    return pathlib.Path(catalog_mod.__file__).resolve().parents[2]
+    # <repo>/tests/test_order_invariant.py -> parents[1] is <repo>. Not the
+    # imported module's path: with schemagate installed (a distro packager
+    # testing the wheel), schemagate.catalog.__file__ is in site-packages, and the
+    # checkout this test means to read is wherever the test file is.
+    return pathlib.Path(__file__).resolve().parents[1]
 
 
 def _tracked_python_files():
@@ -106,10 +108,23 @@ def _tracked_python_files():
     failure as a comparison whose population is silent.
     """
     root = _repo_root()
-    out = subprocess.run(["git", "-C", str(root), "ls-files", "*.py"],
-                         capture_output=True, text=True, check=True)
+    inside = subprocess.run(["git", "-C", str(root), "rev-parse", "--is-inside-work-tree"],
+                            capture_output=True, text=True)
+    if inside.returncode == 0 and inside.stdout.strip() == "true":
+        out = subprocess.run(["git", "-C", str(root), "ls-files", "*.py"],
+                             capture_output=True, text=True, check=True)
+        rels = out.stdout.split("\n")
+    else:
+        # An unpacked sdist or `git archive` (how a distribution packager runs
+        # these tests): no repository, but also no local-only files -- the tree
+        # holds exactly what was published, so walking it is the same set.
+        # Still checked rather than skipped.
+        skip = {"__pycache__", "build", "dist", ".venv", "venv", ".tox", ".nox", ".eggs"}
+        rels = [p.relative_to(root).as_posix() for p in root.rglob("*.py")
+                if not skip.intersection(p.relative_to(root).parts[:-1])
+                and not any(part.endswith(".egg-info") for part in p.relative_to(root).parts)]
     parsed, exempt = [], 0
-    for rel in out.stdout.split("\n"):
+    for rel in rels:
         rel = rel.strip()
         if not rel:
             continue

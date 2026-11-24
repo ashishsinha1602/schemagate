@@ -11,11 +11,14 @@ import sqlalchemy as sa
 from schemagate import Catalog
 
 # ---- token counting -------------------------------------------------------
-# Exact cl100k counts when tiktoken is installed AND its BPE file is
-# reachable; otherwise a deterministic offline estimate that splits
-# identifiers the way a BPE tokenizer does (snake_case and camelCase
-# boundaries, digits and punctuation separately). The estimate is what CI
-# reports, so the published numbers are reproducible with zero network.
+# A deterministic offline estimate that splits identifiers the way a BPE
+# tokenizer does (snake_case and camelCase boundaries, digits and punctuation
+# separately). The README table is in this unit, so the gate below always
+# counts with it: it used to switch to tiktoken whenever tiktoken happened to
+# be installed, and then every token row failed (2,199 against the README's
+# 2,812) on a machine with a different set of packages, not a different
+# result. When tiktoken and its BPE file are available, the exact cl100k
+# counts are printed beside the estimate, for information only.
 _SPLIT = re.compile(r"[A-Za-z]+|[0-9]|[^\sA-Za-z0-9]")
 
 
@@ -30,16 +33,18 @@ def _estimate(text: str) -> int:
     return n
 
 
-def _make_counter():
+def _exact_counter():
+    """cl100k counts if tiktoken and its BPE file are reachable, else None."""
     try:
         import tiktoken
         enc = tiktoken.get_encoding("cl100k_base")
-        return (lambda t: len(enc.encode(t))), "tiktoken cl100k_base (exact)"
+        return lambda t: len(enc.encode(t))
     except Exception:
-        return _estimate, "built-in estimator (offline, deterministic)"
+        return None
 
 
-count_tokens, TOKEN_METHOD = _make_counter()
+count_tokens, TOKEN_METHOD = _estimate, "built-in estimator (offline, deterministic)"
+exact_tokens = _exact_counter()
 
 def build(hints=True, ddl=DDL, hint_map=HINTS, name="default"):
     p = os.path.join(tempfile.mkdtemp(), "bench.db")
@@ -193,6 +198,11 @@ print(f"full schema, every call : {full:>6,}   ({len(cat._docs)} objects)")
 print(f"schemagate, average       : {avg:>6,.0f}   (min {min(per_q):,}  max {max(per_q):,})")
 reduction = 1 - avg / full
 print(f"reduction               : {reduction:>6.1%}")
+if exact_tokens is not None:
+    x_full = exact_tokens("\n\n".join(d.render_ddl() for d in cat._docs.values()))
+    x_avg = sum(exact_tokens(cat.select(q, top_k=6).prompt_fragment()) for q, _ in GOLDEN) / len(GOLDEN)
+    print(f"(tiktoken cl100k_base, exact, not gated: full {x_full:,}, average {x_avg:,.0f}, "
+          f"reduction {1 - x_avg / x_full:.1%})")
 
 # ---- gate ----------------------------------------------------------------
 # CI runs this file, so make it fail rather than merely print when a change
