@@ -1408,8 +1408,10 @@ generated SQL, and table recall is one step before it. They are not end-to-end
 accuracy either — a perfect table selection still leaves the model to write a
 correct query, which is why the execution-accuracy section at the top exists.
 The Mini-Dev rows are on BIRD's own leaderboard (PR #251, merged 2026-10-25),
-#1 in all three dialects as of 2026-10-31; the main-board test-set result is
-BIRD's to report.
+where they were #1 in all three dialects; since BIRD's 2026-10-28 Mini-Dev
+update they are listed in its legacy table. On the main board, scored by the
+BIRD team on the hidden test set, schemagate is listed at 74.34 execution
+accuracy.
 
 What they are is a claim you can check without trusting me, on data neither
 of us controls.

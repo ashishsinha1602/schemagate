@@ -4,8 +4,8 @@ Ask Claude questions about a SQL database without pasting the schema. The
 [schemagate](https://github.com/ashishsinha1602/schemagate) MCP server picks
 only the tables each question needs (a median of 91.1% fewer schema tokens on
 databases with 50+ tables), and only from the tables the caller may read.
-#1 on the BIRD Mini-Dev text-to-SQL leaderboard (SQLite 81.0 / PostgreSQL 72.6
-/ MySQL 72.4).
+74.34 execution accuracy on BIRD's hidden test set; 81.0 / 72.6 / 72.4 on BIRD
+Mini-Dev (SQLite / PostgreSQL / MySQL, the version before its 2026-10-28 update).
 
 ## Install
 

@@ -2,7 +2,7 @@
 
 A [Pydantic AI](https://pydantic.dev/docs/ai/) capability that gives a text-to-SQL agent only the tables a question needs, from the ones the caller may read.
 
-Most text-to-SQL prompts carry the whole schema, on every question. schemagate picks the tables offline, with no model call: a median **91.1% fewer schema tokens** on databases with 50+ tables. It is #1 on the [BIRD Mini-Dev leaderboard](https://bird-bench.github.io/) in all three dialects (SQLite 81.0, PostgreSQL 72.6, MySQL 72.4) and has retrievers for LangChain, LangGraph and LlamaIndex.
+Most text-to-SQL prompts carry the whole schema, on every question. schemagate picks the tables offline, with no model call: a median **91.1% fewer schema tokens** on databases with 50+ tables. It scores 74.34 execution accuracy on [BIRD](https://bird-bench.github.io/)'s hidden test set, and 81.0 / 72.6 / 72.4 (SQLite / PostgreSQL / MySQL) on BIRD Mini-Dev, the version before BIRD's 2026-10-28 update; it has retrievers for LangChain, LangGraph and LlamaIndex.
 
 ## Install
 
