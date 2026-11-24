@@ -19,7 +19,6 @@ import subprocess
 import pytest
 
 from schemagate import Catalog
-from schemagate import catalog as catalog_mod
 from schemagate.models import Column, ObjectDoc
 
 
@@ -92,7 +91,7 @@ _MUTATING_DICT_METHODS = {"pop", "popitem", "clear", "update", "setdefault"}
 def _repo_root():
     # <repo>/tests/test_order_invariant.py -> parents[1] is <repo>. Not the
     # imported module's path: with schemagate installed (a distro packager
-    # testing the wheel), catalog_mod.__file__ is in site-packages, and the
+    # testing the wheel), schemagate.catalog.__file__ is in site-packages, and the
     # checkout this test means to read is wherever the test file is.
     return pathlib.Path(__file__).resolve().parents[1]
 
