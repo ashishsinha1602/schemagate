@@ -5,7 +5,7 @@
 [![CI](https://github.com/ashishsinha1602/schemagate/actions/workflows/ci.yml/badge.svg)](https://github.com/ashishsinha1602/schemagate/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Patent pending: US 64/183,987](https://img.shields.io/badge/patent-pending%20(US%2064%2F183%2C987)-555555)](#status)
-[![BIRD Mini-Dev: #1 on SQLite, PostgreSQL and MySQL](https://img.shields.io/badge/BIRD%20Mini--Dev-%231%20on%20SQLite%20%C2%B7%20PostgreSQL%20%C2%B7%20MySQL-0F7B6C)](https://bird-bench.github.io/)
+[![BIRD hidden test set: 74.34 EX](https://img.shields.io/badge/BIRD%20test-74.34%20EX-0F7B6C)](https://bird-bench.github.io/)
 [![UniQL Oracle: 63.7% first try](https://img.shields.io/badge/UniQL%20Oracle-63.7%25%20first%20try-C74634)](benchmarks/results/uniql_oracle/README.md)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15353/badge)](https://www.bestpractices.dev/projects/15353)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/ashishsinha1602/schemagate/badge)](https://scorecard.dev/viewer/?uri=github.com/ashishsinha1602/schemagate)
@@ -19,11 +19,11 @@ Most text-to-SQL prompts carry the whole schema, and on a big database that is m
 
 > **Don't want to run it yourself?** [schemagate.app](https://schemagate.app) is the hosted version. Connect PostgreSQL, MySQL, SQL Server, Oracle or a spreadsheet, invite your team, and everyone asks questions in plain English, each person seeing only the data they're allowed to. Free 7-day trial, no card needed.
 
-![One question on a 1,201-object schema: the whole schema is 146,695 prompt tokens; schemagate sends 12 tables, including all 3 the query needs, in 1,348.](https://raw.githubusercontent.com/ashishsinha1602/schemagate/main/docs/media/token-savings.gif)
+![One question on a 1,201-object schema: the whole schema is 146,695 prompt tokens; schemagate sends 13 tables, including all 3 the query needs, in 1,796.](https://raw.githubusercontent.com/ashishsinha1602/schemagate/main/docs/media/token-savings.gif)
 
 <sub>Measured, not drawn: `python docs/media/make_token_gif.py` rebuilds it from the seeded 1,201-object fixture, counting with tiktoken's cl100k_base.</sub>
 
-**#1 on BIRD's Mini-Dev leaderboard in all three dialects**: SQLite 81.0, PostgreSQL 72.6, MySQL 72.4 execution accuracy, with Claude Opus 5.5 and one model call per question ([leaderboard](https://bird-bench.github.io/), [run files](benchmarks/results/bird_minidev/README.md)). Smaller prompts, no accuracy given up.
+**On BIRD's leaderboard:** 74.34 execution accuracy on the hidden test set, scored by the BIRD team ([leaderboard](https://bird-bench.github.io/)). On BIRD Mini-Dev it scored SQLite 81.0, PostgreSQL 72.6, MySQL 72.4 with Claude Opus 5.5 and one model call per question, #1 in all three on that board; BIRD has since released an updated Mini-Dev (2026-10-28) and lists those results in its legacy table ([run files](benchmarks/results/bird_minidev/README.md)).
 
 If it cut your prompt, a ⭐ helps other people building SQL agents find it.
 
@@ -465,7 +465,7 @@ call per question, about 2,100 prompt tokens, no candidates, no voting, no agent
 | | Model | EX | Best published, 2026-10-19 |
 |---|---|---|---|
 | BIRD dev, all 1,534 questions | Claude Opus 5.5 | **77.12** | hidden test set, scored by BIRD: 72.11 for this setup; 74.34 with 4 training examples per prompt (dev 84.03) |
-| BIRD Mini-Dev, SQLite / PostgreSQL / MySQL | Claude Opus 5.5 | **81.0 / 72.6 / 72.4**, #1 on all three | next best on BIRD's board, 2026-10-31: 75.6 / 69.0 / 49.2 |
+| BIRD Mini-Dev, SQLite / PostgreSQL / MySQL | Claude Opus 5.5 | **81.0 / 72.6 / 72.4**, #1 on all three on the pre-update board | next best on that board: 75.6 / 69.0 / 49.2 (BIRD's legacy table since its 2026-10-28 Mini-Dev update) |
 | UniQL, Oracle dialect, first try, re-audited 2026-11-12 release | Gemini 3.8 Flash | **63.69** | 49.61 (Claude Sonnet 4.5, scored before the re-audit) |
 | Spider 2.0-lite, the 135 SQLite questions only | Claude Sonnet 5.5 | **71.9** | 57.78 Pass@1 (FlexSQL agent, gpt-oss-120b) |
 | Spider 2.0-lite, the 205 BigQuery questions | Claude Sonnet 5.5 | **45.9** | no BigQuery-only row published |
@@ -505,10 +505,12 @@ corrections rather than deleting them.
 **End to end, on the metric those boards actually score:** schemagate plus
 Claude Opus 5.5 gets **77.12% execution accuracy on all 1,534 BIRD dev
 questions**, one model call per question (table above). The BIRD Mini-Dev
-rows are on BIRD's own leaderboard. A main-board placing needs the held-out
-test set, which only the BIRD team runs: 72.11 execution accuracy for this
-setup, and 74.34 for the second configuration, which adds the four closest
-BIRD training questions to each prompt.
+rows are on BIRD's own leaderboard, in its legacy table since BIRD updated
+Mini-Dev on 2026-10-28. The main board is scored on the held-out test set,
+which only the BIRD team runs: 72.11 execution accuracy for this setup, and
+74.34 for the second configuration, which adds the four closest BIRD
+training questions to each prompt. The 74.34 row is listed on BIRD's main
+leaderboard (dev 84.03).
 
 Everything below is measured on schemas I invented, which is worth less and
 is why the public numbers come first.

@@ -136,7 +136,7 @@ variable "adb_allowed_cidrs" {
 
 variable "schemagate_version" {
   type        = string
-  default     = "1.19.1"
+  default     = "1.19.2"
   description = "schemagate version the instance installs. Pinned so a stack that worked when you downloaded it still works later: the zip and the PyPI release are cut together, so this is the version this stack was actually tested against. Set it to \"\" to take whatever is newest on PyPI instead."
 
   validation {

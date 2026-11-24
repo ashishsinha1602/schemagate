@@ -149,9 +149,11 @@ usual pair. To give the agent only those, pass
 
 On BIRD Mini-Dev, schemagate with Claude Opus 5.5 scores 81.0 (SQLite), 72.6
 (PostgreSQL) and 72.4 (MySQL) execution accuracy, one query per question.
-These are self-reported results listed on the
-[BIRD Mini-Dev leaderboard](https://bird-bench.github.io/), the highest in each
-dialect at the time of writing. On Spider 2.0-lite warehouses with 50 or more
+These results are listed on the
+[BIRD leaderboard](https://bird-bench.github.io/), the highest in each dialect
+on the Mini-Dev version they were run on; BIRD updated Mini-Dev on 2026-10-28
+and now lists them in its legacy table. On BIRD's hidden test set, scored by
+the BIRD team: 74.34. On Spider 2.0-lite warehouses with 50 or more
 tables, the median prompt is 91% smaller than sending the full schema. Method
 and raw outputs:
 [BENCHMARKS.md](https://github.com/ashishsinha1602/schemagate/blob/main/BENCHMARKS.md).

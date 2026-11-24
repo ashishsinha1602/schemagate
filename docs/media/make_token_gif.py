@@ -80,7 +80,7 @@ def frame(objects, full, sent, picked, shown_full, shown_sel, verdict):
 
     if verdict:
         d.text((40, 362), f"{100 * (1 - shown_sel / full):.0f}% fewer tokens on this question", font=font(26, True), fill=GOLD)
-        d.text((40, 400), "Median on real 50+ table databases (Spider 2.0): 91.1% fewer.  #1 on BIRD Mini-Dev.",
+        d.text((40, 400), "Median on real 50+ table databases (Spider 2.0): 91.1% fewer.  BIRD test set: 74.34 EX.",
                font=font(16), fill=DIM)
     return img
 

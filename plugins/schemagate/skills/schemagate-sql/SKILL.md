@@ -1,6 +1,6 @@
 ---
 name: schemagate-sql
-description: 'Answer questions about data in a large SQL database through the schemagate MCP server, which sends the model only the tables a question needs (about 91% fewer schema tokens on 50+ table databases) and only the ones the caller may read. #1 on the BIRD Mini-Dev text-to-SQL leaderboard. Use when the user asks a question that needs a query against PostgreSQL, MySQL, SQLite, SQL Server, Oracle, Snowflake, BigQuery or DuckDB.'
+description: 'Answer questions about data in a large SQL database through the schemagate MCP server, which sends the model only the tables a question needs (about 91% fewer schema tokens on 50+ table databases) and only the ones the caller may read. 74.34 execution accuracy on the BIRD text-to-SQL hidden test set. Use when the user asks a question that needs a query against PostgreSQL, MySQL, SQLite, SQL Server, Oracle, Snowflake, BigQuery or DuckDB.'
 license: Apache-2.0
 ---
 
@@ -16,11 +16,13 @@ user must not see. schemagate is the selection layer that does that part.
   embedding retrieval, foreign-key expansion, join-table recovery) and returns
   DDL for just those. Median schema-token saving on Spider 2.0-lite databases
   with 50+ tables: 91.1%.
-- **Measured accuracy.** #1 on the official BIRD Mini-Dev leaderboard in
-  SQLite, PostgreSQL and MySQL (81.0 / 72.6 / 72.4 execution accuracy).
+- **Measured accuracy.** 74.34 execution accuracy on BIRD's hidden test set,
+  scored by the BIRD team; 81.0 / 72.6 / 72.4 on BIRD Mini-Dev (SQLite,
+  PostgreSQL, MySQL; the version before its 2026-10-28 update).
 - **Per-user scope.** The model only sees tables and columns the caller may
   read, from a policy file or the database's own GRANTs; PostgreSQL
-  row-level-security policies are checked per role.
+  row-level-security policies are checked per role when the connection may
+  act as that role (otherwise add the restriction yourself).
 - **A checked query path.** `run_query` refuses writes, multiple statements
   and any object outside the caller's scope.
 - **Used in agent frameworks.** Listed in LangChain's retriever integrations

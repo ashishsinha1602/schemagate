@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.19.2
+
+Public claims brought up to date; no library code changes.
+
+- BIRD released an updated Mini-Dev on 2026-10-28 and moved earlier results, including schemagate's
+  81.0 / 72.6 / 72.4, to its legacy table. The README (this PyPI page), BENCHMARKS.md, the docs and the
+  Claude Code plugin no longer say "#1 on BIRD Mini-Dev" without that context; they lead with the
+  result on BIRD's main board, 74.34 execution accuracy on the hidden test set, scored by the BIRD team.
+- Removed "smaller prompts, no accuracy given up": no measurement compares Mini-Dev accuracy with and
+  without selection, and the one comparison in BENCHMARKS.md shows a small loss.
+- The plugin's skill now says PostgreSQL row-level security is checked when the connection may act as
+  the caller's role, as docs/row-level-security.md does.
+- The token-savings GIF is rebuilt from the current selection (13 tables, 1,796 tokens) and its
+  caption matches.
+- Tests pass from an unpacked sdist against the installed package (#240).
+
 ## 1.19.1
 
 Documentation and package metadata only; the library is unchanged from 1.19.0.

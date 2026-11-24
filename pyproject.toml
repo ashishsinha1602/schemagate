@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "schemagate"
-version = "1.19.1"
+version = "1.19.2"
 description = "91% fewer schema tokens for text-to-SQL: send the model only the tables the question needs and the caller may read. PostgreSQL, MySQL, SQL Server, Oracle, SQLite; LangChain, LlamaIndex, MCP."
 readme = "README.md"
 license = "Apache-2.0"
