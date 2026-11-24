@@ -29,6 +29,19 @@ jobs:
         # fails if recall drops on either schema, or token savings regress
         run: python tests/bench.py
 
+  mutation-check:
+    # Proof that chosen tests can fail: each runs as written (must pass), then as a copy with one deliberate
+    # mutation (must fail on its named assertion, not a crash). Separate from `test` so that run stays fast.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - run: pip install --require-hashes -r .github/requirements/dev.txt && pip install --no-deps -e .
+      - name: mutation checks
+        run: python tests/mutations/check_mutations.py
+
   reuse:
     # Every file carries machine-readable copyright and licence information
     # (REUSE.toml, LICENSES/). Fails if a new file is added without it.
