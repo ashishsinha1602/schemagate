@@ -1,7 +1,7 @@
 {
   "name": "schemagate",
   "version": "1.19.2",
-  "description": "Text-to-SQL with ~91% fewer schema tokens: the model sees only the tables a question needs, and only the ones the caller may read. 74.34 EX on BIRD's hidden test set, #1 on UniQL's Oracle board. PostgreSQL, MySQL, SQLite, SQL Server, Oracle, Snowflake, BigQuery, DuckDB.",
+  "description": "Text-to-SQL with ~91% fewer schema tokens: the model sees only the tables a question needs, and only the ones the caller may read. 74.34 EX on BIRD's hidden test set, #1 on BIRD Mini-Dev (SQLite, PostgreSQL, MySQL), #1 on UniQL's Oracle board, listed on LiveSQLBench-Large, 0.984 F1 on Spider-ACL. Also on LangChain/LangGraph, LlamaIndex, Pydantic AI, the official MCP registry and Glama; 44k PyPI downloads. PostgreSQL, MySQL, SQLite, SQL Server, Oracle, Snowflake, BigQuery, DuckDB.",
   "contextFileName": "GEMINI.md",
   "mcpServers": {
     "schemagate": {
