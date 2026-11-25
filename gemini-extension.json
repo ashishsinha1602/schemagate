@@ -1,0 +1,29 @@
+{
+  "name": "schemagate",
+  "version": "1.19.2",
+  "description": "Text-to-SQL with ~91% fewer schema tokens: the model sees only the tables a question needs, and only the ones the caller may read. 74.34 EX on BIRD's hidden test set, #1 on UniQL's Oracle board. PostgreSQL, MySQL, SQLite, SQL Server, Oracle, Snowflake, BigQuery, DuckDB.",
+  "contextFileName": "GEMINI.md",
+  "mcpServers": {
+    "schemagate": {
+      "command": "uvx",
+      "args": ["--python", "3.12", "--from", "schemagate[mcp,databases]==1.19.2", "schemagate-mcp"],
+      "env": {
+        "SCHEMAGATE_MCP_TRANSPORT": "stdio"
+      }
+    }
+  },
+  "settings": [
+    {
+      "name": "Database URL",
+      "description": "SQLAlchemy URL of the database to query, e.g. postgresql+psycopg://user:password@host/db. Enter demo to try the bundled 42-object sample schema.",
+      "envVar": "SCHEMAGATE_DATABASE_URL",
+      "sensitive": true
+    },
+    {
+      "name": "Catalog config (optional)",
+      "description": "Path to a schemagate catalog JSON file with restrictions and hints. Leave empty to use the database's own grants.",
+      "envVar": "SCHEMAGATE_CATALOG_CONFIG",
+      "sensitive": false
+    }
+  ]
+}

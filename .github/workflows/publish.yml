@@ -345,6 +345,17 @@ jobs:
           have="$(python3 -c 'import json;print(json.load(open("server.json"))["version"])')"
           [ "$have" = "$want" ] || { echo "::error::server.json says $have, release is $want"; exit 1; }
 
+      - name: gemini-extension.json version matches the release
+        env:
+          TAG: ${{ needs.release.outputs.tag }}
+        # tests/test_gemini_extension.py pins it to pyproject; the Gemini CLI
+        # compares this version with the release tag to detect updates.
+        run: |
+          set -euo pipefail
+          want="${TAG#v}"
+          have="$(python3 -c 'import json;print(json.load(open("gemini-extension.json"))["version"])')"
+          [ "$have" = "$want" ] || { echo "::error::gemini-extension.json says $have, release is $want"; exit 1; }
+
       - name: authenticate to the MCP Registry
         run: ./mcp-publisher login github-oidc
 
