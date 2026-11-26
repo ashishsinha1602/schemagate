@@ -1,0 +1,6 @@
+scored=300/300 match=294 R-VES=91.58 Coverage@2x=78.67 GMS=4.4104
+  polar_equipment          n=14   match=14   r_ves=92.86
+  robot_fault_prediction   n=22   match=22   r_ves=90.91
+  solar_panel              n=26   match=26   r_ves=90.38
+  tpch                     n=238  match=232  r_ves=91.70
+not matched: [('216', 'gt_timeout', 'Timeout'), ('166', 'pred_mismatch_content', ''), ('77', 'gt_timeout', 'Timeout'), ('53', 'compare_failed', 'Exec Error: syntax error at or near ")"'), ('27', 'gt_timeout', 'Timeout'), ('9', 'gt_timeout', 'Timeout')]
