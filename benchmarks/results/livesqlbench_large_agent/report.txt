@@ -1,0 +1,490 @@
+--------------------------------------------------
+BIRD-Interact Statistics (Postgres, Multi-Thread):
+Number of Instances: 480
+Number of Execution Errors: 3
+Number of Timeouts: 0
+Number of Assertion Errors: 284
+Total Errors: 287
+Overall Accuracy: 40.21%
+Timestamp: 2026-11-26 06:15:28.780890
+
+Question_archeology_scan_1: (1/1) test cases passed, failed test cases: None
+Question_archeology_scan_10: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_archeology_scan_2: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_archeology_scan_3: (1/1) test cases passed, failed test cases: None
+Question_archeology_scan_4: (1/1) test cases passed, failed test cases: None
+Question_archeology_scan_5: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_archeology_scan_6: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_archeology_scan_7: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_archeology_scan_8: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_archeology_scan_9: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_archeology_scan_M_1: (1/1) test cases passed, failed test cases: None
+Question_archeology_scan_M_3: (1/1) test cases passed, failed test cases: None
+Question_archeology_scan_M_4: (1/1) test cases passed, failed test cases: None
+Question_cross_border_1: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cross_border_10: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cross_border_11: (1/1) test cases passed, failed test cases: None
+Question_cross_border_12: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cross_border_13: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cross_border_14: (1/1) test cases passed, failed test cases: None
+Question_cross_border_15: (1/1) test cases passed, failed test cases: None
+Question_cross_border_16: (1/1) test cases passed, failed test cases: None
+Question_cross_border_17: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cross_border_18: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cross_border_19: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cross_border_2: (1/1) test cases passed, failed test cases: None
+Question_cross_border_20: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cross_border_3: (1/1) test cases passed, failed test cases: None
+Question_cross_border_4: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cross_border_5: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cross_border_6: (1/1) test cases passed, failed test cases: None
+Question_cross_border_7: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cross_border_8: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cross_border_9: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cross_border_M_1: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cross_border_M_10: (1/1) test cases passed, failed test cases: None
+Question_cross_border_M_2: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cross_border_M_3: (1/1) test cases passed, failed test cases: None
+Question_cross_border_M_4: (1/1) test cases passed, failed test cases: None
+Question_cross_border_M_5: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cross_border_M_6: (1/1) test cases passed, failed test cases: None
+Question_cross_border_M_7: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cross_border_M_8: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cybermarket_pattern_1: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cybermarket_pattern_10: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cybermarket_pattern_11: (1/1) test cases passed, failed test cases: None
+Question_cybermarket_pattern_12: (1/1) test cases passed, failed test cases: None
+Question_cybermarket_pattern_13: (1/1) test cases passed, failed test cases: None
+Question_cybermarket_pattern_14: (1/1) test cases passed, failed test cases: None
+Question_cybermarket_pattern_15: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cybermarket_pattern_16: (1/1) test cases passed, failed test cases: None
+Question_cybermarket_pattern_17: (1/1) test cases passed, failed test cases: None
+Question_cybermarket_pattern_18: (1/1) test cases passed, failed test cases: None
+Question_cybermarket_pattern_19: (1/1) test cases passed, failed test cases: None
+Question_cybermarket_pattern_2: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cybermarket_pattern_20: (1/1) test cases passed, failed test cases: None
+Question_cybermarket_pattern_3: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cybermarket_pattern_4: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cybermarket_pattern_5: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cybermarket_pattern_6: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cybermarket_pattern_7: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cybermarket_pattern_8: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cybermarket_pattern_9: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cybermarket_pattern_M_1: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cybermarket_pattern_M_10: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_cybermarket_pattern_M_2: (1/1) test cases passed, failed test cases: None
+Question_cybermarket_pattern_M_4: (1/1) test cases passed, failed test cases: None
+Question_cybermarket_pattern_M_5: (1/1) test cases passed, failed test cases: None
+Question_cybermarket_pattern_M_6: (1/1) test cases passed, failed test cases: None
+Question_cybermarket_pattern_M_7: (1/1) test cases passed, failed test cases: None
+Question_cybermarket_pattern_M_8: (1/1) test cases passed, failed test cases: None
+Question_cybermarket_pattern_M_9: (1/1) test cases passed, failed test cases: None
+Question_disaster_relief_1: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_disaster_relief_10: (1/1) test cases passed, failed test cases: None
+Question_disaster_relief_11: (0/1) test cases passed, failed test cases:  | Eval Phase: Execution Error
+Question_disaster_relief_12: (1/1) test cases passed, failed test cases: None
+Question_disaster_relief_2: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_disaster_relief_3: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_disaster_relief_4: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_disaster_relief_5: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_disaster_relief_6: (0/1) test cases passed, failed test cases:  | Eval Phase: Execution Error
+Question_disaster_relief_7: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_disaster_relief_8: (1/1) test cases passed, failed test cases: None
+Question_disaster_relief_9: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_disaster_relief_M_1: (1/3) test cases passed, failed test cases: test_1, test_2 | Eval Phase: Assertion Error
+Question_disaster_relief_M_2: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_disaster_relief_M_3: (1/1) test cases passed, failed test cases: None
+Question_exchange_traded_funds_1: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_exchange_traded_funds_10: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_exchange_traded_funds_11: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_exchange_traded_funds_12: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_exchange_traded_funds_13: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_exchange_traded_funds_14: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_exchange_traded_funds_16: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_exchange_traded_funds_17: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_exchange_traded_funds_18: (1/1) test cases passed, failed test cases: None
+Question_exchange_traded_funds_19: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_exchange_traded_funds_2: (1/1) test cases passed, failed test cases: None
+Question_exchange_traded_funds_20: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_exchange_traded_funds_3: (1/1) test cases passed, failed test cases: None
+Question_exchange_traded_funds_4: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_exchange_traded_funds_5: (1/1) test cases passed, failed test cases: None
+Question_exchange_traded_funds_6: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_exchange_traded_funds_7: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_exchange_traded_funds_8: (1/1) test cases passed, failed test cases: None
+Question_exchange_traded_funds_9: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_exchange_traded_funds_M_1: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_exchange_traded_funds_M_10: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_exchange_traded_funds_M_2: (1/1) test cases passed, failed test cases: None
+Question_exchange_traded_funds_M_3: (1/1) test cases passed, failed test cases: None
+Question_exchange_traded_funds_M_4: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_exchange_traded_funds_M_6: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_exchange_traded_funds_M_7: (1/1) test cases passed, failed test cases: None
+Question_exchange_traded_funds_M_8: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_exchange_traded_funds_M_9: (1/1) test cases passed, failed test cases: None
+Question_fake_account_1: (1/1) test cases passed, failed test cases: None
+Question_fake_account_10: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_fake_account_11: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_fake_account_12: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_fake_account_13: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_fake_account_14: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_fake_account_15: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_fake_account_16: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_fake_account_17: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_fake_account_18: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_fake_account_19: (1/1) test cases passed, failed test cases: None
+Question_fake_account_2: (1/1) test cases passed, failed test cases: None
+Question_fake_account_20: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_fake_account_21: (1/1) test cases passed, failed test cases: None
+Question_fake_account_22: (1/1) test cases passed, failed test cases: None
+Question_fake_account_23: (1/1) test cases passed, failed test cases: None
+Question_fake_account_24: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_fake_account_3: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_fake_account_4: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_fake_account_5: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_fake_account_6: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_fake_account_7: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_fake_account_8: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_fake_account_9: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_fake_account_M_1: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_fake_account_M_2: (1/1) test cases passed, failed test cases: None
+Question_fake_account_M_3: (1/1) test cases passed, failed test cases: None
+Question_fake_account_M_4: (1/1) test cases passed, failed test cases: None
+Question_fake_account_M_6: (1/1) test cases passed, failed test cases: None
+Question_labor_certification_applications_1: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_labor_certification_applications_10: (1/1) test cases passed, failed test cases: None
+Question_labor_certification_applications_11: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_labor_certification_applications_12: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_labor_certification_applications_13: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_labor_certification_applications_14: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_labor_certification_applications_15: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_labor_certification_applications_16: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_labor_certification_applications_17: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_labor_certification_applications_18: (1/1) test cases passed, failed test cases: None
+Question_labor_certification_applications_19: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_labor_certification_applications_2: (1/1) test cases passed, failed test cases: None
+Question_labor_certification_applications_20: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_labor_certification_applications_3: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_labor_certification_applications_4: (1/1) test cases passed, failed test cases: None
+Question_labor_certification_applications_5: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_labor_certification_applications_6: (1/1) test cases passed, failed test cases: None
+Question_labor_certification_applications_7: (1/1) test cases passed, failed test cases: None
+Question_labor_certification_applications_8: (1/1) test cases passed, failed test cases: None
+Question_labor_certification_applications_M_1: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_labor_certification_applications_M_10: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_labor_certification_applications_M_2: (1/1) test cases passed, failed test cases: None
+Question_labor_certification_applications_M_3: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_labor_certification_applications_M_4: (1/1) test cases passed, failed test cases: None
+Question_labor_certification_applications_M_5: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_labor_certification_applications_M_6: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_labor_certification_applications_M_7: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_labor_certification_applications_M_8: (1/1) test cases passed, failed test cases: None
+Question_labor_certification_applications_M_9: (1/1) test cases passed, failed test cases: None
+Question_mental_healths_1: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_mental_healths_10: (1/1) test cases passed, failed test cases: None
+Question_mental_healths_11: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_mental_healths_12: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_mental_healths_13: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_mental_healths_14: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_mental_healths_15: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_mental_healths_16: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_mental_healths_17: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_mental_healths_18: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_mental_healths_19: (1/1) test cases passed, failed test cases: None
+Question_mental_healths_2: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_mental_healths_20: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_mental_healths_3: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_mental_healths_4: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_mental_healths_5: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_mental_healths_6: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_mental_healths_7: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_mental_healths_8: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_mental_healths_9: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_mental_healths_M_10: (1/1) test cases passed, failed test cases: None
+Question_mental_healths_M_3: (1/1) test cases passed, failed test cases: None
+Question_mental_healths_M_4: (1/1) test cases passed, failed test cases: None
+Question_mental_healths_M_6: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_mental_healths_M_8: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_mental_healths_M_9: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_museum_artifact_1: (1/1) test cases passed, failed test cases: None
+Question_museum_artifact_10: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_museum_artifact_11: (1/1) test cases passed, failed test cases: None
+Question_museum_artifact_12: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_museum_artifact_13: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_museum_artifact_14: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_museum_artifact_15: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_museum_artifact_16: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_museum_artifact_17: (1/1) test cases passed, failed test cases: None
+Question_museum_artifact_18: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_museum_artifact_19: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_museum_artifact_2: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_museum_artifact_20: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_museum_artifact_3: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_museum_artifact_4: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_museum_artifact_5: (1/1) test cases passed, failed test cases: None
+Question_museum_artifact_6: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_museum_artifact_7: (1/1) test cases passed, failed test cases: None
+Question_museum_artifact_8: (1/1) test cases passed, failed test cases: None
+Question_museum_artifact_9: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_museum_artifact_M_1: (2/2) test cases passed, failed test cases: None
+Question_museum_artifact_M_10: (0/5) test cases passed, failed test cases: test_1, test_2, test_3, test_4, test_5 | Eval Phase: Assertion Error
+Question_museum_artifact_M_2: (1/1) test cases passed, failed test cases: None
+Question_museum_artifact_M_3: (3/5) test cases passed, failed test cases: test_1, test_5 | Eval Phase: Assertion Error
+Question_museum_artifact_M_4: (0/4) test cases passed, failed test cases: test_1, test_2, test_3, test_4 | Eval Phase: Assertion Error
+Question_museum_artifact_M_5: (0/3) test cases passed, failed test cases: test_1, test_2, test_3 | Eval Phase: Assertion Error
+Question_museum_artifact_M_6: (0/3) test cases passed, failed test cases: test_1, test_2, test_3 | Eval Phase: Assertion Error
+Question_museum_artifact_M_7: (0/3) test cases passed, failed test cases: test_1, test_2, test_3 | Eval Phase: Assertion Error
+Question_museum_artifact_M_8: (0/2) test cases passed, failed test cases: test_1, test_2 | Eval Phase: Assertion Error
+Question_museum_artifact_M_9: (0/3) test cases passed, failed test cases: test_1, test_2, test_3 | Eval Phase: Assertion Error
+Question_organ_transplant_1: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_10: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_11: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_13: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_14: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_16: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_17: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_18: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_19: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_2: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_20: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_21: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_22: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_3: (1/1) test cases passed, failed test cases: None
+Question_organ_transplant_4: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_6: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_7: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_8: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_9: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_M_1: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_M_10: (1/1) test cases passed, failed test cases: None
+Question_organ_transplant_M_11: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_M_12: (1/1) test cases passed, failed test cases: None
+Question_organ_transplant_M_13: (1/1) test cases passed, failed test cases: None
+Question_organ_transplant_M_2: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_M_3: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_M_4: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_M_5: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_M_6: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_M_7: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_M_8: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_organ_transplant_M_9: (1/1) test cases passed, failed test cases: None
+Question_planets_data_1: (1/1) test cases passed, failed test cases: None
+Question_planets_data_10: (1/1) test cases passed, failed test cases: None
+Question_planets_data_11: (1/1) test cases passed, failed test cases: None
+Question_planets_data_12: (1/1) test cases passed, failed test cases: None
+Question_planets_data_13: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_planets_data_14: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_planets_data_15: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_planets_data_16: (1/1) test cases passed, failed test cases: None
+Question_planets_data_17: (1/1) test cases passed, failed test cases: None
+Question_planets_data_18: (1/1) test cases passed, failed test cases: None
+Question_planets_data_19: (1/1) test cases passed, failed test cases: None
+Question_planets_data_2: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_planets_data_20: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_planets_data_4: (1/1) test cases passed, failed test cases: None
+Question_planets_data_5: (1/1) test cases passed, failed test cases: None
+Question_planets_data_6: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_planets_data_7: (1/1) test cases passed, failed test cases: None
+Question_planets_data_8: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_planets_data_9: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_planets_data_M_1: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_planets_data_M_10: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_planets_data_M_2: (1/1) test cases passed, failed test cases: None
+Question_planets_data_M_3: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_planets_data_M_4: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_planets_data_M_5: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_planets_data_M_6: (1/1) test cases passed, failed test cases: None
+Question_planets_data_M_7: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_planets_data_M_8: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_planets_data_M_9: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_polar_equipment_1: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_polar_equipment_10: (1/1) test cases passed, failed test cases: None
+Question_polar_equipment_11: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_polar_equipment_12: (1/1) test cases passed, failed test cases: None
+Question_polar_equipment_13: (1/1) test cases passed, failed test cases: None
+Question_polar_equipment_14: (1/1) test cases passed, failed test cases: None
+Question_polar_equipment_15: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_polar_equipment_16: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_polar_equipment_17: (1/1) test cases passed, failed test cases: None
+Question_polar_equipment_18: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_polar_equipment_19: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_polar_equipment_2: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_polar_equipment_20: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_polar_equipment_3: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_polar_equipment_4: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_polar_equipment_5: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_polar_equipment_6: (1/1) test cases passed, failed test cases: None
+Question_polar_equipment_7: (1/1) test cases passed, failed test cases: None
+Question_polar_equipment_8: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_polar_equipment_9: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_polar_equipment_M_1: (1/1) test cases passed, failed test cases: None
+Question_polar_equipment_M_10: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_polar_equipment_M_2: (1/1) test cases passed, failed test cases: None
+Question_polar_equipment_M_3: (2/2) test cases passed, failed test cases: None
+Question_polar_equipment_M_4: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_polar_equipment_M_5: (1/1) test cases passed, failed test cases: None
+Question_polar_equipment_M_6: (1/1) test cases passed, failed test cases: None
+Question_polar_equipment_M_7: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_polar_equipment_M_8: (1/1) test cases passed, failed test cases: None
+Question_polar_equipment_M_9: (1/1) test cases passed, failed test cases: None
+Question_residential_data_1: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_residential_data_10: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_residential_data_11: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_residential_data_12: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_residential_data_13: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_residential_data_14: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_residential_data_15: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_residential_data_16: (1/1) test cases passed, failed test cases: None
+Question_residential_data_17: (1/1) test cases passed, failed test cases: None
+Question_residential_data_18: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_residential_data_19: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_residential_data_2: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_residential_data_20: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_residential_data_3: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_residential_data_4: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_residential_data_5: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_residential_data_6: (1/1) test cases passed, failed test cases: None
+Question_residential_data_7: (1/1) test cases passed, failed test cases: None
+Question_residential_data_8: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_residential_data_9: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_residential_data_M_1: (1/1) test cases passed, failed test cases: None
+Question_residential_data_M_10: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_residential_data_M_2: (2/2) test cases passed, failed test cases: None
+Question_residential_data_M_4: (1/1) test cases passed, failed test cases: None
+Question_residential_data_M_5: (1/1) test cases passed, failed test cases: None
+Question_residential_data_M_6: (0/3) test cases passed, failed test cases: test_1, test_2, test_3 | Eval Phase: Assertion Error
+Question_residential_data_M_7: (0/3) test cases passed, failed test cases: test_1, test_2, test_3 | Eval Phase: Assertion Error
+Question_residential_data_M_8: (2/3) test cases passed, failed test cases: test_3 | Eval Phase: Assertion Error
+Question_residential_data_M_9: (0/4) test cases passed, failed test cases: test_1, test_2, test_3, test_4 | Eval Phase: Assertion Error
+Question_reverse_logistics_1: (1/1) test cases passed, failed test cases: None
+Question_reverse_logistics_10: (1/1) test cases passed, failed test cases: None
+Question_reverse_logistics_11: (1/1) test cases passed, failed test cases: None
+Question_reverse_logistics_12: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_reverse_logistics_13: (1/1) test cases passed, failed test cases: None
+Question_reverse_logistics_14: (1/1) test cases passed, failed test cases: None
+Question_reverse_logistics_15: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_reverse_logistics_16: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_reverse_logistics_17: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_reverse_logistics_18: (0/1) test cases passed, failed test cases:  | Eval Phase: Execution Error
+Question_reverse_logistics_19: (1/1) test cases passed, failed test cases: None
+Question_reverse_logistics_2: (1/1) test cases passed, failed test cases: None
+Question_reverse_logistics_20: (1/1) test cases passed, failed test cases: None
+Question_reverse_logistics_3: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_reverse_logistics_4: (1/1) test cases passed, failed test cases: None
+Question_reverse_logistics_5: (1/1) test cases passed, failed test cases: None
+Question_reverse_logistics_6: (1/1) test cases passed, failed test cases: None
+Question_reverse_logistics_7: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_reverse_logistics_8: (1/1) test cases passed, failed test cases: None
+Question_reverse_logistics_9: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_reverse_logistics_M_1: (1/1) test cases passed, failed test cases: None
+Question_reverse_logistics_M_10: (1/1) test cases passed, failed test cases: None
+Question_reverse_logistics_M_2: (1/1) test cases passed, failed test cases: None
+Question_reverse_logistics_M_3: (1/1) test cases passed, failed test cases: None
+Question_reverse_logistics_M_4: (1/1) test cases passed, failed test cases: None
+Question_reverse_logistics_M_5: (1/1) test cases passed, failed test cases: None
+Question_reverse_logistics_M_7: (1/1) test cases passed, failed test cases: None
+Question_reverse_logistics_M_8: (1/1) test cases passed, failed test cases: None
+Question_robot_fault_prediction_1: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_robot_fault_prediction_10: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_robot_fault_prediction_11: (1/1) test cases passed, failed test cases: None
+Question_robot_fault_prediction_12: (1/1) test cases passed, failed test cases: None
+Question_robot_fault_prediction_3: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_robot_fault_prediction_4: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_robot_fault_prediction_5: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_robot_fault_prediction_6: (1/1) test cases passed, failed test cases: None
+Question_robot_fault_prediction_7: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_robot_fault_prediction_8: (1/1) test cases passed, failed test cases: None
+Question_robot_fault_prediction_M_1: (1/1) test cases passed, failed test cases: None
+Question_robot_fault_prediction_M_2: (1/1) test cases passed, failed test cases: None
+Question_robot_fault_prediction_M_3: (1/1) test cases passed, failed test cases: None
+Question_robot_fault_prediction_M_4: (1/1) test cases passed, failed test cases: None
+Question_robot_fault_prediction_M_5: (1/1) test cases passed, failed test cases: None
+Question_robot_fault_prediction_M_7: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_robot_fault_prediction_M_8: (1/1) test cases passed, failed test cases: None
+Question_solar_panel_1: (1/1) test cases passed, failed test cases: None
+Question_solar_panel_10: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_solar_panel_11: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_solar_panel_12: (1/1) test cases passed, failed test cases: None
+Question_solar_panel_13: (1/1) test cases passed, failed test cases: None
+Question_solar_panel_14: (1/1) test cases passed, failed test cases: None
+Question_solar_panel_15: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_solar_panel_16: (1/1) test cases passed, failed test cases: None
+Question_solar_panel_17: (1/1) test cases passed, failed test cases: None
+Question_solar_panel_18: (1/1) test cases passed, failed test cases: None
+Question_solar_panel_19: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_solar_panel_2: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_solar_panel_20: (1/1) test cases passed, failed test cases: None
+Question_solar_panel_3: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_solar_panel_4: (1/1) test cases passed, failed test cases: None
+Question_solar_panel_5: (1/1) test cases passed, failed test cases: None
+Question_solar_panel_6: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_solar_panel_7: (1/1) test cases passed, failed test cases: None
+Question_solar_panel_8: (1/1) test cases passed, failed test cases: None
+Question_solar_panel_9: (1/1) test cases passed, failed test cases: None
+Question_solar_panel_M_1: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_solar_panel_M_10: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_solar_panel_M_2: (1/1) test cases passed, failed test cases: None
+Question_solar_panel_M_3: (1/1) test cases passed, failed test cases: None
+Question_solar_panel_M_4: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_solar_panel_M_5: (1/1) test cases passed, failed test cases: None
+Question_solar_panel_M_6: (1/1) test cases passed, failed test cases: None
+Question_solar_panel_M_7: (1/1) test cases passed, failed test cases: None
+Question_solar_panel_M_8: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_solar_panel_M_9: (1/1) test cases passed, failed test cases: None
+Question_sports_events_1: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_sports_events_10: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_sports_events_11: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_sports_events_12: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_sports_events_13: (1/1) test cases passed, failed test cases: None
+Question_sports_events_14: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_sports_events_15: (1/1) test cases passed, failed test cases: None
+Question_sports_events_16: (1/1) test cases passed, failed test cases: None
+Question_sports_events_17: (1/1) test cases passed, failed test cases: None
+Question_sports_events_18: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_sports_events_19: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_sports_events_2: (1/1) test cases passed, failed test cases: None
+Question_sports_events_20: (1/1) test cases passed, failed test cases: None
+Question_sports_events_29: (2/2) test cases passed, failed test cases: None
+Question_sports_events_3: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_sports_events_30: (2/2) test cases passed, failed test cases: None
+Question_sports_events_4: (1/1) test cases passed, failed test cases: None
+Question_sports_events_5: (1/1) test cases passed, failed test cases: None
+Question_sports_events_6: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_sports_events_7: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_sports_events_8: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_sports_events_9: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_sports_events_M_1: (3/3) test cases passed, failed test cases: None
+Question_sports_events_M_2: (1/2) test cases passed, failed test cases: test_2 | Eval Phase: Assertion Error
+Question_sports_events_M_3: (3/4) test cases passed, failed test cases: test_2 | Eval Phase: Assertion Error
+Question_sports_events_M_4: (1/2) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_sports_events_M_5: (2/3) test cases passed, failed test cases: test_3 | Eval Phase: Assertion Error
+Question_sports_events_M_6: (1/3) test cases passed, failed test cases: test_2, test_3 | Eval Phase: Assertion Error
+Question_sports_events_M_8: (2/2) test cases passed, failed test cases: None
+Question_virtual_idol_1: (1/1) test cases passed, failed test cases: None
+Question_virtual_idol_10: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_virtual_idol_11: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_virtual_idol_12: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_virtual_idol_13: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_virtual_idol_14: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_virtual_idol_15: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_virtual_idol_16: (1/1) test cases passed, failed test cases: None
+Question_virtual_idol_17: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_virtual_idol_18: (1/1) test cases passed, failed test cases: None
+Question_virtual_idol_19: (1/1) test cases passed, failed test cases: None
+Question_virtual_idol_2: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_virtual_idol_20: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_virtual_idol_3: (1/1) test cases passed, failed test cases: None
+Question_virtual_idol_4: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_virtual_idol_5: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_virtual_idol_6: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_virtual_idol_7: (1/1) test cases passed, failed test cases: None
+Question_virtual_idol_9: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_virtual_idol_M_1: (1/1) test cases passed, failed test cases: None
+Question_virtual_idol_M_10: (1/1) test cases passed, failed test cases: None
+Question_virtual_idol_M_2: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_virtual_idol_M_3: (1/1) test cases passed, failed test cases: None
+Question_virtual_idol_M_5: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_virtual_idol_M_6: (1/1) test cases passed, failed test cases: None
+Question_virtual_idol_M_7: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_virtual_idol_M_8: (1/1) test cases passed, failed test cases: None
+Question_virtual_idol_M_9: (1/1) test cases passed, failed test cases: None
