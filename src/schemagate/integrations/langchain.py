@@ -104,8 +104,8 @@ def optimizer_tools(engine: Any, catalog: Optional[Catalog] = None, principal: O
     def _gate(sql: str) -> str:
         sql = check_read_only(sql, dialect)
         if catalog is not None:
-            from ..mcp_server import _check_scope
-            denied = _check_scope(catalog, sql, principal, dialect)
+            from ..scope import check_scope
+            denied = check_scope(catalog, sql, principal, dialect)
             if denied:
                 raise UnsafeSQL(denied)
         return sql
