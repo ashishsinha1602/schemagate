@@ -76,7 +76,7 @@ import os
 import re
 import threading
 import time
-from typing import Annotated, Any, Callable, Dict, List, Literal, Optional
+from typing import Annotated, Any, Callable, Dict, List, Literal, Optional, Tuple
 
 from . import __version__
 from .catalog import Catalog
@@ -1247,6 +1247,135 @@ def run_query(sql: SqlArg, principal: PrincipalArg = None,
     }
 
 
+#: Statement timeout (seconds) for each run of a query being explained, compared or optimized.
+OPTIMIZE_TIMEOUT = float(os.environ.get("SCHEMAGATE_OPTIMIZE_TIMEOUT", "60"))
+#: Wall-clock budget (seconds) for one optimize_query call, model calls included.
+OPTIMIZE_BUDGET = float(os.environ.get("SCHEMAGATE_OPTIMIZE_BUDGET", "300"))
+
+
+def _checked_read(sql: Any, who: Optional[Principal]) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+    """``(sql, None)`` if this is one read of objects the caller may see, else ``(None, error reply)``."""
+    from .answer import UnsafeSQL, check_read_only
+    sql = str(sql or "").strip()
+    if not sql:
+        return None, {"error": "sql is empty"}
+    if len(sql) > MAX_SQL_CHARS:
+        return None, {"error": f"sql is too long ({len(sql)} chars; max {MAX_SQL_CHARS})"}
+    try:
+        sql = check_read_only(sql, _dialect_name())
+    except UnsafeSQL as e:
+        return None, {"error": f"refused: {e}", "sql": sql, "_refused_reason": "not-read-only"}
+    denied = _check_scope(_catalog(), sql, who)
+    if denied:
+        return None, {"error": denied, "sql": sql, "_refused_reason": "out-of-scope",
+                      "_tables": _referenced_tables(sql)}
+    return sql, None
+
+
+def _db_error(e: Exception) -> Dict[str, Any]:
+    msg = str(getattr(e, "orig", e)).strip().splitlines()
+    return {"error": "the database rejected this query: %s" % (msg[0] if msg else type(e).__name__)}
+
+
+def _timeout() -> float:
+    return _QUERY_TIMEOUT.get() or OPTIMIZE_TIMEOUT
+
+
+@_guard
+def explain_query(sql: SqlArg, principal: PrincipalArg = None,
+                  roles: RolesArg = None) -> Dict[str, Any]:
+    """The query plan, with real row counts and timings where the database gives them.
+
+    Same checks as `run_query`. On PostgreSQL this is ``EXPLAIN (ANALYZE,
+    BUFFERS)``, which runs the query; everything is rolled back.
+    """
+    from . import optimize as _opt
+    who = _principal(principal, roles)
+    sql, err = _checked_read(sql, who)
+    if err:
+        return err
+    try:
+        plan = _opt.explain(_engine(), sql, timeout=_timeout())
+    except Exception as e:                               # noqa: BLE001
+        return dict(_db_error(e), sql=sql)
+    return {"sql": sql, "plan": plan, "dialect": _dialect_name(), "_tables": _referenced_tables(sql)}
+
+
+@_guard
+def compare_queries(original: SqlArg, candidate: SqlArg, principal: PrincipalArg = None,
+                    roles: RolesArg = None) -> Dict[str, Any]:
+    """Do two reads return the same rows, and which is faster?
+
+    Both go through `run_query`'s checks. Rows are compared inside the database
+    where it can (row count plus an order-insensitive hash; order too when the
+    original has ORDER BY); timing is the database's own execution time on
+    PostgreSQL. The rows themselves are never returned.
+    """
+    from . import optimize as _opt
+    who = _principal(principal, roles)
+    original, err = _checked_read(original, who)
+    if err:
+        return err
+    candidate, err = _checked_read(candidate, who)
+    if err:
+        return err
+    try:
+        c = _opt.compare(_engine(), original, candidate, timeout=_timeout())
+    except _opt.OptimizeError as e:
+        return {"error": str(e)}
+    except Exception as e:                               # noqa: BLE001
+        return _db_error(e)
+    out = c.to_dict()
+    out["new_literals"] = _opt.new_literals(original, candidate)
+    if out["new_literals"]:
+        out["warning"] = ("the candidate adds constants the original does not have; if they came from the "
+                          "data, the rewrite is only correct for today's rows")
+    return out
+
+
+@_guard
+def optimize_query(sql: SqlArg, principal: PrincipalArg = None,
+                   roles: RolesArg = None) -> Dict[str, Any]:
+    """Find a faster query that returns the same rows, with the server's own model.
+
+    Like `answer`, this needs a model configured on the server. Without one it
+    says so: the client's own model can do the same loop with `explain_query`
+    and `compare_queries`. Every candidate passes `run_query`'s read-only and
+    caller-scope checks and must return identical rows before it can be chosen.
+    """
+    from . import optimize as _opt
+    who = _principal(principal, roles)
+    sql, err = _checked_read(sql, who)
+    if err:
+        return err
+    try:
+        provider = _server_provider()
+    except ValueError as e:
+        return {"error": str(e)}
+    if provider is None:
+        return {"sql": sql, "optimized": None,
+                "next": "no model is configured on this server: call explain_query to see the plan, write a "
+                        "faster SELECT yourself, and check it with compare_queries (same rows, and faster). "
+                        "Set SCHEMAGATE_MCP_PROVIDER and SCHEMAGATE_MCP_MODEL to have the server do it."}
+    ddl = []
+    for t in _referenced_tables(sql):
+        d = describe_object(t, principal=principal, roles=roles)
+        if "ddl" in d:
+            ddl.append(d["ddl"])
+    cat = _catalog()
+    try:
+        r = _opt.optimize(_engine(), sql, provider, timeout=_timeout(), time_budget=OPTIMIZE_BUDGET,
+                          context="\n\n".join(ddl), check=lambda s: _check_scope(cat, s, who))
+    except _opt.OptimizeError as e:
+        return {"error": str(e), "sql": sql}
+    except Exception as e:                               # noqa: BLE001
+        return dict(_db_error(e), sql=sql)
+    out = r.to_dict()
+    out["note"] = ("verified on the data as it is now; review the rewrite before it replaces production SQL"
+                   if r.improved else "no rewrite was both identical and faster; the original is returned")
+    return out
+
+
 @_guard
 def semantic_query(sql: SqlArg, column: TextColumn, criterion: Criterion = None,
                    extract: Extract = None, principal: PrincipalArg = None,
@@ -1546,6 +1675,24 @@ TOOL_DESCRIPTIONS = {
         "select_schema returned for the same caller. Refuses writes, multiple statements, and any table or "
         "column the caller may not read, with an error that says so ('not available to this caller'), "
         "which you can pass on to the user instead of reporting 'no results'."),
+    "explain_query": (
+        "Show the query plan for one read-only SELECT, with real row counts and timings where the database "
+        "gives them (PostgreSQL: EXPLAIN ANALYZE, which runs the query; everything is rolled back). Same checks "
+        "as run_query. Use it to see why a query is slow before rewriting it, then check your rewrite with "
+        "compare_queries."),
+    "compare_queries": (
+        "Check a rewrite: do 'original' and 'candidate' return exactly the same rows (order too, when the "
+        "original has ORDER BY), and how fast is each? Returns identical, reason, row counts, original_ms, "
+        "candidate_ms and speedup; rows are compared inside the database and never returned. Both go through "
+        "run_query's checks. 'new_literals' lists constants the candidate adds: a rewrite that hard-codes "
+        "values from the data is only correct for today's rows, so do not add them. Use it with explain_query "
+        "to make a slow query faster with your own model."),
+    "optimize_query": (
+        "Make a slow read faster: the server's model proposes rewrites, each must return identical rows and "
+        "pass run_query's checks, and the fastest one is returned with both timings and every attempt. If "
+        "nothing is both identical and faster, the original comes back. Runs the query several times (bounded "
+        "by a time budget). Only available when the server has a model configured; otherwise use "
+        "explain_query and compare_queries with your own model."),
     "semantic_query": (
         "For questions about what text says when no column records it, e.g. 'which complaints ask "
         "for a refund'. Runs one read-only SELECT through the same checks as run_query, then has the "
@@ -1641,7 +1788,8 @@ def create_server(catalog: Optional[Catalog] = None):
     except ImportError:                               # very old SDKs: descriptions only
         ToolAnnotations = None
     for tool in (select_schema, list_objects, describe_object,
-                 run_query, semantic_query, answer, deep_answer, refresh_catalog, health):
+                 run_query, explain_query, compare_queries, optimize_query,
+                 semantic_query, answer, deep_answer, refresh_catalog, health):
         name = tool.__name__
         kw: Dict[str, Any] = {"description": TOOL_DESCRIPTIONS[name]}
         if ToolAnnotations is not None:
@@ -1659,8 +1807,8 @@ def create_server(catalog: Optional[Catalog] = None):
 
 
 #: the tools whose principal and roles OAuth fills in from the token
-IDENTITY_TOOLS = ("select_schema", "list_objects", "describe_object", "run_query", "semantic_query", "answer",
-                  "deep_answer")
+IDENTITY_TOOLS = ("select_schema", "list_objects", "describe_object", "run_query", "explain_query",
+                  "compare_queries", "optimize_query", "semantic_query", "answer", "deep_answer")
 
 
 def _oauth_verifier(transport: str):

@@ -1134,10 +1134,14 @@ Keep a URL with a password in `env`, as above, not in `--url`: command arguments
 visible to every process on the machine. Without uv: `pip install 'schemagate[mcp,postgres]'`,
 then run `schemagate-mcp` (or `python -m schemagate.mcp_server`, which still works).
 
-Nine tools, all read-only: `select_schema` (the DDL for a question, scoped to
+Twelve tools, all read-only: `select_schema` (the DDL for a question, scoped to
 the caller), `list_objects` (what this caller can see), `describe_object` (one
 object's full DDL), `run_query` (runs a single read, refused if it names
-anything the caller may not see), `semantic_query` (a read whose rows the
+anything the caller may not see), `explain_query` (the plan, with real timings
+on PostgreSQL), `compare_queries` (do two reads return the same rows, and which
+is faster), `optimize_query` (the server's model rewrites a slow read; only a
+rewrite proven to return the same rows can come back, see
+[docs/optimize.md](docs/optimize.md)), `semantic_query` (a read whose rows the
 server's model then filters or annotates by what a text column says),
 `answer`, `deep_answer` (like `answer`, but may explore in steps),
 `refresh_catalog` and `health`.
