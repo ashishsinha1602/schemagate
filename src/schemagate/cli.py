@@ -294,6 +294,66 @@ def cmd_studio(args) -> int:
                        remember_connection=args.remember)
 
 
+def _provider_from_args(name: str, model: Optional[str]):
+    """The model client for ``--provider NAME --model ID``; exits with a message on a bad pair."""
+    from .ai import providers as _p
+    if not model:
+        sys.exit("schemagate: --model is required with --provider (model ids change; pick one)")
+    classes = {"anthropic": _p.AnthropicProvider, "openai": _p.OpenAIProvider,
+               "gemini": _p.GeminiProvider, "oci": _p.OCIGenAIProvider,
+               "local": _p.LocalProvider}
+    if name == "auto":
+        return _p.auto_provider(model)
+    if name not in classes:
+        sys.exit(f"schemagate: unknown provider {name!r}; use anthropic, openai, gemini, oci, local or auto")
+    kwargs = {"model": model}
+    if name == "oci":
+        # On an OCI instance there is no ~/.oci/config: the machine
+        # authenticates as itself. OCI_CLI_AUTH is the variable every
+        # other OCI tool reads for this, so honour it here too --
+        # without it a VM-side `describe --provider oci` fails with
+        # ConfigFileNotFound and the catalog is silently left empty.
+        auth = os.environ.get("OCI_CLI_AUTH")
+        if auth:
+            kwargs["auth"] = auth
+    return classes[name](**kwargs)   # key from its env var
+
+
+def cmd_optimize(args) -> int:
+    """Find a faster query that returns the same rows; print it with both timings."""
+    import json
+    from sqlalchemy import create_engine
+
+    from .answer import UnsafeSQL
+    from .optimize import OptimizeError, optimize
+
+    if args.file:
+        with open(args.file, encoding="utf-8") as fh:
+            sql = fh.read()
+    elif args.sql:
+        sql = args.sql
+    else:
+        sys.exit("schemagate: give the query as an argument or with --file")
+    provider = _provider_from_args(args.provider, args.model)
+    engine = create_engine(args.url)
+    try:
+        r = optimize(engine, sql, provider, rounds=args.rounds, timeout=args.timeout, time_budget=args.budget)
+    except (UnsafeSQL, OptimizeError) as e:
+        sys.exit(f"schemagate: {e}")
+    if args.json:
+        print(json.dumps(r.to_dict(), indent=2, default=str))
+        return 0 if r.improved else 1
+    if r.improved:
+        print(f"-- {r.speedup}x faster: {r.original_ms:.1f} ms -> {r.optimized_ms:.1f} ms ({r.timing} time), "
+              "same rows on the current data. Review before using it in production.")
+    else:
+        print(f"-- no rewrite was both identical and faster ({len(r.attempts)} tried); original returned")
+    for w in r.warnings:
+        print(f"-- note: {w}")
+    print(r.sql)
+    return 0 if r.improved else 1
+
+
 def cmd_describe(args) -> int:
     """Descriptions without an API key: print a prompt, paste it into any
     chat, save the JSON reply, apply it. Or with a key, call a provider."""
@@ -330,28 +390,7 @@ def cmd_describe(args) -> int:
     # both mean the same thing: print the prompt, do not call anyone.
     if args.provider and args.provider != "none":
         from .ai import SchemaDescriber
-        from .ai import providers as _p
-        if not args.model:
-            sys.exit("schemagate: --model is required with --provider (model ids change; pick one)")
-        classes = {"anthropic": _p.AnthropicProvider, "openai": _p.OpenAIProvider,
-                   "gemini": _p.GeminiProvider, "oci": _p.OCIGenAIProvider,
-                   "local": _p.LocalProvider}
-        if args.provider == "auto":
-            provider = _p.auto_provider(args.model)
-        elif args.provider in classes:
-            kwargs = {"model": args.model}
-            if args.provider == "oci":
-                # On an OCI instance there is no ~/.oci/config: the machine
-                # authenticates as itself. OCI_CLI_AUTH is the variable every
-                # other OCI tool reads for this, so honour it here too --
-                # without it a VM-side `describe --provider oci` fails with
-                # ConfigFileNotFound and the catalog is silently left empty.
-                auth = os.environ.get("OCI_CLI_AUTH")
-                if auth:
-                    kwargs["auth"] = auth
-            provider = classes[args.provider](**kwargs)   # key from its env var
-        else:
-            sys.exit(f"schemagate: unknown provider {args.provider!r}; use anthropic, openai, gemini, oci, local or auto")
+        provider = _provider_from_args(args.provider, args.model)
         describer = SchemaDescriber(provider, cache_path=args.cache)
         n = cat.describe(describer, only_missing=not args.all)
         got = {d.qname: d.description for d in cat.objects() if d.description}
@@ -726,6 +765,25 @@ def build_parser() -> argparse.ArgumentParser:
     describe.add_argument("--model", metavar="ID", help="model id for --provider")
     describe.add_argument("--cache", metavar="FILE", help="description cache for --provider")
     describe.set_defaults(func=cmd_describe)
+
+    optimize_p = sub.add_parser(
+        "optimize",
+        help="make a slow query faster -- only a rewrite proven to return the same rows",
+        description="Asks a model for rewrites of one read, keeps only those that return the same rows "
+                    "on your database and are measurably faster, and prints the fastest (or the original). "
+                    "Read-only and rolled back; every check runs the query again, so point --url at a replica "
+                    "if it is expensive. See docs/optimize.md.")
+    optimize_p.add_argument("sql", nargs="?", help="the query (or use --file)")
+    optimize_p.add_argument("--file", metavar="SQL", help="read the query from this file")
+    optimize_p.add_argument("--url", required=True, help="SQLAlchemy URL")
+    optimize_p.add_argument("--provider", required=True, metavar="NAME",
+                            help="anthropic | openai | gemini | oci | local | auto -- key from the environment")
+    optimize_p.add_argument("--model", required=True, metavar="ID", help="model id for --provider")
+    optimize_p.add_argument("--rounds", type=int, default=3, help="model calls at most (default 3)")
+    optimize_p.add_argument("--timeout", type=float, default=120.0, help="seconds per statement (default 120)")
+    optimize_p.add_argument("--budget", type=float, default=600.0, help="seconds in total (default 600)")
+    optimize_p.add_argument("--json", action="store_true", help="print the full result, every attempt included")
+    optimize_p.set_defaults(func=cmd_optimize)
 
     def _query_log_option(p):
         p.add_argument("--query-log", nargs="?", const="engine", metavar="FILE",

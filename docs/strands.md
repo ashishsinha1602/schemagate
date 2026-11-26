@@ -127,7 +127,7 @@ a JSON file such as `{"restrict": {"hr_compensation": ["payroll"]}}`.
 
 ## Tools
 
-All nine tools are read-only.
+All twelve tools are read-only.
 
 | Tool | What it does |
 | --- | --- |
