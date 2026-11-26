@@ -48,4 +48,4 @@ The extension asks for `SCHEMAGATE_DATABASE_URL` at install time. Enter
 `postgresql+psycopg://user:password@host/db`. Change it later with
 `gemini extensions config schemagate`. The server needs
 [uv](https://docs.astral.sh/uv/) on the PATH; it runs
-`uvx --from "schemagate[mcp,databases]==1.19.2" schemagate-mcp`.
+`uvx --from "schemagate[mcp,databases]==1.20.0" schemagate-mcp`.

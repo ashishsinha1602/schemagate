@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.20.0
+
+**Make a slow query faster, with proof it returns the same rows** ([docs/optimize.md](docs/optimize.md)).
+
+- **schemagate.optimize**: compare(engine, original, candidate) checks that two reads return the same rows
+  (on PostgreSQL inside the server: a row count plus an order-insensitive hash, and the order when the
+  original has ORDER BY) and times them (PostgreSQL: the server's own EXPLAIN ANALYZE execution time).
+  optimize(engine, sql, provider) asks a model for rewrites and returns the fastest one that is identical
+  and at least 1.1x faster, or the original. Read-only: every statement passes check_read_only and runs in
+  a transaction that is always rolled back (READ ONLY on PostgreSQL), under a statement timeout.
+- A rewrite that adds constants the original did not have (other than 0 and 1) is listed in new_literals
+  and never chosen: a value read from the data makes a rewrite that is only right for today's rows.
+- **MCP:** explain_query and compare_queries (no server model needed; the client's model writes the
+  rewrite) and optimize_query (the server's model), all under run_query's read-only and caller-scope
+  checks. optimize_query gives the model only DDL the caller may see.
+- **CLI:** schemagate optimize. **LangChain:** optimizer_tools(engine, catalog=, principal=).
+
 ## 1.19.2
 
 Public claims brought up to date; no library code changes.
