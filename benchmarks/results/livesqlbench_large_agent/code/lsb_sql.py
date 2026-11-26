@@ -1,4 +1,4 @@
-﻿"""SQL tool for the Claude Code agent run (lsb_cc.py).
+"""SQL tool for the Claude Code agent run (lsb_cc.py).
 
     python E:/livesqlbench/work/lsb_sql.py <instance_id> <<'SQL'
     SELECT ...

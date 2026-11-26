@@ -1,4 +1,4 @@
-﻿"""LiveSQLBench-Large-v1 with schemagate + the exploring agent, driven through Claude Code (`claude -p`, the user's
+"""LiveSQLBench-Large-v1 with schemagate + the exploring agent, driven through Claude Code (`claude -p`, the user's
 Max subscription) instead of the API.
 
 Same task prompt and table selection as lsb_agent.py. The only tool is Bash, and the only command allowed is
