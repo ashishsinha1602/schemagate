@@ -1,0 +1,545 @@
+--------------------------------------------------
+BIRD CRITIC Stack Overflow Result Statistics (Postgres, Multi-Thread):
+Number of Instances: 530
+Number of Execution Errors: 4
+Number of Timeouts: 3
+Number of Assertion Errors: 215
+Total Errors: 222
+Overall Accuracy: 58.11%
+Timestamp: 2026-11-27 02:49:47.857950
+
+Question_PostgreSQL_2: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_0: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_3: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_4: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_7: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_1: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_6: (2/2) test cases passed, failed test cases: None
+Question_PostgreSQL_9: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_8: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_5: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_12: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_10: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_15: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_16: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_13: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_17: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_18: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_14: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_20: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_23: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_22: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_19: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_21: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_28: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_27: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_29: (0/3) test cases passed, failed test cases: test_1, test_2, test_3 | Eval Phase: Assertion Error
+Question_PostgreSQL_26: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_30: (3/3) test cases passed, failed test cases: None
+Question_PostgreSQL_24: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_31: (1/5) test cases passed, failed test cases: test_2, test_3, test_4, test_5 | Eval Phase: Assertion Error
+Question_PostgreSQL_32: (1/5) test cases passed, failed test cases: test_2, test_3, test_4, test_5 | Eval Phase: Assertion Error
+Question_PostgreSQL_33: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_35: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_34: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_38: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_36: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_37: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_39: (2/4) test cases passed, failed test cases: test_3, test_4 | Eval Phase: Assertion Error
+Question_PostgreSQL_42: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_41: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_40: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_45: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_43: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_46: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_44: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_25: (0/1) test cases passed, failed test cases:  | Eval Phase: Timeout Error
+Question_PostgreSQL_47: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_48: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_52: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_50: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_49: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_51: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_54: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_53: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_55: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_58: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_59: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_60: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_63: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_56: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_64: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_61: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_65: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_62: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_66: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_69: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_68: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_71: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_67: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_57: (0/1) test cases passed, failed test cases:  | Eval Phase: Timeout Error
+Question_PostgreSQL_70: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_72: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_74: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_73: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_76: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_75: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_77: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_79: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_78: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_80: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_81: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_88: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_82: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_85: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_84: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_83: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_86: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_92: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_89: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_93: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_94: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_91: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_87: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_90: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_97: (2/2) test cases passed, failed test cases: None
+Question_PostgreSQL_98: (2/2) test cases passed, failed test cases: None
+Question_PostgreSQL_99: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_95: (2/2) test cases passed, failed test cases: None
+Question_PostgreSQL_100: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_96: (1/2) test cases passed, failed test cases: test_2 | Eval Phase: Assertion Error
+Question_PostgreSQL_101: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_103: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_102: (2/2) test cases passed, failed test cases: None
+Question_PostgreSQL_106: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_108: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_104: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_107: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_111: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_110: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_105: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_113: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_114: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_117: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_116: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_115: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_112: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_118: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_120: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_122: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_119: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_121: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_109: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_125: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_124: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_123: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_126: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_128: (1/2) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_127: (2/3) test cases passed, failed test cases: test_3 | Eval Phase: Assertion Error
+Question_PostgreSQL_132: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_130: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_131: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_133: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_129: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_134: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_136: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_135: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_137: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_138: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_139: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_140: (1/2) test cases passed, failed test cases: test_2 | Eval Phase: Assertion Error
+Question_PostgreSQL_141: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_144: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_142: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_146: (1/2) test cases passed, failed test cases: test_2 | Eval Phase: Assertion Error
+Question_PostgreSQL_145: (2/2) test cases passed, failed test cases: None
+Question_PostgreSQL_143: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_147: (2/2) test cases passed, failed test cases: None
+Question_PostgreSQL_148: (2/2) test cases passed, failed test cases: None
+Question_PostgreSQL_149: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_150: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_155: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_152: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_153: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_151: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_154: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_156: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_157: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_158: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_159: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_161: (2/2) test cases passed, failed test cases: None
+Question_PostgreSQL_163: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_164: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_162: (1/2) test cases passed, failed test cases: test_2 | Eval Phase: Assertion Error
+Question_PostgreSQL_160: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_166: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_167: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_165: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_170: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_171: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_169: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_172: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_168: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_174: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_173: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_176: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_178: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_180: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_175: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_179: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_177: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_181: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_182: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_11: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_185: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_183: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_184: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_187: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_193: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_188: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_186: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_190: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_191: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_192: (0/2) test cases passed, failed test cases: test_1, test_2 | Eval Phase: Assertion Error
+Question_PostgreSQL_189: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_201: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_197: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_199: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_196: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_200: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_198: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_194: (2/2) test cases passed, failed test cases: None
+Question_PostgreSQL_202: (0/1) test cases passed, failed test cases:  | Eval Phase: Execution Error
+Question_PostgreSQL_195: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_203: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_204: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_206: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_207: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_205: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_209: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_210: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_212: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_208: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_211: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_215: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_214: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_213: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_216: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_218: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_223: (2/2) test cases passed, failed test cases: None
+Question_PostgreSQL_217: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_220: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_222: (0/2) test cases passed, failed test cases: test_1, test_2 | Eval Phase: Assertion Error
+Question_PostgreSQL_219: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_221: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_225: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_227: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_224: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_226: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_228: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_232: (2/2) test cases passed, failed test cases: None
+Question_PostgreSQL_230: (1/2) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_236: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_234: (1/2) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_231: (1/2) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_229: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_237: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_238: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_233: (1/2) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_235: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_241: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_240: (0/1) test cases passed, failed test cases:  | Eval Phase: Execution Error
+Question_PostgreSQL_239: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_245: (2/2) test cases passed, failed test cases: None
+Question_PostgreSQL_246: (2/2) test cases passed, failed test cases: None
+Question_PostgreSQL_243: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_244: (1/2) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_247: (2/2) test cases passed, failed test cases: None
+Question_PostgreSQL_251: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_249: (2/2) test cases passed, failed test cases: None
+Question_PostgreSQL_248: (1/2) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_242: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_252: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_253: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_254: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_250: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_256: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_257: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_258: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_260: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_259: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_261: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_262: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_255: (0/1) test cases passed, failed test cases:  | Eval Phase: Execution Error
+Question_PostgreSQL_263: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_267: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_266: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_265: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_264: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_268: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_269: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_270: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_271: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_273: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_275: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_272: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_274: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_276: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_277: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_279: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_280: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_281: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_278: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_285: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_282: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_284: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_283: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_286: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_288: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_291: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_289: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_287: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_290: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_292: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_294: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_293: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_296: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_298: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_295: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_299: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_297: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_301: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_300: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_302: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_303: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_304: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_307: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_305: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_306: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_309: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_310: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_308: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_311: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_316: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_315: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_318: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_314: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_317: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_313: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_312: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_324: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_319: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_325: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_321: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_323: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_322: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_330: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_326: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_327: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_320: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_329: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_328: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_331: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_332: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_336: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_334: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_333: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_340: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_337: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_339: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_338: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_342: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_341: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_344: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_343: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_345: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_347: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_346: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_348: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_349: (0/1) test cases passed, failed test cases:  | Eval Phase: Timeout Error
+Question_PostgreSQL_352: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_335: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_350: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_354: (2/2) test cases passed, failed test cases: None
+Question_PostgreSQL_353: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_356: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_351: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_355: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_358: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_357: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_360: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_359: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_361: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_363: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_364: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_365: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_366: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_362: (0/1) test cases passed, failed test cases:  | Eval Phase: Execution Error
+Question_PostgreSQL_368: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_367: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_369: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_370: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_371: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_373: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_376: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_375: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_372: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_374: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_378: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_377: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_379: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_380: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_381: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_382: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_383: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_384: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_388: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_386: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_389: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_385: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_387: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_395: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_392: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_390: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_391: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_393: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_394: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_396: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_399: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_401: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_397: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_403: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_398: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_402: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_406: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_404: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_408: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_407: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_410: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_405: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_400: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_414: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_411: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_413: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_412: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_409: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_415: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_416: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_420: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_417: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_419: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_422: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_423: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_418: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_424: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_425: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_429: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_430: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_426: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_427: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_428: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_421: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_431: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_434: (2/2) test cases passed, failed test cases: None
+Question_PostgreSQL_433: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_435: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_437: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_441: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_438: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_436: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_442: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_440: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_439: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_443: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_444: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_432: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_446: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_445: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_447: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_451: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_448: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_450: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_449: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_454: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_457: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_453: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_456: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_452: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_458: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_455: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_459: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_461: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_462: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_463: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_460: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_465: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_467: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_468: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_466: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_464: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_470: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_469: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_471: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_475: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_476: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_472: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_477: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_474: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_473: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_478: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_480: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_481: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_479: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_483: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_487: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_489: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_488: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_482: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_484: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_485: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_490: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_486: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_491: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_496: (2/2) test cases passed, failed test cases: None
+Question_PostgreSQL_495: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_494: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_493: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_492: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_499: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_497: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_498: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_500: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_501: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_503: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_502: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_504: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_507: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_505: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_506: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_508: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_510: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_511: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_516: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_515: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_512: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_509: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_518: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_513: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_517: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_514: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_520: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_522: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_523: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_519: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_521: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_524: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_525: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_526: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_529: (1/1) test cases passed, failed test cases: None
+Question_PostgreSQL_527: (0/1) test cases passed, failed test cases: test_1 | Eval Phase: Assertion Error
+Question_PostgreSQL_528: (1/1) test cases passed, failed test cases: None
+                     Query                Management           Personalization      Efficiency           Total               
+count                291                  88                   151                  0                    530                 
+===============================================    Test Case    ===============================================
+                     53.26                79.55                54.97                0.00                 58.11               
+================================================================================================================
