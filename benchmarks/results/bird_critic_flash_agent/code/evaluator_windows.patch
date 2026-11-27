@@ -1,0 +1,93 @@
+﻿diff --git "a/C:\\birdcritic\\repo\\evaluation\\src\\wrapper_evaluation_postgresql.py" "b/C:\\birdcritic\\eval\\wrapper_evaluation_postgresql.py"
+index b21de25..c03150a 100644
+--- "a/C:\\birdcritic\\repo\\evaluation\\src\\wrapper_evaluation_postgresql.py"
++++ "b/C:\\birdcritic\\eval\\wrapper_evaluation_postgresql.py"
+@@ -59,7 +59,8 @@ def run_instance(instance_data, instance_id, args, idx):
+         json.dump(instance_data, tmp)
+ 
+     # Create temporary output file
+-    tmp_output = tempfile.NamedTemporaryFile(suffix=".json", delete=False).name
++    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as _t:
++        tmp_output = _t.name
+ 
+     # Create log directory in the same location as the input file
+     log_dir = os.path.dirname(os.path.abspath(args.jsonl_file))
+@@ -67,7 +68,7 @@ def run_instance(instance_data, instance_id, args, idx):
+ 
+     # Build command to run single instance evaluation script
+     cmd = [
+-        "python",
++        sys.executable,
+         os.path.join(os.path.dirname(__file__), "single_instance_eval_postgresql.py"),
+         "--jsonl_file",
+         tmp_input,
+@@ -119,14 +120,14 @@ def run_instance(instance_data, instance_id, args, idx):
+     # If successful, read output, otherwise create failure result
+     if success and os.path.exists(tmp_output) and os.path.getsize(tmp_output) > 0:
+         try:
+-            with open(tmp_output, "r") as f:
++            with open(tmp_output, "r", encoding="utf-8") as f:
+                 evaluation_result = json.load(f)
+-                # Add instance_id to ensure correct sorting later
+-                evaluation_result["instance_id"] = instance_id
+-                # Clean up temporary files
+-                os.unlink(tmp_input)
+-                os.unlink(tmp_output)
+-                return evaluation_result
++            # Add instance_id to ensure correct sorting later
++            evaluation_result["instance_id"] = instance_id
++            # Clean up temporary files (after closing: Windows cannot delete an open file)
++            os.unlink(tmp_input)
++            os.unlink(tmp_output)
++            return evaluation_result
+         except Exception as e:
+             print(
+                 f"[Thread {idx}] Error reading output for instance {instance_id}: {e}"
+diff --git "a/C:\\birdcritic\\repo\\evaluation\\src\\postgresql_utils.py" "b/C:\\birdcritic\\eval\\postgresql_utils.py"
+index cc050cb..457c86c 100644
+--- "a/C:\\birdcritic\\repo\\evaluation\\src\\postgresql_utils.py"
++++ "b/C:\\birdcritic\\eval\\postgresql_utils.py"
+@@ -17,8 +17,8 @@ DEFAULT_DB_CONFIG = {
+     "maxconn": 10,
+     "user": "root",
+     "password": "123123",
+-    "host": "bird_critic_postgresql",
+-    "port": 5432,
++    "host": "127.0.0.1",
++    "port": 5544,
+ }
+ 
+ 
+@@ -141,8 +141,8 @@ def reset_and_restore_database(db_name, pg_password, logger):
+     3) dropdb
+     4) createdb --template ...
+     """
+-    pg_host = "bird_critic_postgresql"
+-    pg_port = 5432
++    pg_host = "127.0.0.1"
++    pg_port = 5544
+     pg_user = "root"
+ 
+     env_vars = os.environ.copy()
+@@ -235,8 +235,8 @@ def reset_and_restore_database(db_name, pg_password, logger):
+ def create_ephemeral_db_copies(
+     base_db_names, num_copies, pg_password, logger, max_retries=3
+ ):
+-    pg_host = "bird_critic_postgresql"
+-    pg_port = 5432
++    pg_host = "127.0.0.1"
++    pg_port = 5544
+     pg_user = "root"
+     env_vars = os.environ.copy()
+     env_vars["PGPASSWORD"] = pg_password
+@@ -333,8 +333,8 @@ def drop_ephemeral_dbs(ephemeral_db_pool_dict, pg_password, logger):
+     """
+     Delete all ephemeral databases created during the script execution.
+     """
+-    pg_host = "bird_critic_postgresql"
+-    pg_port = 5432
++    pg_host = "127.0.0.1"
++    pg_port = 5544
+     pg_user = "root"
+     env_vars = os.environ.copy()
+     env_vars["PGPASSWORD"] = pg_password
