@@ -165,7 +165,7 @@ jobs:
           cd oci/stack
           zip -r "$GITHUB_WORKSPACE/schemagate-oci-stack.zip" . -x '*.DS_Store'
           unzip -l "$GITHUB_WORKSPACE/schemagate-oci-stack.zip"
-      - uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+      - uses: sigstore/cosign-installer@881c63bd87e38389154debd8331404ce7ca8a3ab # v4.1.4
       - name: sign the zip (keyless, Sigstore)
         # The PyPI wheels carry PEP 740 attestations; this gives the GitHub
         # release asset the same property. Anyone can check it:
