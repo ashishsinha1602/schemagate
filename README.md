@@ -18,6 +18,8 @@
 Most text-to-SQL prompts carry the whole schema, and on a big database that is most of the prompt, on every question. schemagate sends the model only the tables the question needs: **91.1% fewer schema tokens (median) on databases with 50+ tables** ([benchmark](BENCHMARKS.md)). It filters by the caller's grants first, so restricted tables are absent from the prompt rather than ranked low. Works with LangChain, LlamaIndex, MCP, or any SQL agent, on Postgres, Oracle, MySQL, SQL Server and SQLite.
 
 > **Don't want to run it yourself?** [schemagate.app](https://schemagate.app) is the hosted version. Connect PostgreSQL, MySQL, SQL Server, Oracle or a spreadsheet, invite your team, and everyone asks questions in plain English, each person seeing only the data they're allowed to. Free 7-day trial, no card needed, or pay once with the [lifetime deal on AppSumo](https://appsumo.com/pl/lGXuEbqqvt/).
+>
+> [![Watch the 77-second demo of the hosted app: ask a database, an Excel file and a web page in plain English, with per-person access](https://raw.githubusercontent.com/ashishsinha1602/schemagate/main/docs/media/demo-video.png)](https://youtu.be/5kq7oHxFLQE)
 
 ![One question on a 1,201-object schema: the whole schema is 146,695 prompt tokens; schemagate sends 13 tables, including all 3 the query needs, in 1,796.](https://raw.githubusercontent.com/ashishsinha1602/schemagate/main/docs/media/token-savings.gif)
 
