@@ -1120,6 +1120,10 @@ Claude Code:
 claude mcp add schemagate -- uvx --from "schemagate[mcp]" schemagate-mcp --url demo
 ```
 
+Kiro, in one click (installs the same `--url demo` server; change the URL afterwards):
+
+[![Add to Kiro](https://kiro.dev/images/add-to-kiro.svg)](https://kiro.dev/launch/mcp/add?name=schemagate&config=%7B%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22--from%22%2C%22schemagate%5Bmcp%5D%22%2C%22schemagate-mcp%22%2C%22--url%22%2C%22demo%22%5D%2C%22disabled%22%3Afalse%2C%22autoApprove%22%3A%5B%5D%7D)
+
 Any other client (Claude Desktop, Cursor, Windsurf, Zed), with your database. Add
 your database's driver extra next to `mcp`: `postgres`, `mysql`, `mssql` or `oracle`
 (SQLite needs none):
@@ -1507,6 +1511,10 @@ runs the embedder in fresh subprocesses under different `PYTHONHASHSEED`
 values, because it was broken once and nothing else caught it.
 
 Apache-2.0. Ashish Sinha.
+
+Support: [GitHub issues](https://github.com/ashishsinha1602/schemagate/issues) or
+support@schemagate.app. Privacy policy: [schemagate.app/privacy](https://schemagate.app/privacy)
+(the library and MCP server talk to your database, and to a model provider only if you configure one).
 
 Patent pending: US provisional application 64/183,987, filed 25 October 2026. Use of this code is
 licensed under Apache-2.0, including the patent licence in its section 3.
